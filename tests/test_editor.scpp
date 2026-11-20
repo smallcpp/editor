@@ -14,6 +14,9 @@ int main(void) {
     char pathA[EDITOR_PATH];
     char pathB[EDITOR_PATH];
     char pathC[EDITOR_PATH];
+    char was[EDITOR_PATH];
+    char now[EDITOR_PATH];
+    char tiny[1];
     char *dir;
     Editor *editor;
     const char *io;
@@ -26,6 +29,17 @@ int main(void) {
     expect(dir != nullptr, "temp");
     if (dir == nullptr)
         return 1;
+    expect(current_directory(was, EDITOR_PATH) == 1,
+            "read cwd");
+    expect(chdir(dir) == 0, "enter temp");
+    expect(current_directory(now, EDITOR_PATH) == 1,
+            "cwd after chdir");
+    expect(text_same(now, dir) == 1, "open starts in cwd");
+    expect(current_directory(nullptr, EDITOR_PATH) == 0,
+            "cwd needs a buffer");
+    tiny[0] = 'x';
+    expect(current_directory(tiny, 1) == 0, "cwd needs room");
+    expect(chdir(was) == 0, "restore cwd");
     path_join(pathA, EDITOR_PATH, dir, "a.scpp");
     path_join(pathB, EDITOR_PATH, dir, "b.scpp");
     path_join(pathC, EDITOR_PATH, dir, "c.scpp");

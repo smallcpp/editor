@@ -41,9 +41,10 @@ line. The status line shows the title, a dirty star, the line, the
 column, and the language.
 
 File covers New, Open, Save, Save As, Save All, Close, and Quit.
-Save writes the active named document. An untitled document asks
-for a path. Save As refuses a path that belongs to another open
-document, and it asks before replacing a file that already exists.
+Open starts in the process current directory. Save writes the
+active named document. An untitled document asks for a path.
+Save As refuses a path that belongs to another open document,
+and it asks before replacing a file that already exists.
 A failed Save As leaves the previous path and title in place. Save
 All writes modified named documents and skips untitled ones. Only
 Quit and the window close button leave the program. A dirty
