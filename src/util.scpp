@@ -265,6 +265,21 @@ int current_directory(char *dest, long cap) {
     return 1;
 }
 
+int dialog_folder(
+        char *dest,
+        long cap,
+        const char *remembered) {
+    if (dest == nullptr || cap < 2)
+        return 0;
+    if (remembered != nullptr && remembered[0] != 0) {
+        text_copy(dest, cap, remembered);
+        if (dest[0] == 0)
+            return 0;
+        return 1;
+    }
+    return current_directory(dest, cap);
+}
+
 int path_is_abs(const char *path) {
     if (path == nullptr || path[0] != '/')
         return 0;

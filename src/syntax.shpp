@@ -10,7 +10,10 @@ enum {
     SPAN_KEYWORD = 1,
     SPAN_STRING = 2,
     SPAN_COMMENT = 3,
-    SPAN_NUMBER = 4
+    SPAN_NUMBER = 4,
+    SPAN_TYPE = 5,
+    SPAN_PREPROC = 6,
+    SPAN_CALL = 7
 };
 
 class Span {

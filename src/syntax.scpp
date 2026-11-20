@@ -208,12 +208,57 @@ int Highlighter::keyword(const char *language, const char *word) {
     return 0;
 }
 
+static int same_word(const char *word, const char *want) {
+    return text_same(word, want);
+}
+
+static int scpp_extra(const char *word) {
+    if (same_word(word, "static") == 1)
+        return 1;
+    if (same_word(word, "break") == 1)
+        return 1;
+    if (same_word(word, "continue") == 1)
+        return 1;
+    if (same_word(word, "switch") == 1)
+        return 1;
+    if (same_word(word, "case") == 1)
+        return 1;
+    if (same_word(word, "default") == 1)
+        return 1;
+    if (same_word(word, "do") == 1)
+        return 1;
+    if (same_word(word, "sizeof") == 1)
+        return 1;
+    if (same_word(word, "this") == 1)
+        return 1;
+    if (same_word(word, "protected") == 1)
+        return 1;
+    return 0;
+}
+
+static int scpp_type(const char *word) {
+    if (same_word(word, "unsigned") == 1)
+        return 1;
+    if (same_word(word, "signed") == 1)
+        return 1;
+    if (same_word(word, "short") == 1)
+        return 1;
+    if (same_word(word, "double") == 1)
+        return 1;
+    if (same_word(word, "float") == 1)
+        return 1;
+    if (same_word(word, "string") == 1)
+        return 1;
+    return 0;
+}
+
 void Highlighter::scan(const char *text, const char *language) {
     long i;
     long n;
     long start;
     int ch;
     int hash;
+    int scpp;
     String *word;
 
     spans = new SpanVec();
@@ -224,6 +269,9 @@ void Highlighter::scan(const char *text, const char *language) {
     if (text_same(language, "markdown") == 1)
         return;
     hash = 0;
+    scpp = 0;
+    if (text_same(language, "scpp") == 1)
+        scpp = 1;
     if (text_same(language, "python") == 1
             || text_same(language, "shell") == 1
             || text_same(language, "toml") == 1)
@@ -237,6 +285,13 @@ void Highlighter::scan(const char *text, const char *language) {
             while (i < n && text[i] != '\n')
                 i = i + 1;
             add_span(start, i, SPAN_COMMENT);
+            continue;
+        }
+        if (scpp == 1 && ch == '#') {
+            start = i;
+            while (i < n && text[i] != '\n')
+                i = i + 1;
+            add_span(start, i, SPAN_PREPROC);
             continue;
         }
         if (hash == 1 && ch == '#') {
@@ -299,6 +354,23 @@ void Highlighter::scan(const char *text, const char *language) {
             }
             if (keyword(language, word->c_str()) == 1)
                 add_span(start, i, SPAN_KEYWORD);
+            else if (scpp == 1
+                    && scpp_extra(word->c_str()) == 1)
+                add_span(start, i, SPAN_KEYWORD);
+            else if (scpp == 1
+                    && scpp_type(word->c_str()) == 1)
+                add_span(start, i, SPAN_TYPE);
+            else if (scpp == 1) {
+                long j;
+
+                j = i;
+                while (j < n
+                        && (text[j] == ' '
+                                || text[j] == '\t'))
+                    j = j + 1;
+                if (j < n && text[j] == '(')
+                    add_span(start, i, SPAN_CALL);
+            }
             continue;
         }
         i = i + 1;
