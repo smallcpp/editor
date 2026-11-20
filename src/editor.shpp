@@ -93,10 +93,4 @@ private:
     int advance(void);
 };
 
-void editor_write_help(void);
-int editor_classify_args(
-        int argc,
-        char **argv,
-        const char **message);
-
 #endif

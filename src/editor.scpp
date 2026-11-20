@@ -94,47 +94,6 @@ Document * DocVec::next(long *cursor) {
     return at(index);
 }
 
-void editor_write_help(void) {
-    fputs("usage: editor [file]...\n", stdout);
-    fputs("  --help       show this help\n", stdout);
-    fputs("  --version    show 0.0.1\n", stdout);
-    fputs("Opens files. With no path, an untitled\n", stdout);
-    fputs("buffer is shown.\n", stdout);
-}
-
-int editor_classify_args(
-        int argc,
-        char **argv,
-        const char **message) {
-    int i;
-
-    if (message != nullptr)
-        *message = "";
-    i = 1;
-    while (i < argc) {
-        if (argv[i] != nullptr && argv[i][0] == '-') {
-            if (text_same(argv[i], "--help") == 1
-                    || text_same(argv[i], "-h") == 1) {
-                if (message != nullptr)
-                    *message = "help";
-                return 1;
-            }
-            if (text_same(argv[i], "--version") == 1
-                    || text_same(argv[i], "-V") == 1) {
-                if (message != nullptr)
-                    *message = "version";
-                return 2;
-            }
-            if (message != nullptr)
-                *message =
-                        "editor: error[ED0001]: unknown option\n";
-            return -1;
-        }
-        i = i + 1;
-    }
-    return 0;
-}
-
 Editor::Editor() {
     docs = new DocVec();
     activeIndex = 0;

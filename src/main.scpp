@@ -1,35 +1,64 @@
 #include "ui.shpp"
+#include <cli>
+
+using namespace Cli;
 
 int main(int argc, char **argv) {
-    int kind;
-    const char *message;
+    CommandLine *command;
+    Option *help;
+    Option *version;
+    Positional *file;
     Editor *editor;
     Ui *ui;
     int i;
+    int count;
     int code;
 
-    kind = editor_classify_args(argc, argv, &message);
-    if (kind == 1) {
-        editor_write_help();
-        return 0;
-    }
-    if (kind == 2) {
-        fputs("editor 0.0.1\n", stdout);
-        return 0;
-    }
-    if (kind < 0) {
-        fputs(message, stderr);
+    command = new CommandLine(
+            "editor",
+            "Opens files. With no path, an untitled buffer is shown.",
+            "0.0.1");
+    help = new Option();
+    help->short_name = "h";
+    help->long_name = "help";
+    help->name = "help";
+    help->action = CLI_HELP;
+    command->add_option(help);
+    version = new Option();
+    version->short_name = "V";
+    version->long_name = "version";
+    version->name = "version";
+    version->action = CLI_VERSION;
+    command->add_option(version);
+    file = new Positional();
+    file->name = "file";
+    file->is_list = true;
+    command->add_positional(file);
+    try {
+        command->parse(argc, argv);
+    } catch (Exception error) {
+        (void)error;
+        fputs(command->help_text(), stderr);
         return 2;
     }
+    if (command->current_action() == CLI_HELP) {
+        fputs(command->help_text(), stdout);
+        return 0;
+    }
+    if (command->current_action() == CLI_VERSION) {
+        fputs(command->version_text(), stdout);
+        fputs("\n", stdout);
+        return 0;
+    }
     editor = new Editor();
-    i = 1;
-    while (i < argc) {
-        if (argv[i] != nullptr && argv[i][0] != '-') {
-            if (editor->open_argument(argv[i]) != EDITOR_OK) {
-                fputs("editor: ", stderr);
-                fputs(editor->error(), stderr);
-                fputs("\n", stderr);
-            }
+    count = command->positional_count();
+    i = 0;
+    while (i < count) {
+        if (editor->open_argument(
+                    command->positional_at(i)) != EDITOR_OK) {
+            fputs("editor: ", stderr);
+            fputs(editor->error(), stderr);
+            fputs("\n", stderr);
         }
         i = i + 1;
     }

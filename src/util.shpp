@@ -46,6 +46,7 @@ void append_range(
         long from,
         long to);
 String *slice_text(const char *src, long from, long to);
+int current_directory(char *dest, long cap);
 int path_is_abs(const char *path);
 int path_has_scheme(const char *path);
 void path_join(

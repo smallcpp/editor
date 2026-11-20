@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+File, Open starts in the process current directory.
+`gtk_file_dialog_set_initial_folder` receives that directory.
+`test-editor` checks the directory after `chdir`.
+
+The command line uses the standard `Cli` parser. `--help` prints
+`help_text` and `--version` prints `version_text`. An unknown
+option exits 2 and writes that help text to stderr. The help and
+usage checks expect that text.
+
 The suite gained `test-buffer`, `test-document`, `test-syntax`,
 `test-editor`, and `test-window`. It also checks `editor --help`,
 `editor --version`, and an unknown option. `test-window` runs under

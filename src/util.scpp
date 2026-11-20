@@ -255,6 +255,16 @@ String *slice_text(const char *src, long from, long to) {
     return text;
 }
 
+int current_directory(char *dest, long cap) {
+    if (dest == nullptr || cap < 2)
+        return 0;
+    if (getcwd(dest, (unsigned long)cap) == nullptr) {
+        dest[0] = 0;
+        return 0;
+    }
+    return 1;
+}
+
 int path_is_abs(const char *path) {
     if (path == nullptr || path[0] != '/')
         return 0;
