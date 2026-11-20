@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+`test-window` saves a named file through the menu and checks that
+an untitled save asks for a path. Neither step presents a file
+dialog.
+
 Opening a file updates the tab title, including when that open
 replaces the untitled buffer. Documents lists the loaded files
 and switches to the chosen one. Tabs have a border and, by
