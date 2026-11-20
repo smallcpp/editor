@@ -76,6 +76,10 @@ public:
     int clipboard_copy(void);
     int clipboard_cut(void);
     int clipboard_paste(void);
+    void use_brackets(int value);
+    void use_indent(int value);
+    int uses_brackets(void);
+    int uses_indent(void);
 private:
     DocVec *docs;
     long activeIndex;
@@ -85,7 +89,10 @@ private:
     int pend;
     int quitReady;
     int allowOverwrite;
+    int typeBrackets;
+    int typeIndent;
     void set_error(const char *msg);
+    void apply_typing(Document *doc);
     int save_named(Document *doc);
     void drop_one(long index);
     void ensure_document(void);

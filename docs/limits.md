@@ -7,15 +7,16 @@ and the unit tests cover that job.
 The wrapper has no GtkSourceView and no language-spec directory.
 The scanner highlights scpp, and the same scanner also colors C,
 C++, cw, Python, shell, and toml. Other files, including Markdown,
-stay plain. Tags are foreground colors only. There is no gutter,
-line-number bar, whitespace glyph, newline mark, indent guide,
-right-margin line, or current-line background. The status line
-shows the line and column from the editor buffer.
+stay plain. Tags are foreground colors only. Line numbers are a
+gutter of the visible lines. There is no whitespace glyph, newline
+mark, indent guide, right-margin line, or current-line background.
+The status line shows the line and column from the editor buffer.
 
-There is no accelerator API and no key-press signal on the text
-view. Menus run the commands. The text view keeps GTK's own
-navigation keys. Copy, cut, indent, and unindent read the view's
-selection and then run on the editor buffer, which also owns undo.
+Shortcuts use `Widget::add_shortcut`. There is still no key-press
+signal on the text view. Menus run the same commands. The text
+view keeps GTK's own navigation keys. Copy, cut, indent, and
+unindent read the view's selection and then run on the editor
+buffer, which also owns undo.
 
 FileDialog picks one path. It has no folder mode and no
 multi-select. Tab titles are the file name. The dirty star is on

@@ -5,6 +5,14 @@ extern void gtk_file_dialog_set_initial_folder(
         void *dialog,
         void *folder);
 extern void g_object_unref(void *object);
+extern unsigned g_idle_add(void *func, void *data);
+extern unsigned long g_signal_connect_data(
+        void *instance,
+        const char *signal,
+        void *handler,
+        void *data,
+        void *destroy,
+        int flags);
 
 Ui *editorUi;
 
@@ -80,6 +88,56 @@ void ui_switched(void *data, long index) {
     editorUi->switched(index);
 }
 
+void ui_user_begin(void *buffer, void *data) {
+    PageRef *ref;
+
+    (void)buffer;
+    ref = (PageRef *)data;
+    editorUi->user_begin(ref->index);
+}
+
+void ui_user_end(void *buffer, void *data) {
+    PageRef *ref;
+
+    (void)buffer;
+    ref = (PageRef *)data;
+    editorUi->user_end(ref->index);
+}
+
+int ui_sync_idle(void *data) {
+    PageRef *ref;
+
+    ref = (PageRef *)data;
+    editorUi->flush_sync(ref->index);
+    return 0;
+}
+
+void ui_key(void *data) {
+    editorUi->on_menu((const char *)data);
+}
+
+void ui_brackets(void *data, bool value) {
+    (void)data;
+    if (value)
+        editorUi->editor()->use_brackets(1);
+    else
+        editorUi->editor()->use_brackets(0);
+}
+
+void ui_indent(void *data, bool value) {
+    (void)data;
+    if (value)
+        editorUi->editor()->use_indent(1);
+    else
+        editorUi->editor()->use_indent(0);
+}
+
+void ui_settings_response(void *data, int response) {
+    (void)data;
+    (void)response;
+    editorUi->hide_settings();
+}
+
 Ui::Ui(Editor *editor) {
     long i;
 
@@ -94,6 +152,9 @@ Ui::Ui(Editor *editor) {
     book = nullptr;
     status = nullptr;
     choiceDialog = nullptr;
+    settingsDialog = nullptr;
+    bracketCheck = nullptr;
+    indentCheck = nullptr;
     files = nullptr;
     i = 0;
     while (i < EDITOR_PAGES) {
@@ -101,6 +162,9 @@ Ui::Ui(Editor *editor) {
         pages[i].view = nullptr;
         pages[i].scroll = nullptr;
         pages[i].tags = 0;
+        pages[i].userDepth = 0;
+        pages[i].pendingSync = 0;
+        pages[i].pendingIdle = 0;
         refs[i].index = i;
         i = i + 1;
     }
@@ -133,8 +197,9 @@ void Ui::build(void) {
     fileLabels[3] = "Save As";
     fileLabels[4] = "Save All";
     fileLabels[5] = "Close";
-    fileLabels[6] = "Quit";
-    fileMenu->set_menu(fileLabels, 7, ui_menu, nullptr);
+    fileLabels[6] = "Settings";
+    fileLabels[7] = "Quit";
+    fileMenu->set_menu(fileLabels, 8, ui_menu, nullptr);
     editLabels[0] = "Undo";
     editLabels[1] = "Redo";
     editLabels[2] = "Cut";
@@ -154,6 +219,33 @@ void Ui::build(void) {
     outer->append((Widget *)book);
     outer->append((Widget *)status);
     mainWindow->set_child((Widget *)outer);
+    mainWindow->add_shortcut("<Control>o", ui_key, (void *)"Open");
+    mainWindow->add_shortcut("<Control>s", ui_key, (void *)"Save");
+    mainWindow->add_shortcut(
+            "<Control><Shift>s",
+            ui_key,
+            (void *)"Save As");
+    mainWindow->add_shortcut(
+            "<Control><Shift>l",
+            ui_key,
+            (void *)"Save All");
+    mainWindow->add_shortcut("<Control>c", ui_key, (void *)"Copy");
+    mainWindow->add_shortcut("<Control>x", ui_key, (void *)"Cut");
+    mainWindow->add_shortcut("<Control>v", ui_key, (void *)"Paste");
+    mainWindow->add_shortcut("<Control>z", ui_key, (void *)"Undo");
+    mainWindow->add_shortcut(
+            "<Control><Shift>z",
+            ui_key,
+            (void *)"Redo");
+    mainWindow->add_shortcut("<Control>y", ui_key, (void *)"Redo");
+    mainWindow->add_shortcut(
+            "<Control>bracketright",
+            ui_key,
+            (void *)"Indent");
+    mainWindow->add_shortcut(
+            "<Control>bracketleft",
+            ui_key,
+            (void *)"Unindent");
     files = new FileDialog();
     choiceDialog = new Dialog("Confirm");
     choiceDialog->add_button("Save", EDITOR_SAVE);
@@ -181,6 +273,10 @@ void Ui::add_page(long index) {
     pages[index].view = new TextView(pages[index].buffer);
     pages[index].view->set_monospace(true);
     pages[index].view->set_editable(true);
+    pages[index].view->set_line_numbers(true);
+    pages[index].userDepth = 0;
+    pages[index].pendingSync = 0;
+    pages[index].pendingIdle = 0;
     scroll = new ScrolledWindow();
     scroll->set_policy(
             GTK_POLICY_AUTOMATIC,
@@ -194,6 +290,20 @@ void Ui::add_page(long index) {
     pages[index].buffer->on_changed(
             ui_changed,
             (void *)&refs[index]);
+    g_signal_connect_data(
+            pages[index].buffer->native,
+            "begin-user-action",
+            (void *)ui_user_begin,
+            (void *)&refs[index],
+            nullptr,
+            0);
+    g_signal_connect_data(
+            pages[index].buffer->native,
+            "end-user-action",
+            (void *)ui_user_end,
+            (void *)&refs[index],
+            nullptr,
+            0);
     pages[index].view->on_move_cursor(
             ui_moved,
             (void *)&refs[index]);
@@ -218,6 +328,9 @@ void Ui::rebuild(void) {
         pages[i].view = nullptr;
         pages[i].scroll = nullptr;
         pages[i].tags = 0;
+        pages[i].userDepth = 0;
+        pages[i].pendingSync = 0;
+        pages[i].pendingIdle = 0;
         i = i + 1;
     }
     n = state->count();
@@ -257,6 +370,8 @@ void Ui::place_cursor(long index) {
                 &column);
         at = new TextIter(line, column);
         pages[index].buffer->place_cursor(at);
+        if (pages[index].view != nullptr)
+            pages[index].view->scroll_to(line, column);
         return;
     }
     lo = doc->buffer()->sel_lo();
@@ -266,6 +381,12 @@ void Ui::place_cursor(long index) {
     at = new TextIter(line, column);
     bound = new TextIter(line2, column2);
     pages[index].buffer->select_range(at, bound);
+    doc->buffer()->line_column_at(
+            doc->buffer()->cursor_offset(),
+            &line,
+            &column);
+    if (pages[index].view != nullptr)
+        pages[index].view->scroll_to(line, column);
 }
 
 void Ui::push_active(void) {
@@ -484,6 +605,102 @@ void Ui::choice(int response) {
         mainWindow->close();
 }
 
+void Ui::user_begin(long index) {
+    if (index < 0 || index >= pageCount)
+        return;
+    pages[index].userDepth = pages[index].userDepth + 1;
+}
+
+void Ui::user_end(long index) {
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].userDepth > 0)
+        pages[index].userDepth =
+                pages[index].userDepth - 1;
+    if (pages[index].userDepth == 0)
+        flush_sync(index);
+}
+
+void Ui::flush_sync(long index) {
+    if (index < 0 || index >= pageCount)
+        return;
+    pages[index].pendingIdle = 0;
+    if (pages[index].pendingSync == 0)
+        return;
+    pages[index].pendingSync = 0;
+    sync_view(index);
+}
+
+void Ui::sync_view(long index) {
+    Document *doc;
+    String *want;
+    String *have;
+    const char *wantRaw;
+    const char *haveRaw;
+    long wantN;
+    long haveN;
+    long prefix;
+    long wantEnd;
+    long haveEnd;
+    long line;
+    long column;
+    long line2;
+    long column2;
+    TextIter *at;
+    TextIter *bound;
+    String *bit;
+
+    if (applying == 1)
+        return;
+    if (index < 0 || index >= pageCount)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr || pages[index].buffer == nullptr)
+        return;
+    want = new String();
+    want->append(doc->buffer()->text());
+    have = new String();
+    have->append(pages[index].buffer->get_text());
+    wantRaw = want->c_str();
+    haveRaw = have->c_str();
+    if (text_same(wantRaw, haveRaw) == 1) {
+        place_cursor(index);
+        return;
+    }
+    wantN = want->size();
+    haveN = have->size();
+    prefix = 0;
+    while (prefix < wantN
+            && prefix < haveN
+            && wantRaw[prefix] == haveRaw[prefix])
+        prefix = prefix + 1;
+    wantEnd = wantN;
+    haveEnd = haveN;
+    while (wantEnd > prefix
+            && haveEnd > prefix
+            && wantRaw[wantEnd - 1] == haveRaw[haveEnd - 1]) {
+        wantEnd = wantEnd - 1;
+        haveEnd = haveEnd - 1;
+    }
+    applying = 1;
+    if (haveEnd > prefix) {
+        text_position(haveRaw, prefix, &line, &column);
+        text_position(haveRaw, haveEnd, &line2, &column2);
+        at = new TextIter(line, column);
+        bound = new TextIter(line2, column2);
+        pages[index].buffer->delete_range(at, bound);
+    }
+    if (wantEnd > prefix) {
+        bit = slice_text(wantRaw, prefix, wantEnd);
+        text_position(wantRaw, prefix, &line, &column);
+        at = new TextIter(line, column);
+        pages[index].buffer->insert(at, bit->c_str());
+    }
+    applying = 0;
+    place_cursor(index);
+    highlight(index);
+}
+
 void Ui::changed(long index) {
     Document *doc;
     const char *text;
@@ -499,12 +716,16 @@ void Ui::changed(long index) {
     text = pages[index].buffer->get_text();
     extra = doc->buffer()->note_external(text);
     if (extra == 1) {
-        applying = 1;
-        pages[index].buffer->set_text(doc->buffer()->text());
-        place_cursor(index);
-        applying = 0;
-    }
-    highlight(index);
+        pages[index].pendingSync = 1;
+        if (pages[index].userDepth == 0
+                && pages[index].pendingIdle == 0) {
+            pages[index].pendingIdle = 1;
+            g_idle_add(
+                    (void *)ui_sync_idle,
+                    (void *)&refs[index]);
+        }
+    } else
+        highlight(index);
     paint_status();
 }
 
@@ -544,6 +765,52 @@ const char *Ui::page_text(long index) {
     return pages[index].buffer->get_text();
 }
 
+const char *Ui::line_number_text(void) {
+    long index;
+
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return "";
+    if (pages[index].view == nullptr)
+        return "";
+    return pages[index].view->line_number_text();
+}
+
+void Ui::hide_settings(void) {
+    if (settingsDialog == nullptr)
+        return;
+    settingsDialog->set_visible(false);
+}
+
+void Ui::show_settings(void) {
+    Box *box;
+
+    if (settingsDialog == nullptr) {
+        settingsDialog = new Dialog("Settings");
+        box = new Box(GTK_VERTICAL, 8);
+        bracketCheck = new CheckButton("Close brackets");
+        indentCheck = new CheckButton("Indent a new line");
+        bracketCheck->on_toggled(ui_brackets, nullptr);
+        indentCheck->on_toggled(ui_indent, nullptr);
+        box->append((Widget *)bracketCheck);
+        box->append((Widget *)indentCheck);
+        settingsDialog->set_content((Widget *)box);
+        settingsDialog->add_button("Close", 1);
+        settingsDialog->on_response(
+                ui_settings_response,
+                nullptr);
+    }
+    if (state->uses_brackets() == 0)
+        bracketCheck->set_active(false);
+    else
+        bracketCheck->set_active(true);
+    if (state->uses_indent() == 0)
+        indentCheck->set_active(false);
+    else
+        indentCheck->set_active(true);
+    settingsDialog->present();
+}
+
 void Ui::on_menu(const char *label) {
     if (label == nullptr)
         return;
@@ -569,6 +836,10 @@ void Ui::on_menu(const char *label) {
     }
     if (text_same(label, "Close") == 1) {
         handle(state->run("close"));
+        return;
+    }
+    if (text_same(label, "Settings") == 1) {
+        show_settings();
         return;
     }
     if (text_same(label, "Quit") == 1) {

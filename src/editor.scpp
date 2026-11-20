@@ -103,6 +103,57 @@ Editor::Editor() {
     pend = PEND_NONE;
     quitReady = 0;
     allowOverwrite = 0;
+    typeBrackets = 1;
+    typeIndent = 1;
+}
+
+void Editor::apply_typing(Document *doc) {
+    if (doc == nullptr || doc->buffer() == nullptr)
+        return;
+    if (typeBrackets == 0)
+        doc->buffer()->set_auto_brackets(false);
+    else
+        doc->buffer()->set_auto_brackets(true);
+    if (typeIndent == 0)
+        doc->buffer()->set_auto_indent(false);
+    else
+        doc->buffer()->set_auto_indent(true);
+}
+
+void Editor::use_brackets(int value) {
+    long i;
+
+    if (value == 0)
+        typeBrackets = 0;
+    else
+        typeBrackets = 1;
+    i = 0;
+    while (i < docs->size()) {
+        apply_typing(docs->at(i));
+        i = i + 1;
+    }
+}
+
+void Editor::use_indent(int value) {
+    long i;
+
+    if (value == 0)
+        typeIndent = 0;
+    else
+        typeIndent = 1;
+    i = 0;
+    while (i < docs->size()) {
+        apply_typing(docs->at(i));
+        i = i + 1;
+    }
+}
+
+int Editor::uses_brackets(void) {
+    return typeBrackets;
+}
+
+int Editor::uses_indent(void) {
+    return typeIndent;
 }
 
 void Editor::set_error(const char *msg) {
@@ -156,6 +207,7 @@ int Editor::new_file(void) {
     Document *doc;
 
     doc = new Document();
+    apply_typing(doc);
     docs->add(doc);
     activeIndex = docs->size() - 1;
     set_error("");
@@ -190,6 +242,7 @@ int Editor::open_file(const char *path) {
             && docs->at(0)->buffer()->dirty() == false
             && docs->at(0)->buffer()->size() == 0)
         docs->remove(0);
+    apply_typing(doc);
     docs->add(doc);
     activeIndex = docs->size() - 1;
     set_error("");
