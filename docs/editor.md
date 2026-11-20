@@ -22,8 +22,11 @@ editor --help
 editor --version
 ```
 
-`--help` and `--version` exit 0. An unknown option exits 2 and
-writes `editor: error[ED0001]:` to stderr. Each file argument opens
+`--help` and `--version` exit 0. Help and the version line come
+from the standard `Cli` parser. `--help` prints `help_text`.
+`--version` prints `version_text`, `editor: v0.0.1`. An unknown
+option exits 2 and writes that same help text to stderr. Each
+file argument opens
 as a document. A directory is refused with `not a file`. A file
 that contains a NUL byte or invalid UTF-8 is refused with
 `not a text file`, and the documents already open stay as they
