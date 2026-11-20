@@ -1,0 +1,77 @@
+#ifndef EDITOR_UI
+#define EDITOR_UI
+
+/* GTK window for the text editor. Headless tests do
+ * not include this file. The menu row is the first
+ * child of the window because the wrapper has no
+ * title-bar setter.
+ */
+#include "editor.shpp"
+#include "syntax.shpp"
+#include <exceptions>
+#include <gtk>
+
+using namespace Gtk;
+
+enum {
+    EDITOR_PAGES = 32
+};
+
+class PageRef {
+public:
+    long index;
+};
+
+class EditPage {
+public:
+    TextBuffer *buffer;
+    TextView *view;
+    ScrolledWindow *scroll;
+    int tags;
+};
+
+class Ui {
+public:
+    Ui(Editor *editor);
+    Editor *editor(void);
+    int start(void);
+    void prepare(void);
+    void show_main(void);
+    void refresh(void);
+    void handle(int code);
+    void on_menu(const char *label);
+    void open_path(const char *path);
+    void save_path(const char *path);
+    void choice(int response);
+    void changed(long index);
+    void moved(long index, long line, long offset);
+    void switched(long index);
+    TextBuffer *view_buffer(void);
+    const char *page_text(long index);
+private:
+    Editor *state;
+    Application *app;
+    Window *mainWindow;
+    MenuButton *fileMenu;
+    Notebook *book;
+    Label *status;
+    EditPage pages[EDITOR_PAGES];
+    PageRef refs[EDITOR_PAGES];
+    long pageCount;
+    int choiceMode;
+    int applying;
+    String *pendingPath;
+    Dialog *choiceDialog;
+    FileDialog *files;
+    void build(void);
+    void add_page(long index);
+    void rebuild(void);
+    void push_active(void);
+    void place_cursor(long index);
+    void take_selection(void);
+    void highlight(long index);
+    void paint_status(void);
+    void show_choice(const char *title, int mode);
+};
+
+#endif

@@ -1,0 +1,117 @@
+#include "../src/ui.shpp"
+
+static int failures;
+
+void expect(int cond, const char *msg) {
+    if (cond == 0) {
+        print("fail {:s}\n", msg);
+        failures = failures + 1;
+    }
+}
+
+int main(void) {
+    char pattern[64];
+    char pathA[EDITOR_PATH];
+    char pathB[EDITOR_PATH];
+    char *dir;
+    Editor *editor;
+    Ui *ui;
+    TextBuffer *view;
+    TextIter *start;
+    TextIter *end;
+    const char *io;
+
+    failures = 0;
+    try {
+        text_copy(pattern, 64, "/tmp/editor-win-XXXXXX");
+        dir = mkdtemp(pattern);
+        expect(dir != nullptr, "temp");
+        if (dir == nullptr)
+            return 1;
+        path_join(pathA, EDITOR_PATH, dir, "a.scpp");
+        path_join(pathB, EDITOR_PATH, dir, "b.scpp");
+        io = "";
+        expect(write_file(pathA, "one\n", &io) == 1, "seed a");
+        expect(write_file(pathB, "two\n", &io) == 1, "seed b");
+        editor = new Editor();
+        expect(editor->open_file(pathA) == EDITOR_OK, "open a");
+        expect(editor->open_file(pathB) == EDITOR_OK, "open b");
+        ui = new Ui(editor);
+        ui->prepare();
+        expect(text_same(ui->page_text(0), "one\n") == 1,
+                "page a");
+        expect(text_same(ui->page_text(1), "two\n") == 1,
+                "page b");
+        ui->switched(0);
+        expect(editor->index() == 0, "switch");
+        view = ui->view_buffer();
+        expect(view != nullptr, "view");
+        view->set_text("int value;\n");
+        start = new TextIter(0, 0);
+        end = new TextIter(0, 3);
+        view->select_range(start, end);
+        ui->on_menu("Copy");
+        expect(text_same(editor->clipboard(), "int") == 1,
+                "view copy");
+        editor->active()->buffer()->set_cursor_offset(
+                editor->active()->buffer()->size());
+        ui->on_menu("Paste");
+        expect(text_same(
+                    editor->active()->buffer()->text(),
+                    "int value;\nint") == 1,
+                "view paste");
+        expect(text_same(ui->page_text(0), "int value;\nint") == 1,
+                "view shows paste");
+        ui->on_menu("Undo");
+        expect(text_same(
+                    ui->page_text(0),
+                    "int value;\n") == 1,
+                "view undo");
+        ui->on_menu("Redo");
+        expect(text_same(
+                    ui->page_text(0),
+                    "int value;\nint") == 1,
+                "view redo");
+        view = ui->view_buffer();
+        view->set_text("line\n");
+        start = new TextIter(0, 0);
+        end = new TextIter(0, 4);
+        view->select_range(start, end);
+        ui->on_menu("Indent");
+        expect(text_same(ui->page_text(0), "    line\n") == 1,
+                "view indent");
+        ui->on_menu("Unindent");
+        expect(text_same(ui->page_text(0), "line\n") == 1,
+                "view unindent");
+        expect(editor->active()->buffer()->dirty() == true,
+                "edited");
+        ui->on_menu("Close");
+        expect(editor->count() == 2, "dirty close waits");
+        expect(editor->pending() == PEND_CLOSE, "close pending");
+        ui->choice(EDITOR_CANCEL);
+        expect(editor->pending() == PEND_NONE, "cancel close");
+        expect(editor->count() == 2, "cancel kept both");
+        ui->on_menu("Save");
+        expect(editor->active()->buffer()->dirty() == false,
+                "menu save");
+        ui->on_menu("Close");
+        expect(editor->count() == 1, "clean close");
+        ui->switched(0);
+        expect(text_same(ui->page_text(0), "two\n") == 1,
+                "other file remains");
+        unlink(pathA);
+        unlink(pathB);
+        rmdir(dir);
+    } catch (Exception error) {
+        print("fail exception\n");
+        if (error.message != nullptr)
+            print("fail {:s}\n", error.message);
+        failures = failures + 1;
+    }
+    if (failures == 0) {
+        print("test-window ok\n");
+        return 0;
+    }
+    print("test-window failed {}\n", failures);
+    return 1;
+}

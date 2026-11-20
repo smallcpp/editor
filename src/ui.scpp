@@ -1,0 +1,597 @@
+#include "ui.shpp"
+
+Ui *editorUi;
+
+void ui_activate(void *data) {
+    (void)data;
+    editorUi->show_main();
+}
+
+void ui_menu(void *data, const char *label) {
+    (void)data;
+    editorUi->on_menu(label);
+}
+
+void ui_opened(void *data, const char *path) {
+    (void)data;
+    editorUi->open_path(path);
+}
+
+void ui_saved(void *data, const char *path) {
+    (void)data;
+    editorUi->save_path(path);
+}
+
+void ui_choice_response(void *data, int response) {
+    (void)data;
+    editorUi->choice(response);
+}
+
+bool ui_close(void *data) {
+    int code;
+
+    (void)data;
+    if (editorUi->editor()->quit_ready() == 1)
+        return false;
+    code = editorUi->editor()->quit();
+    if (editorUi->editor()->quit_ready() == 1)
+        return false;
+    editorUi->handle(code);
+    return true;
+}
+
+void ui_changed(void *data) {
+    PageRef *ref;
+
+    ref = (PageRef *)data;
+    editorUi->changed(ref->index);
+}
+
+void ui_moved(void *data, long line, long offset) {
+    PageRef *ref;
+
+    ref = (PageRef *)data;
+    editorUi->moved(ref->index, line, offset);
+}
+
+void ui_switched(void *data, long index) {
+    (void)data;
+    editorUi->switched(index);
+}
+
+Ui::Ui(Editor *editor) {
+    long i;
+
+    state = editor;
+    applying = 0;
+    pageCount = 0;
+    choiceMode = 0;
+    pendingPath = new String();
+    fileMenu = nullptr;
+    app = nullptr;
+    mainWindow = nullptr;
+    book = nullptr;
+    status = nullptr;
+    choiceDialog = nullptr;
+    files = nullptr;
+    i = 0;
+    while (i < EDITOR_PAGES) {
+        pages[i].buffer = nullptr;
+        pages[i].view = nullptr;
+        pages[i].scroll = nullptr;
+        pages[i].tags = 0;
+        refs[i].index = i;
+        i = i + 1;
+    }
+    editorUi = this;
+}
+
+Editor *Ui::editor(void) {
+    return state;
+}
+
+void Ui::build(void) {
+    HeaderBar *bar;
+    MenuButton *editMenu;
+    const char *fileLabels[8];
+    const char *editLabels[8];
+    Box *outer;
+
+    app = new Application("org.smallcpp.Editor");
+    mainWindow = new Window("editor");
+    mainWindow->set_default_size(880, 640);
+    mainWindow->on_close_request(ui_close, nullptr);
+    bar = new HeaderBar();
+    bar->set_show_title_buttons(false);
+    bar->set_title("editor");
+    fileMenu = new MenuButton("File");
+    editMenu = new MenuButton("Edit");
+    fileLabels[0] = "New";
+    fileLabels[1] = "Open";
+    fileLabels[2] = "Save";
+    fileLabels[3] = "Save As";
+    fileLabels[4] = "Save All";
+    fileLabels[5] = "Close";
+    fileLabels[6] = "Quit";
+    fileMenu->set_menu(fileLabels, 7, ui_menu, nullptr);
+    editLabels[0] = "Undo";
+    editLabels[1] = "Redo";
+    editLabels[2] = "Cut";
+    editLabels[3] = "Copy";
+    editLabels[4] = "Paste";
+    editLabels[5] = "Indent";
+    editLabels[6] = "Unindent";
+    editMenu->set_menu(editLabels, 7, ui_menu, nullptr);
+    bar->pack_start((Widget *)fileMenu);
+    bar->pack_start((Widget *)editMenu);
+    outer = new Box(GTK_VERTICAL, 0);
+    outer->append((Widget *)bar);
+    book = new Notebook();
+    book->on_switch_page(ui_switched, nullptr);
+    book->set_v_expand(true);
+    status = new Label("editor");
+    outer->append((Widget *)book);
+    outer->append((Widget *)status);
+    mainWindow->set_child((Widget *)outer);
+    files = new FileDialog();
+    choiceDialog = new Dialog("Confirm");
+    choiceDialog->add_button("Save", EDITOR_SAVE);
+    choiceDialog->add_button("Discard", EDITOR_DISCARD);
+    choiceDialog->add_button("Cancel", EDITOR_CANCEL);
+    choiceDialog->on_response(ui_choice_response, nullptr);
+}
+
+void Ui::prepare(void) {
+    if (app != nullptr)
+        return;
+    build();
+    refresh();
+}
+
+void Ui::add_page(long index) {
+    Document *doc;
+    char title[256];
+    ScrolledWindow *scroll;
+
+    doc = state->at(index);
+    if (doc == nullptr)
+        return;
+    pages[index].buffer = new TextBuffer();
+    pages[index].view = new TextView(pages[index].buffer);
+    pages[index].view->set_monospace(true);
+    pages[index].view->set_editable(true);
+    scroll = new ScrolledWindow();
+    scroll->set_policy(
+            GTK_POLICY_AUTOMATIC,
+            GTK_POLICY_AUTOMATIC);
+    scroll->set_child((Widget *)pages[index].view);
+    pages[index].scroll = scroll;
+    pages[index].tags = 0;
+    applying = 1;
+    pages[index].buffer->set_text(doc->buffer()->text());
+    applying = 0;
+    pages[index].buffer->on_changed(
+            ui_changed,
+            (void *)&refs[index]);
+    pages[index].view->on_move_cursor(
+            ui_moved,
+            (void *)&refs[index]);
+    text_copy(title, 256, doc->title());
+    book->append_page((Widget *)scroll, title);
+    pageCount = pageCount + 1;
+    highlight(index);
+    place_cursor(index);
+}
+
+void Ui::rebuild(void) {
+    long i;
+    long n;
+
+    while (pageCount > 0) {
+        book->remove_page(0);
+        pageCount = pageCount - 1;
+    }
+    i = 0;
+    while (i < EDITOR_PAGES) {
+        pages[i].buffer = nullptr;
+        pages[i].view = nullptr;
+        pages[i].scroll = nullptr;
+        pages[i].tags = 0;
+        i = i + 1;
+    }
+    n = state->count();
+    if (n > EDITOR_PAGES)
+        n = EDITOR_PAGES;
+    i = 0;
+    while (i < n) {
+        add_page(i);
+        i = i + 1;
+    }
+    if (pageCount > 0 && state->index() < pageCount)
+        book->set_current_page(state->index());
+}
+
+void Ui::place_cursor(long index) {
+    Document *doc;
+    TextIter *at;
+    TextIter *bound;
+    long line;
+    long column;
+    long line2;
+    long column2;
+    long lo;
+    long hi;
+
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].buffer == nullptr)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr)
+        return;
+    if (doc->buffer()->has_selection() == false) {
+        doc->buffer()->line_column_at(
+                doc->buffer()->cursor_offset(),
+                &line,
+                &column);
+        at = new TextIter(line, column);
+        pages[index].buffer->place_cursor(at);
+        return;
+    }
+    lo = doc->buffer()->sel_lo();
+    hi = doc->buffer()->sel_hi();
+    doc->buffer()->line_column_at(lo, &line, &column);
+    doc->buffer()->line_column_at(hi, &line2, &column2);
+    at = new TextIter(line, column);
+    bound = new TextIter(line2, column2);
+    pages[index].buffer->select_range(at, bound);
+}
+
+void Ui::push_active(void) {
+    long index;
+    Document *doc;
+
+    index = state->index();
+    if (applying == 1)
+        return;
+    if (index < 0 || index >= pageCount)
+        return;
+    doc = state->active();
+    if (doc == nullptr || pages[index].buffer == nullptr)
+        return;
+    if (text_same(
+                pages[index].buffer->get_text(),
+                doc->buffer()->text()) == 1) {
+        place_cursor(index);
+        return;
+    }
+    applying = 1;
+    pages[index].buffer->set_text(doc->buffer()->text());
+    place_cursor(index);
+    applying = 0;
+    highlight(index);
+}
+
+void Ui::take_selection(void) {
+    TextBuffer *gtkBuf;
+    TextIter *start;
+    TextIter *end;
+    Document *doc;
+    long index;
+
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return;
+    gtkBuf = pages[index].buffer;
+    if (gtkBuf == nullptr)
+        return;
+    doc = state->active();
+    if (doc == nullptr)
+        return;
+    start = new TextIter(0, 0);
+    end = new TextIter(0, 0);
+    if (gtkBuf->selection_bounds(start, end) == false)
+        return;
+    doc->buffer()->select_span(
+            start->line() + 1,
+            start->offset() + 1,
+            end->line() + 1,
+            end->offset() + 1);
+}
+
+void Ui::highlight(long index) {
+    Highlighter *scan;
+    Document *doc;
+    const char *text;
+    long i;
+    long line;
+    long col;
+    long line2;
+    long col2;
+    long n;
+    TextIter *start;
+    TextIter *end;
+    const char *name;
+    Span *span;
+
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].buffer == nullptr)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr)
+        return;
+    text = pages[index].buffer->get_text();
+    n = text_length(text);
+    if (n > 200000)
+        return;
+    text_position(text, n, &line2, &col2);
+    start = new TextIter(0, 0);
+    end = new TextIter(line2, col2);
+    if (pages[index].tags == 0) {
+        pages[index].buffer->create_tag(
+                "keyword",
+                "#2040c0");
+        pages[index].buffer->create_tag(
+                "string",
+                "#208020");
+        pages[index].buffer->create_tag(
+                "comment",
+                "#808080");
+        pages[index].buffer->create_tag(
+                "number",
+                "#804000");
+        pages[index].tags = 1;
+    }
+    if (n > 0) {
+        pages[index].buffer->remove_tag(
+                "keyword",
+                start,
+                end);
+        pages[index].buffer->remove_tag(
+                "string",
+                start,
+                end);
+        pages[index].buffer->remove_tag(
+                "comment",
+                start,
+                end);
+        pages[index].buffer->remove_tag(
+                "number",
+                start,
+                end);
+    }
+    scan = new Highlighter();
+    scan->scan(text, doc->language());
+    i = 0;
+    while (i < scan->count()) {
+        span = scan->at(i);
+        text_position(text, span->start, &line, &col);
+        text_position(text, span->end, &line2, &col2);
+        start = new TextIter(line, col);
+        end = new TextIter(line2, col2);
+        name = "keyword";
+        if (span->kind == SPAN_STRING)
+            name = "string";
+        if (span->kind == SPAN_COMMENT)
+            name = "comment";
+        if (span->kind == SPAN_NUMBER)
+            name = "number";
+        pages[index].buffer->apply_tag(name, start, end);
+        i = i + 1;
+    }
+}
+
+void Ui::paint_status(void) {
+    status->set_text(state->status());
+}
+
+void Ui::refresh(void) {
+    if (pageCount != state->count())
+        rebuild();
+    else
+        push_active();
+    paint_status();
+}
+
+void Ui::show_main(void) {
+    refresh();
+    mainWindow->present();
+}
+
+void Ui::show_choice(const char *title, int mode) {
+    choiceMode = mode;
+    choiceDialog->set_title(title);
+    choiceDialog->present();
+}
+
+void Ui::handle(int code) {
+    if (code == EDITOR_NEEDS_CHOICE) {
+        show_choice("Save changes?", 0);
+        return;
+    }
+    if (code == EDITOR_NEEDS_PATH
+            || code == EDITOR_CHOOSE_SAVE) {
+        files->set_title("Save");
+        files->save(ui_saved, nullptr);
+        return;
+    }
+    if (code == EDITOR_CHOOSE_OPEN) {
+        files->set_title("Open");
+        files->open(ui_opened, nullptr);
+        return;
+    }
+    if (code == EDITOR_FAILED
+            && text_same(state->error(), "overwrite") == 1) {
+        show_choice("Overwrite the file?", 1);
+        return;
+    }
+    refresh();
+}
+
+void Ui::open_path(const char *path) {
+    if (path == nullptr || path[0] == 0)
+        return;
+    handle(state->open_file(path));
+}
+
+void Ui::save_path(const char *path) {
+    if (path == nullptr || path[0] == 0) {
+        handle(state->answer(EDITOR_CANCEL));
+        return;
+    }
+    pendingPath = new String();
+    pendingPath->append(path);
+    handle(state->provide_path(path));
+}
+
+void Ui::choice(int response) {
+    if (choiceMode == 1) {
+        choiceMode = 0;
+        if (response == EDITOR_SAVE) {
+            state->allow_overwrite(1);
+            handle(state->provide_path(
+                    pendingPath->c_str()));
+            return;
+        }
+        handle(state->answer(EDITOR_CANCEL));
+        return;
+    }
+    handle(state->answer(response));
+    if (state->quit_ready() == 1)
+        mainWindow->close();
+}
+
+void Ui::changed(long index) {
+    Document *doc;
+    const char *text;
+    int extra;
+
+    if (applying == 1)
+        return;
+    if (index < 0 || index >= pageCount)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr || pages[index].buffer == nullptr)
+        return;
+    text = pages[index].buffer->get_text();
+    extra = doc->buffer()->note_external(text);
+    if (extra == 1) {
+        applying = 1;
+        pages[index].buffer->set_text(doc->buffer()->text());
+        place_cursor(index);
+        applying = 0;
+    }
+    highlight(index);
+    paint_status();
+}
+
+void Ui::moved(long index, long line, long offset) {
+    Document *doc;
+
+    if (applying == 1)
+        return;
+    if (index < 0 || index >= state->count())
+        return;
+    doc = state->at(index);
+    if (doc == nullptr)
+        return;
+    doc->buffer()->move_to(line + 1, offset + 1);
+    paint_status();
+}
+
+void Ui::switched(long index) {
+    state->set_index(index);
+    paint_status();
+}
+
+TextBuffer *Ui::view_buffer(void) {
+    long index;
+
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return nullptr;
+    return pages[index].buffer;
+}
+
+const char *Ui::page_text(long index) {
+    if (index < 0 || index >= pageCount)
+        return "";
+    if (pages[index].buffer == nullptr)
+        return "";
+    return pages[index].buffer->get_text();
+}
+
+void Ui::on_menu(const char *label) {
+    if (label == nullptr)
+        return;
+    if (text_same(label, "New") == 1) {
+        handle(state->run("new"));
+        return;
+    }
+    if (text_same(label, "Open") == 1) {
+        handle(state->run("open"));
+        return;
+    }
+    if (text_same(label, "Save") == 1) {
+        handle(state->run("save"));
+        return;
+    }
+    if (text_same(label, "Save As") == 1) {
+        handle(state->run("save-as"));
+        return;
+    }
+    if (text_same(label, "Save All") == 1) {
+        handle(state->run("save-all"));
+        return;
+    }
+    if (text_same(label, "Close") == 1) {
+        handle(state->run("close"));
+        return;
+    }
+    if (text_same(label, "Quit") == 1) {
+        handle(state->run("quit"));
+        if (state->quit_ready() == 1)
+            mainWindow->close();
+        return;
+    }
+    if (text_same(label, "Undo") == 1) {
+        handle(state->run("undo"));
+        return;
+    }
+    if (text_same(label, "Redo") == 1) {
+        handle(state->run("redo"));
+        return;
+    }
+    if (text_same(label, "Cut") == 1
+            || text_same(label, "Copy") == 1
+            || text_same(label, "Indent") == 1
+            || text_same(label, "Unindent") == 1)
+        take_selection();
+    if (text_same(label, "Cut") == 1) {
+        handle(state->run("cut"));
+        return;
+    }
+    if (text_same(label, "Copy") == 1) {
+        handle(state->run("copy"));
+        return;
+    }
+    if (text_same(label, "Paste") == 1) {
+        handle(state->run("paste"));
+        return;
+    }
+    if (text_same(label, "Indent") == 1) {
+        handle(state->run("indent"));
+        return;
+    }
+    if (text_same(label, "Unindent") == 1) {
+        handle(state->run("unindent"));
+        return;
+    }
+}
+
+int Ui::start(void) {
+    prepare();
+    app->on_activate(ui_activate, nullptr);
+    return app->run();
+}

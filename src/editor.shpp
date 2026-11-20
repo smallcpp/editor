@@ -1,0 +1,102 @@
+#ifndef EDITOR_EDITOR
+#define EDITOR_EDITOR
+
+/* Open documents for the text editor. The window calls
+ * these methods. A choice comes back through answer()
+ * or provide_path(). There is no project and no
+ * language client.
+ */
+#include "document.shpp"
+
+enum {
+    EDITOR_OK = 0,
+    EDITOR_FAILED = 1,
+    EDITOR_CANCELLED = 2,
+    EDITOR_NEEDS_CHOICE = 3,
+    EDITOR_NEEDS_PATH = 4,
+    EDITOR_CHOOSE_OPEN = 5,
+    EDITOR_CHOOSE_SAVE = 6
+};
+
+enum {
+    EDITOR_SAVE = 1,
+    EDITOR_DISCARD = 2,
+    EDITOR_CANCEL = 3
+};
+
+enum {
+    PEND_NONE = 0,
+    PEND_CLOSE = 1,
+    PEND_CLOSE_ALL = 2,
+    PEND_QUIT = 3
+};
+
+enum {
+    EDITOR_TAB = 4
+};
+
+class DocVec : public Array {
+public:
+    DocVec();
+    void add(Document * value);
+    Document * at(long index);
+    long find(Document * value);
+    void replace(long index, Document * value);
+    void insert(long index, Document * value);
+    void remove(long index);
+    Document * next(long *cursor);
+};
+
+class Editor {
+public:
+    Editor();
+    Document *active(void);
+    long count(void);
+    Document *at(long index);
+    long index(void);
+    void set_index(long index);
+    int new_file(void);
+    int open_file(const char *path);
+    int open_argument(const char *path);
+    int save_active(void);
+    int save_as(const char *path);
+    int save_all(void);
+    void allow_overwrite(int value);
+    int close_active(void);
+    int close_all(void);
+    int quit(void);
+    int answer(int choice);
+    int provide_path(const char *path);
+    int run(const char *command);
+    int quit_ready(void);
+    int pending(void);
+    const char *status(void);
+    const char *error(void);
+    const char *clipboard(void);
+    int clipboard_copy(void);
+    int clipboard_cut(void);
+    int clipboard_paste(void);
+private:
+    DocVec *docs;
+    long activeIndex;
+    String *clip;
+    String *errorText;
+    String *statusText;
+    int pend;
+    int quitReady;
+    int allowOverwrite;
+    void set_error(const char *msg);
+    int save_named(Document *doc);
+    void drop_one(long index);
+    void ensure_document(void);
+    int next_dirty(void);
+    int advance(void);
+};
+
+void editor_write_help(void);
+int editor_classify_args(
+        int argc,
+        char **argv,
+        const char **message);
+
+#endif
