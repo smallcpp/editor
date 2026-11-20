@@ -1,0 +1,171 @@
+#include "../src/editor.shpp"
+
+static int failures;
+
+void expect(int cond, const char *msg) {
+    if (cond == 0) {
+        print("fail {:s}\n", msg);
+        failures = failures + 1;
+    }
+}
+
+int main(void) {
+    char pattern[64];
+    char pathA[EDITOR_PATH];
+    char pathB[EDITOR_PATH];
+    char pathC[EDITOR_PATH];
+    char *dir;
+    Editor *editor;
+    const char *io;
+    char *raw;
+    long n;
+
+    failures = 0;
+    text_copy(pattern, 64, "/tmp/editor-ed-XXXXXX");
+    dir = mkdtemp(pattern);
+    expect(dir != nullptr, "temp");
+    if (dir == nullptr)
+        return 1;
+    path_join(pathA, EDITOR_PATH, dir, "a.scpp");
+    path_join(pathB, EDITOR_PATH, dir, "b.scpp");
+    path_join(pathC, EDITOR_PATH, dir, "c.scpp");
+    io = "";
+    expect(write_file(pathA, "int main\n", &io) == 1, "seed a");
+    expect(write_file(pathB, "class Box\n", &io) == 1, "seed b");
+    expect(write_file(pathC, "old\n", &io) == 1, "seed c");
+    editor = new Editor();
+    expect(editor->new_file() == EDITOR_OK, "untitled");
+    expect(editor->active()->untitled() == 1, "starts blank");
+    expect(editor->open_argument(dir) == EDITOR_FAILED,
+            "reject directory");
+    expect(text_same(editor->error(), "not a file") == 1,
+            "directory message");
+    expect(editor->count() == 1, "directory kept the blank");
+    expect(editor->open_file(pathA) == EDITOR_OK, "open a");
+    expect(editor->count() == 1, "blank replaced");
+    expect(text_same(editor->active()->title(), "a.scpp") == 1,
+            "title a");
+    expect(editor->open_file(pathB) == EDITOR_OK, "open b");
+    expect(editor->count() == 2, "two files");
+    expect(editor->open_file(pathA) == EDITOR_OK, "focus a");
+    expect(editor->index() == 0, "switched to a");
+    expect(editor->new_file() == EDITOR_OK, "second untitled");
+    expect(editor->count() == 3, "three documents");
+    editor->set_index(0);
+    editor->active()->buffer()->insert_text("X");
+    expect(editor->active()->buffer()->dirty() == true, "dirty");
+    expect(editor->save_active() == EDITOR_OK, "save");
+    expect(editor->active()->buffer()->dirty() == false, "clean");
+    raw = read_file(pathA, &n, &io);
+    expect(raw != nullptr
+            && text_same(raw, "Xint main\n") == 1,
+            "saved bytes");
+    editor->set_index(2);
+    editor->active()->buffer()->insert_text("U");
+    expect(editor->save_active() == EDITOR_NEEDS_PATH,
+            "untitled save");
+    editor->set_index(1);
+    editor->active()->buffer()->insert_text("Y");
+    expect(editor->save_all() == EDITOR_OK, "save all");
+    raw = read_file(pathB, &n, &io);
+    expect(raw != nullptr
+            && text_same(raw, "Yclass Box\n") == 1,
+            "saved b");
+    editor->set_index(2);
+    expect(editor->active()->buffer()->dirty() == true,
+            "untitled skipped");
+    expect(editor->save_as(pathB) == EDITOR_FAILED,
+            "save as open");
+    expect(text_same(editor->error(), "open document") == 1,
+            "open document");
+    expect(editor->active()->untitled() == 1, "still untitled");
+    expect(editor->save_as(pathC) == EDITOR_FAILED, "needs overwrite");
+    expect(text_same(editor->error(), "overwrite") == 1,
+            "overwrite message");
+    editor->allow_overwrite(1);
+    expect(editor->save_as(pathC) == EDITOR_OK, "save as");
+    expect(text_same(editor->active()->path(), pathC) == 1,
+            "renamed");
+    raw = read_file(pathC, &n, &io);
+    expect(raw != nullptr && text_same(raw, "U") == 1,
+            "save as bytes");
+    editor->active()->buffer()->set_text("abcdef");
+    editor->active()->buffer()->select_span(1, 1, 1, 4);
+    expect(editor->clipboard_copy() == EDITOR_OK, "copy");
+    expect(text_same(editor->clipboard(), "abc") == 1,
+            "copied");
+    editor->active()->buffer()->move_to(1, 7);
+    expect(editor->clipboard_paste() == EDITOR_OK, "paste");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "abcdefabc") == 1,
+            "pasted");
+    editor->run("undo");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "abcdef") == 1,
+            "undo paste");
+    editor->run("redo");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "abcdefabc") == 1,
+            "redo paste");
+    editor->active()->buffer()->select_span(1, 1, 1, 4);
+    expect(editor->clipboard_cut() == EDITOR_OK, "cut");
+    expect(text_same(editor->clipboard(), "abc") == 1, "cut text");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "defabc") == 1,
+            "after cut");
+    editor->active()->buffer()->set_text("line");
+    editor->active()->buffer()->select_all();
+    editor->run("indent");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "    line") == 1,
+            "indent");
+    editor->active()->buffer()->select_all();
+    editor->run("unindent");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "line") == 1,
+            "unindent");
+    expect(editor->save_active() == EDITOR_OK, "save edits");
+    editor->set_index(0);
+    editor->active()->buffer()->insert_text("Z");
+    expect(editor->close_active() == EDITOR_NEEDS_CHOICE,
+            "dirty close");
+    expect(editor->pending() == PEND_CLOSE, "close pending");
+    expect(editor->answer(EDITOR_CANCEL) == EDITOR_CANCELLED,
+            "cancel close");
+    expect(editor->pending() == PEND_NONE, "close cleared");
+    expect(editor->count() == 3, "cancel kept documents");
+    expect(editor->active()->buffer()->dirty() == true,
+            "still dirty");
+    expect(editor->close_active() == EDITOR_NEEDS_CHOICE,
+            "close again");
+    expect(editor->answer(EDITOR_DISCARD) == EDITOR_OK,
+            "discard");
+    expect(editor->count() == 2, "discard dropped one");
+    editor->set_index(0);
+    editor->active()->buffer()->insert_text("Q");
+    expect(editor->quit() == EDITOR_NEEDS_CHOICE, "dirty quit");
+    expect(editor->quit_ready() == 0, "quit waits");
+    expect(editor->answer(EDITOR_CANCEL) == EDITOR_CANCELLED,
+            "cancel quit");
+    expect(editor->quit_ready() == 0, "quit cancelled");
+    expect(editor->quit() == EDITOR_NEEDS_CHOICE, "quit again");
+    expect(editor->answer(EDITOR_DISCARD) == EDITOR_OK,
+            "discard quit");
+    expect(editor->quit_ready() == 1, "quit ready");
+    unlink(pathA);
+    unlink(pathB);
+    unlink(pathC);
+    rmdir(dir);
+    if (failures == 0) {
+        print("test-editor ok\n");
+        return 0;
+    }
+    print("test-editor failed {}\n", failures);
+    return 1;
+}

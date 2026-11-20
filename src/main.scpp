@@ -1,0 +1,49 @@
+#include "ui.shpp"
+
+int main(int argc, char **argv) {
+    int kind;
+    const char *message;
+    Editor *editor;
+    Ui *ui;
+    int i;
+    int code;
+
+    kind = editor_classify_args(argc, argv, &message);
+    if (kind == 1) {
+        editor_write_help();
+        return 0;
+    }
+    if (kind == 2) {
+        fputs("editor 0.0.1\n", stdout);
+        return 0;
+    }
+    if (kind < 0) {
+        fputs(message, stderr);
+        return 2;
+    }
+    editor = new Editor();
+    i = 1;
+    while (i < argc) {
+        if (argv[i] != nullptr && argv[i][0] != '-') {
+            if (editor->open_argument(argv[i]) != EDITOR_OK) {
+                fputs("editor: ", stderr);
+                fputs(editor->error(), stderr);
+                fputs("\n", stderr);
+            }
+        }
+        i = i + 1;
+    }
+    if (editor->count() == 0)
+        editor->new_file();
+    ui = new Ui(editor);
+    try {
+        code = ui->start();
+    } catch (Exception error) {
+        fputs("editor: error[ED3001]: ", stderr);
+        if (error.message != nullptr)
+            fputs(error.message, stderr);
+        fputs("\n", stderr);
+        return 1;
+    }
+    return code;
+}

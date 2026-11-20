@@ -1,0 +1,568 @@
+#include "editor.shpp"
+
+DocVec::DocVec() : Array((long)sizeof(Document *)) {
+}
+
+void DocVec::add(Document * value) {
+    Document * *place;
+    reserve(count + 1);
+    place = (Document * *)(bytes + count * stride);
+    *place = value;
+    count = count + 1;
+}
+
+Document * DocVec::at(long index) {
+    Document * *place;
+    if (index < 0)
+        index = count + index;
+    if (index < 0 || index >= count)
+        throw *new Exception("index");
+    place = (Document * *)address(index);
+    return *place;
+}
+
+long DocVec::find(Document * value) {
+    Document * *place;
+    long i;
+    i = 0;
+    while (i < count) {
+        place = (Document * *)(bytes + i * stride);
+        if (*place == value)
+            return i;
+        i = i + 1;
+    }
+    return -1;
+}
+
+void DocVec::replace(long index, Document * value) {
+    Document * *place;
+    if (index < 0)
+        index = count + index;
+    if (index < 0 || index >= count)
+        throw *new Exception("index");
+    place = (Document * *)address(index);
+    *place = value;
+}
+
+void DocVec::insert(long index, Document * value) {
+    Document * *place;
+    long i;
+    if (index < 0)
+        index = count + index;
+    if (index < 0)
+        index = 0;
+    if (index > count)
+        index = count;
+    reserve(count + 1);
+    i = count;
+    while (i > index) {
+        place = (Document * *)(bytes + i * stride);
+        *place = *(Document * *)(bytes + (i - 1) * stride);
+        i = i - 1;
+    }
+    place = (Document * *)(bytes + index * stride);
+    *place = value;
+    count = count + 1;
+}
+
+void DocVec::remove(long index) {
+    Document * *place;
+    long i;
+    if (index < 0)
+        index = count + index;
+    if (index < 0 || index >= count)
+        throw *new Exception("index");
+    i = index;
+    while (i + 1 < count) {
+        place = (Document * *)(bytes + i * stride);
+        *place = *(Document * *)(bytes + (i + 1) * stride);
+        i = i + 1;
+    }
+    count = count - 1;
+}
+
+Document * DocVec::next(long *cursor) {
+    long index;
+    if (cursor == nullptr)
+        throw *new Exception("index");
+    index = *cursor;
+    if (index < 0)
+        index = count + index;
+    if (index < 0 || index >= count)
+        throw *new Exception("index");
+    *cursor = index + 1;
+    return at(index);
+}
+
+void editor_write_help(void) {
+    fputs("usage: editor [file]...\n", stdout);
+    fputs("  --help       show this help\n", stdout);
+    fputs("  --version    show 0.0.1\n", stdout);
+    fputs("Opens files. With no path, an untitled\n", stdout);
+    fputs("buffer is shown.\n", stdout);
+}
+
+int editor_classify_args(
+        int argc,
+        char **argv,
+        const char **message) {
+    int i;
+
+    if (message != nullptr)
+        *message = "";
+    i = 1;
+    while (i < argc) {
+        if (argv[i] != nullptr && argv[i][0] == '-') {
+            if (text_same(argv[i], "--help") == 1
+                    || text_same(argv[i], "-h") == 1) {
+                if (message != nullptr)
+                    *message = "help";
+                return 1;
+            }
+            if (text_same(argv[i], "--version") == 1
+                    || text_same(argv[i], "-V") == 1) {
+                if (message != nullptr)
+                    *message = "version";
+                return 2;
+            }
+            if (message != nullptr)
+                *message =
+                        "editor: error[ED0001]: unknown option\n";
+            return -1;
+        }
+        i = i + 1;
+    }
+    return 0;
+}
+
+Editor::Editor() {
+    docs = new DocVec();
+    activeIndex = 0;
+    clip = new String();
+    errorText = new String();
+    statusText = new String();
+    pend = PEND_NONE;
+    quitReady = 0;
+    allowOverwrite = 0;
+}
+
+void Editor::set_error(const char *msg) {
+    errorText->truncate(0, errorText->size());
+    if (msg != nullptr)
+        errorText->append(msg);
+}
+
+Document *Editor::active(void) {
+    if (activeIndex < 0 || activeIndex >= docs->size())
+        return nullptr;
+    return docs->at(activeIndex);
+}
+
+long Editor::count(void) {
+    return docs->size();
+}
+
+Document *Editor::at(long index) {
+    if (index < 0 || index >= docs->size())
+        return nullptr;
+    return docs->at(index);
+}
+
+long Editor::index(void) {
+    return activeIndex;
+}
+
+int Editor::quit_ready(void) {
+    return quitReady;
+}
+
+int Editor::pending(void) {
+    return pend;
+}
+
+const char *Editor::error(void) {
+    return errorText->c_str();
+}
+
+const char *Editor::clipboard(void) {
+    return clip->c_str();
+}
+
+void Editor::ensure_document(void) {
+    if (docs->size() == 0 && quitReady == 0)
+        new_file();
+}
+
+int Editor::new_file(void) {
+    Document *doc;
+
+    doc = new Document();
+    docs->add(doc);
+    activeIndex = docs->size() - 1;
+    set_error("");
+    return EDITOR_OK;
+}
+
+int Editor::open_file(const char *path) {
+    Document *doc;
+    long i;
+
+    if (path == nullptr || path[0] == 0) {
+        set_error("missing path");
+        return EDITOR_FAILED;
+    }
+    i = 0;
+    while (i < docs->size()) {
+        if (docs->at(i)->untitled() == 0
+                && text_same(docs->at(i)->path(), path) == 1) {
+            activeIndex = i;
+            set_error("");
+            return EDITOR_OK;
+        }
+        i = i + 1;
+    }
+    doc = new Document();
+    if (doc->load_path(path) == 0) {
+        set_error(doc->error());
+        return EDITOR_FAILED;
+    }
+    if (docs->size() == 1
+            && docs->at(0)->untitled() == 1
+            && docs->at(0)->buffer()->dirty() == false
+            && docs->at(0)->buffer()->size() == 0)
+        docs->remove(0);
+    docs->add(doc);
+    activeIndex = docs->size() - 1;
+    set_error("");
+    return EDITOR_OK;
+}
+
+int Editor::open_argument(const char *path) {
+    if (path == nullptr || path[0] == 0) {
+        set_error("missing path");
+        return EDITOR_FAILED;
+    }
+    if (file_is_dir(path) == 1) {
+        set_error("not a file");
+        return EDITOR_FAILED;
+    }
+    return open_file(path);
+}
+
+int Editor::save_named(Document *doc) {
+    if (doc == nullptr)
+        return EDITOR_FAILED;
+    if (doc->save_file(false) == 0) {
+        set_error(doc->error());
+        return EDITOR_FAILED;
+    }
+    set_error("");
+    return EDITOR_OK;
+}
+
+int Editor::save_active(void) {
+    Document *doc;
+
+    doc = active();
+    if (doc == nullptr)
+        return EDITOR_FAILED;
+    if (doc->untitled() == 1) {
+        set_error("untitled");
+        return EDITOR_NEEDS_PATH;
+    }
+    return save_named(doc);
+}
+
+void Editor::allow_overwrite(int value) {
+    allowOverwrite = value;
+}
+
+int Editor::save_as(const char *path) {
+    Document *doc;
+    long i;
+
+    doc = active();
+    if (doc == nullptr || path == nullptr || path[0] == 0) {
+        set_error("missing path");
+        return EDITOR_FAILED;
+    }
+    i = 0;
+    while (i < docs->size()) {
+        if (i != activeIndex
+                && docs->at(i)->untitled() == 0
+                && text_same(docs->at(i)->path(), path) == 1) {
+            set_error("open document");
+            return EDITOR_FAILED;
+        }
+        i = i + 1;
+    }
+    if (file_exists(path) == 1 && allowOverwrite == 0) {
+        set_error("overwrite");
+        return EDITOR_FAILED;
+    }
+    allowOverwrite = 0;
+    if (doc->save_as(path, false) == 0) {
+        set_error(doc->error());
+        return EDITOR_FAILED;
+    }
+    set_error("");
+    return EDITOR_OK;
+}
+
+int Editor::save_all(void) {
+    long i;
+    long keep;
+    int rc;
+
+    keep = activeIndex;
+    i = 0;
+    while (i < docs->size()) {
+        if (docs->at(i)->untitled() == 0
+                && docs->at(i)->buffer()->dirty() == true) {
+            activeIndex = i;
+            rc = save_named(docs->at(i));
+            if (rc != EDITOR_OK) {
+                activeIndex = keep;
+                return rc;
+            }
+        }
+        i = i + 1;
+    }
+    activeIndex = keep;
+    return EDITOR_OK;
+}
+
+void Editor::set_index(long index) {
+    if (index < 0 || index >= docs->size())
+        return;
+    activeIndex = index;
+}
+
+void Editor::drop_one(long index) {
+    if (index < 0 || index >= docs->size())
+        return;
+    docs->remove(index);
+    if (activeIndex >= docs->size())
+        activeIndex = docs->size() - 1;
+    if (activeIndex < 0)
+        activeIndex = 0;
+}
+
+int Editor::next_dirty(void) {
+    long i;
+
+    i = 0;
+    while (i < docs->size()) {
+        if (docs->at(i)->buffer()->dirty() == true) {
+            activeIndex = i;
+            if (docs->at(i)->untitled() == 1)
+                return EDITOR_NEEDS_PATH;
+            return EDITOR_NEEDS_CHOICE;
+        }
+        i = i + 1;
+    }
+    return EDITOR_OK;
+}
+
+int Editor::close_active(void) {
+    Document *doc;
+
+    doc = active();
+    if (doc == nullptr)
+        return EDITOR_FAILED;
+    if (doc->buffer()->dirty() == false) {
+        drop_one(activeIndex);
+        ensure_document();
+        return EDITOR_OK;
+    }
+    pend = PEND_CLOSE;
+    if (doc->untitled() == 1)
+        return EDITOR_NEEDS_PATH;
+    return EDITOR_NEEDS_CHOICE;
+}
+
+int Editor::close_all(void) {
+    int rc;
+
+    pend = PEND_CLOSE_ALL;
+    rc = next_dirty();
+    if (rc != EDITOR_OK)
+        return rc;
+    return advance();
+}
+
+int Editor::advance(void) {
+    int rc;
+
+    if (pend == PEND_CLOSE) {
+        drop_one(activeIndex);
+        pend = PEND_NONE;
+        ensure_document();
+        return EDITOR_OK;
+    }
+    rc = next_dirty();
+    if (rc != EDITOR_OK)
+        return rc;
+    if (pend == PEND_CLOSE_ALL) {
+        docs = new DocVec();
+        activeIndex = 0;
+        pend = PEND_NONE;
+        ensure_document();
+        return EDITOR_OK;
+    }
+    if (pend == PEND_QUIT) {
+        quitReady = 1;
+        pend = PEND_NONE;
+        return EDITOR_OK;
+    }
+    pend = PEND_NONE;
+    return EDITOR_OK;
+}
+
+int Editor::answer(int choice) {
+    int rc;
+
+    if (pend == PEND_NONE)
+        return EDITOR_FAILED;
+    if (choice == EDITOR_CANCEL) {
+        pend = PEND_NONE;
+        set_error("");
+        return EDITOR_CANCELLED;
+    }
+    if (choice == EDITOR_DISCARD) {
+        if (active() != nullptr)
+            active()->buffer()->mark_clean();
+        return advance();
+    }
+    if (choice == EDITOR_SAVE) {
+        if (active() != nullptr && active()->untitled() == 1)
+            return EDITOR_NEEDS_PATH;
+        rc = save_active();
+        if (rc != EDITOR_OK)
+            return rc;
+        return advance();
+    }
+    return EDITOR_FAILED;
+}
+
+int Editor::provide_path(const char *path) {
+    int rc;
+
+    rc = save_as(path);
+    if (rc != EDITOR_OK)
+        return rc;
+    if (pend == PEND_NONE)
+        return EDITOR_OK;
+    return advance();
+}
+
+int Editor::quit(void) {
+    pend = PEND_QUIT;
+    return advance();
+}
+
+int Editor::clipboard_copy(void) {
+    if (active() == nullptr)
+        return EDITOR_FAILED;
+    clip = active()->buffer()->selected();
+    return EDITOR_OK;
+}
+
+int Editor::clipboard_cut(void) {
+    if (clipboard_copy() != EDITOR_OK)
+        return EDITOR_FAILED;
+    active()->buffer()->delete_forward();
+    return EDITOR_OK;
+}
+
+int Editor::clipboard_paste(void) {
+    if (active() == nullptr)
+        return EDITOR_FAILED;
+    active()->buffer()->insert_text(clip->c_str());
+    return EDITOR_OK;
+}
+
+int Editor::run(const char *command) {
+    if (command == nullptr)
+        return EDITOR_FAILED;
+    if (text_same(command, "new") == 1)
+        return new_file();
+    if (text_same(command, "open") == 1)
+        return EDITOR_CHOOSE_OPEN;
+    if (text_same(command, "save") == 1)
+        return save_active();
+    if (text_same(command, "save-as") == 1)
+        return EDITOR_CHOOSE_SAVE;
+    if (text_same(command, "save-all") == 1)
+        return save_all();
+    if (text_same(command, "close") == 1)
+        return close_active();
+    if (text_same(command, "close-all") == 1)
+        return close_all();
+    if (text_same(command, "quit") == 1)
+        return quit();
+    if (text_same(command, "undo") == 1) {
+        if (active() != nullptr)
+            active()->buffer()->undo();
+        return EDITOR_OK;
+    }
+    if (text_same(command, "redo") == 1) {
+        if (active() != nullptr)
+            active()->buffer()->redo();
+        return EDITOR_OK;
+    }
+    if (text_same(command, "cut") == 1)
+        return clipboard_cut();
+    if (text_same(command, "copy") == 1)
+        return clipboard_copy();
+    if (text_same(command, "paste") == 1)
+        return clipboard_paste();
+    if (text_same(command, "indent") == 1) {
+        if (active() != nullptr)
+            active()->buffer()->indent_lines(
+                    EDITOR_TAB,
+                    true);
+        return EDITOR_OK;
+    }
+    if (text_same(command, "unindent") == 1) {
+        if (active() != nullptr)
+            active()->buffer()->outdent_lines(
+                    EDITOR_TAB,
+                    true);
+        return EDITOR_OK;
+    }
+    set_error("unknown command");
+    return EDITOR_FAILED;
+}
+
+const char *Editor::status(void) {
+    char number[32];
+    Document *doc;
+
+    statusText = new String();
+    doc = active();
+    if (doc == nullptr) {
+        statusText->append("no document");
+        return statusText->c_str();
+    }
+    statusText->append(doc->title());
+    if (doc->buffer()->dirty() == true)
+        statusText->append(" *");
+    statusText->append("  line ");
+    snprintf(number, 32, "%ld", doc->buffer()->cursor_line());
+    statusText->append(number);
+    statusText->append("  column ");
+    snprintf(
+            number,
+            32,
+            "%ld",
+            doc->buffer()->cursor_column());
+    statusText->append(number);
+    statusText->append("  ");
+    statusText->append(doc->language());
+    if (errorText->size() > 0) {
+        statusText->append("  ");
+        statusText->append(errorText);
+    }
+    return statusText->c_str();
+}
