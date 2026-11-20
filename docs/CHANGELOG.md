@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+Typing `(` or `{` inserts the closer after GTK's user action, at
+a character offset, so the buffer iterator stays valid and the
+insert is not nested in that action. `()` stays `()` when the
+closer is typed. Undo and redo call `TextView::scroll_to`, which
+scrolls a mark, so the caret stays on the edited spot.
+
+Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+L, Ctrl+Z, Ctrl+Y,
+Ctrl+Shift+Z, Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+], and Ctrl+[ run the
+existing commands. The view shows line numbers. Settings toggles
+closing brackets and indenting a new line.
+
 File, Open starts in the process current directory.
 `gtk_file_dialog_set_initial_folder` receives that directory.
 `test-editor` checks the directory after `chdir`.

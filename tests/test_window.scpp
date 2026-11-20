@@ -2,6 +2,22 @@
 
 static int failures;
 
+extern void gtk_text_buffer_begin_user_action(void *buffer);
+extern void gtk_text_buffer_end_user_action(void *buffer);
+extern void gtk_text_buffer_insert_at_cursor(
+        void *buffer,
+        const char *text,
+        int length);
+
+void type_text(TextBuffer *view, const char *text) {
+    gtk_text_buffer_begin_user_action(view->native);
+    gtk_text_buffer_insert_at_cursor(
+            view->native,
+            text,
+            -1);
+    gtk_text_buffer_end_user_action(view->native);
+}
+
 void expect(int cond, const char *msg) {
     if (cond == 0) {
         print("fail {:s}\n", msg);
@@ -46,6 +62,32 @@ int main(void) {
         expect(editor->index() == 0, "switch");
         view = ui->view_buffer();
         expect(view != nullptr, "view");
+        expect(text_has(ui->line_number_text(), "1") == 1,
+                "line numbers");
+        view->set_text("");
+        type_text(view, "(");
+        expect(text_same(ui->page_text(0), "()") == 1,
+                "type open paren");
+        expect(editor->active()->buffer()->cursor_offset()
+                        == 1,
+                "caret between parens");
+        type_text(view, ")");
+        expect(text_same(ui->page_text(0), "()") == 1,
+                "type close paren");
+        expect(editor->active()->buffer()->cursor_offset()
+                        == 2,
+                "caret after pair");
+        view->set_text("");
+        type_text(view, "{");
+        expect(text_same(ui->page_text(0), "{}") == 1,
+                "type brace");
+        ui->on_menu("Settings");
+        editor->use_brackets(0);
+        view->set_text("");
+        type_text(view, "(");
+        expect(text_same(ui->page_text(0), "(") == 1,
+                "brackets off");
+        editor->use_brackets(1);
         view->set_text("int value;\n");
         start = new TextIter(0, 0);
         end = new TextIter(0, 3);

@@ -28,6 +28,9 @@ public:
     TextView *view;
     ScrolledWindow *scroll;
     int tags;
+    int userDepth;
+    int pendingSync;
+    int pendingIdle;
 };
 
 class Ui {
@@ -46,8 +49,14 @@ public:
     void changed(long index);
     void moved(long index, long line, long offset);
     void switched(long index);
+    void show_settings(void);
+    void hide_settings(void);
+    void user_begin(long index);
+    void user_end(long index);
+    void flush_sync(long index);
     TextBuffer *view_buffer(void);
     const char *page_text(long index);
+    const char *line_number_text(void);
 private:
     Editor *state;
     Application *app;
@@ -62,12 +71,16 @@ private:
     int applying;
     String *pendingPath;
     Dialog *choiceDialog;
+    Dialog *settingsDialog;
+    CheckButton *bracketCheck;
+    CheckButton *indentCheck;
     FileDialog *files;
     void build(void);
     void add_page(long index);
     void rebuild(void);
     void push_active(void);
     void place_cursor(long index);
+    void sync_view(long index);
     void take_selection(void);
     void highlight(long index);
     void paint_status(void);
