@@ -105,6 +105,7 @@ Editor::Editor() {
     allowOverwrite = 0;
     typeBrackets = 1;
     typeIndent = 1;
+    tabWidth = EDITOR_TAB;
 }
 
 void Editor::apply_typing(Document *doc) {
@@ -154,6 +155,18 @@ int Editor::uses_brackets(void) {
 
 int Editor::uses_indent(void) {
     return typeIndent;
+}
+
+void Editor::set_tab_width(int value) {
+    if (value < 1)
+        value = 1;
+    if (value > 32)
+        value = 32;
+    tabWidth = value;
+}
+
+int Editor::tab_width(void) {
+    return tabWidth;
 }
 
 void Editor::set_error(const char *msg) {
@@ -532,14 +545,14 @@ int Editor::run(const char *command) {
     if (text_same(command, "indent") == 1) {
         if (active() != nullptr)
             active()->buffer()->indent_lines(
-                    EDITOR_TAB,
+                    tabWidth,
                     true);
         return EDITOR_OK;
     }
     if (text_same(command, "unindent") == 1) {
         if (active() != nullptr)
             active()->buffer()->outdent_lines(
-                    EDITOR_TAB,
+                    tabWidth,
                     true);
         return EDITOR_OK;
     }

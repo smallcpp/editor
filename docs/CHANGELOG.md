@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+Opening a file updates the tab title, including when that open
+replaces the untitled buffer. Documents lists the loaded files
+and switches to the chosen one. Tabs have a border and, by
+default, a close mark. Settings can hide the close mark.
+
+Line numbers sit in the left gutter, one per text line, including
+an empty buffer. The current line is highlighted. Settings has a
+toggle and a color, and the highlight is on by default. The
+settings dialog uses the editor window as its transient parent.
+
+Tab width defaults to four spaces. Settings can change it. A
+right column marker is off by default, at 80 columns, with a
+toggle, a color, and a character count. Font and size come from
+a font chooser dialog.
+
+scpp coloring also marks preprocessor lines, extra keywords,
+types, and names used as calls. Other languages are unchanged.
+
+Quit destroys the window and leaves the process, including after
+a save dialog. Ctrl+S runs the save command after the key handler
+returns, and the file dialog uses the editor window as its parent.
+Every file dialog starts in the process current directory the
+first time, then in the directory last chosen. That directory is
+remembered for the session only.
+
 Typing `(` or `{` inserts the closer after GTK's user action, at
 a character offset, so the buffer iterator stays valid and the
 insert is not nested in that action. `()` stays `()` when the

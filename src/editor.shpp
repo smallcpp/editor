@@ -80,6 +80,8 @@ public:
     void use_indent(int value);
     int uses_brackets(void);
     int uses_indent(void);
+    void set_tab_width(int value);
+    int tab_width(void);
 private:
     DocVec *docs;
     long activeIndex;
@@ -91,6 +93,7 @@ private:
     int allowOverwrite;
     int typeBrackets;
     int typeIndent;
+    int tabWidth;
     void set_error(const char *msg);
     void apply_typing(Document *doc);
     int save_named(Document *doc);

@@ -186,6 +186,43 @@ int main(void) {
                 editor->active()->buffer()->text(),
                 "()") == 1,
             "brackets restored");
+    expect(editor->tab_width() == 4, "tab default");
+    editor->set_tab_width(2);
+    expect(editor->tab_width() == 2, "tab width");
+    editor->active()->buffer()->set_text("");
+    expect(editor->run("indent") == EDITOR_OK, "indent");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "  ") == 1,
+            "two spaces");
+    editor->set_tab_width(0);
+    expect(editor->tab_width() == 1, "tab clamps");
+    {
+        char folder[EDITOR_PATH];
+
+        expect(dialog_folder(
+                    folder,
+                    EDITOR_PATH,
+                    "/tmp/kept") == 1,
+                "remembered folder");
+        expect(text_same(folder, "/tmp/kept") == 1,
+                "folder text");
+        expect(dialog_folder(nullptr, 8, "/tmp") == 0,
+                "folder needs a buffer");
+        expect(chdir(dir) == 0, "folder cwd");
+        expect(dialog_folder(folder, EDITOR_PATH, "") == 1,
+                "empty remember");
+        expect(text_same(folder, dir) == 1,
+                "folder is cwd");
+        expect(dialog_folder(
+                    folder,
+                    EDITOR_PATH,
+                    nullptr) == 1,
+                "missing remember");
+        expect(text_same(folder, dir) == 1,
+                "missing is cwd");
+        expect(chdir(was) == 0, "leave folder cwd");
+    }
     unlink(pathA);
     unlink(pathB);
     unlink(pathC);

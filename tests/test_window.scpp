@@ -141,6 +141,34 @@ int main(void) {
         ui->switched(0);
         expect(text_same(ui->page_text(0), "two\n") == 1,
                 "other file remains");
+        expect(text_has(ui->tab_text(0), "b.scpp") == 1,
+                "named tab");
+        expect(ui->tab_marks() == 1, "close marks");
+        expect(ui->shows_line() == 1, "current line");
+        expect(ui->shows_margin() == 0, "margin off");
+        expect(ui->margin_columns() == 80, "margin columns");
+        expect(editor->tab_width() == 4, "tab default");
+        ui->on_menu("Close");
+        expect(text_has(ui->tab_text(0), "untitled") == 1,
+                "fresh tab");
+        expect(text_has(ui->line_number_text(), "1") == 1,
+                "empty gutter");
+        expect(text_has(ui->line_number_text(), "2") == 0,
+                "one gutter line");
+        ui->open_path(pathB);
+        expect(text_has(ui->tab_text(0), "b.scpp") == 1,
+                "open retitles");
+        ui->on_menu("New");
+        ui->select_named("b.scpp");
+        expect(text_same(
+                    ui->page_text(editor->index()),
+                    "two\n") == 1,
+                "documents menu");
+        ui->select_named("untitled.scpp");
+        ui->on_menu("Save");
+        expect(ui->is_leaving() == 0, "save returned");
+        ui->on_menu("Quit");
+        expect(ui->is_leaving() == 1, "quit left");
         unlink(pathA);
         unlink(pathB);
         rmdir(dir);

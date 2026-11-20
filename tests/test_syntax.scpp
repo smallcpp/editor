@@ -66,6 +66,27 @@ int main(void) {
         light->scan(cafe, "scpp");
         expect(kind_at(light, 6) == SPAN_KEYWORD, "keyword after utf8");
     }
+    {
+        const char *sample;
+        long at;
+
+        sample = "#define X\nunsigned n;\nmain()\n";
+        light->scan(sample, "scpp");
+        expect(kind_at(light, 0) == SPAN_PREPROC, "preproc");
+        at = 0;
+        while (sample[at] != 0 && sample[at] != '\n')
+            at = at + 1;
+        if (sample[at] == '\n')
+            at = at + 1;
+        expect(kind_at(light, at) == SPAN_TYPE, "type");
+        while (sample[at] != 0 && sample[at] != 'm')
+            at = at + 1;
+        expect(kind_at(light, at) == SPAN_CALL, "call");
+        light->scan("static value;\n", "scpp");
+        expect(kind_at(light, 0) == SPAN_KEYWORD, "static");
+        light->scan("# head\n", "c");
+        expect(kind_at(light, 0) == 0, "plain hash");
+    }
     if (failures == 0) {
         print("test-syntax ok\n");
         return 0;

@@ -16,21 +16,6 @@ extern unsigned long g_signal_connect_data(
 
 Ui *editorUi;
 
-void ui_open_here(FileDialog *dialog) {
-    char cwd[EDITOR_PATH];
-    void *folder;
-
-    if (dialog == nullptr || dialog->native == nullptr)
-        return;
-    if (current_directory(cwd, EDITOR_PATH) == 0)
-        return;
-    folder = g_file_new_for_path(cwd);
-    if (folder == nullptr)
-        return;
-    gtk_file_dialog_set_initial_folder(dialog->native, folder);
-    g_object_unref(folder);
-}
-
 void ui_activate(void *data) {
     (void)data;
     editorUi->show_main();
@@ -60,11 +45,17 @@ bool ui_close(void *data) {
     int code;
 
     (void)data;
-    if (editorUi->editor()->quit_ready() == 1)
+    if (editorUi->is_leaving() == 1)
         return false;
+    if (editorUi->editor()->quit_ready() == 1) {
+        editorUi->leave();
+        return false;
+    }
     code = editorUi->editor()->quit();
-    if (editorUi->editor()->quit_ready() == 1)
+    if (editorUi->editor()->quit_ready() == 1) {
+        editorUi->leave();
         return false;
+    }
     editorUi->handle(code);
     return true;
 }
@@ -112,8 +103,34 @@ int ui_sync_idle(void *data) {
     return 0;
 }
 
-void ui_key(void *data) {
+int ui_key_idle(void *data) {
+    if (editorUi == nullptr)
+        return 0;
+    if (editorUi->is_leaving() == 1)
+        return 0;
     editorUi->on_menu((const char *)data);
+    return 0;
+}
+
+void ui_key(void *data) {
+    g_idle_add((void *)ui_key_idle, data);
+}
+
+void ui_doc(void *data, const char *label) {
+    (void)data;
+    editorUi->select_named(label);
+}
+
+void ui_tab_close(void *data) {
+    PageRef *ref;
+
+    ref = (PageRef *)data;
+    editorUi->close_at(ref->index);
+}
+
+void ui_font(void *data, const char *description) {
+    (void)data;
+    editorUi->choose_font(description);
 }
 
 void ui_brackets(void *data, bool value) {
@@ -147,6 +164,7 @@ Ui::Ui(Editor *editor) {
     choiceMode = 0;
     pendingPath = new String();
     fileMenu = nullptr;
+    docMenu = nullptr;
     app = nullptr;
     mainWindow = nullptr;
     book = nullptr;
@@ -155,7 +173,25 @@ Ui::Ui(Editor *editor) {
     settingsDialog = nullptr;
     bracketCheck = nullptr;
     indentCheck = nullptr;
+    lineCheck = nullptr;
+    marginCheck = nullptr;
+    closeCheck = nullptr;
+    tabSpin = nullptr;
+    marginSpin = nullptr;
+    lineEntry = nullptr;
+    marginEntry = nullptr;
     files = nullptr;
+    fonts = nullptr;
+    showLine = 1;
+    showMargin = 0;
+    showClose = 1;
+    marginCols = 80;
+    hasLastDir = 0;
+    leaving = 0;
+    text_copy(lineColor, 32, "#d6e4f5");
+    text_copy(marginColor, 32, "#c8c8c8");
+    fontDesc[0] = 0;
+    lastDir[0] = 0;
     i = 0;
     while (i < EDITOR_PAGES) {
         pages[i].buffer = nullptr;
@@ -165,6 +201,8 @@ Ui::Ui(Editor *editor) {
         pages[i].userDepth = 0;
         pages[i].pendingSync = 0;
         pages[i].pendingIdle = 0;
+        tabTitle[i] = nullptr;
+        docName[i][0] = 0;
         refs[i].index = i;
         i = i + 1;
     }
@@ -208,11 +246,16 @@ void Ui::build(void) {
     editLabels[5] = "Indent";
     editLabels[6] = "Unindent";
     editMenu->set_menu(editLabels, 7, ui_menu, nullptr);
+    docMenu = new MenuButton("Documents");
     bar->pack_start((Widget *)fileMenu);
     bar->pack_start((Widget *)editMenu);
+    bar->pack_start((Widget *)docMenu);
     outer = new Box(GTK_VERTICAL, 0);
     outer->append((Widget *)bar);
     book = new Notebook();
+    book->add_css(
+            "tab { border: 1px solid #666666; margin: 1px; }");
+    book->add_css("tab { padding: 1px 6px; }");
     book->on_switch_page(ui_switched, nullptr);
     book->set_v_expand(true);
     status = new Label("editor");
@@ -247,7 +290,10 @@ void Ui::build(void) {
             ui_key,
             (void *)"Unindent");
     files = new FileDialog();
+    files->set_parent(mainWindow);
+    fonts = new FontDialog();
     choiceDialog = new Dialog("Confirm");
+    choiceDialog->set_transient(mainWindow);
     choiceDialog->add_button("Save", EDITOR_SAVE);
     choiceDialog->add_button("Discard", EDITOR_DISCARD);
     choiceDialog->add_button("Cancel", EDITOR_CANCEL);
@@ -310,8 +356,11 @@ void Ui::add_page(long index) {
     text_copy(title, 256, doc->title());
     book->append_page((Widget *)scroll, title);
     pageCount = pageCount + 1;
+    mount_tab(index, title);
+    apply_view(index);
     highlight(index);
     place_cursor(index);
+    paint_line(index);
 }
 
 void Ui::rebuild(void) {
@@ -331,6 +380,7 @@ void Ui::rebuild(void) {
         pages[i].userDepth = 0;
         pages[i].pendingSync = 0;
         pages[i].pendingIdle = 0;
+        tabTitle[i] = nullptr;
         i = i + 1;
     }
     n = state->count();
@@ -401,10 +451,12 @@ void Ui::push_active(void) {
     doc = state->active();
     if (doc == nullptr || pages[index].buffer == nullptr)
         return;
+    retitle(index);
     if (text_same(
                 pages[index].buffer->get_text(),
                 doc->buffer()->text()) == 1) {
         place_cursor(index);
+        paint_line(index);
         return;
     }
     applying = 1;
@@ -412,6 +464,7 @@ void Ui::push_active(void) {
     place_cursor(index);
     applying = 0;
     highlight(index);
+    paint_line(index);
 }
 
 void Ui::take_selection(void) {
@@ -483,6 +536,15 @@ void Ui::highlight(long index) {
         pages[index].buffer->create_tag(
                 "number",
                 "#804000");
+        pages[index].buffer->create_tag(
+                "type",
+                "#6030a0");
+        pages[index].buffer->create_tag(
+                "preproc",
+                "#a04020");
+        pages[index].buffer->create_tag(
+                "call",
+                "#106060");
         pages[index].tags = 1;
     }
     if (n > 0) {
@@ -502,6 +564,18 @@ void Ui::highlight(long index) {
                 "number",
                 start,
                 end);
+        pages[index].buffer->remove_tag(
+                "type",
+                start,
+                end);
+        pages[index].buffer->remove_tag(
+                "preproc",
+                start,
+                end);
+        pages[index].buffer->remove_tag(
+                "call",
+                start,
+                end);
     }
     scan = new Highlighter();
     scan->scan(text, doc->language());
@@ -519,6 +593,12 @@ void Ui::highlight(long index) {
             name = "comment";
         if (span->kind == SPAN_NUMBER)
             name = "number";
+        if (span->kind == SPAN_TYPE)
+            name = "type";
+        if (span->kind == SPAN_PREPROC)
+            name = "preproc";
+        if (span->kind == SPAN_CALL)
+            name = "call";
         pages[index].buffer->apply_tag(name, start, end);
         i = i + 1;
     }
@@ -529,10 +609,19 @@ void Ui::paint_status(void) {
 }
 
 void Ui::refresh(void) {
+    long i;
+
     if (pageCount != state->count())
         rebuild();
     else
         push_active();
+    i = 0;
+    while (i < pageCount) {
+        retitle(i);
+        paint_line(i);
+        i = i + 1;
+    }
+    fill_documents();
     paint_status();
 }
 
@@ -554,13 +643,18 @@ void Ui::handle(int code) {
     }
     if (code == EDITOR_NEEDS_PATH
             || code == EDITOR_CHOOSE_SAVE) {
+        if (files->pending != 0)
+            return;
         files->set_title("Save");
+        arm_dialog();
         files->save(ui_saved, nullptr);
         return;
     }
     if (code == EDITOR_CHOOSE_OPEN) {
+        if (files->pending != 0)
+            return;
         files->set_title("Open");
-        ui_open_here(files);
+        arm_dialog();
         files->open(ui_opened, nullptr);
         return;
     }
@@ -573,16 +667,22 @@ void Ui::handle(int code) {
 }
 
 void Ui::open_path(const char *path) {
+    if (leaving == 1)
+        return;
     if (path == nullptr || path[0] == 0)
         return;
+    note_folder(path);
     handle(state->open_file(path));
 }
 
 void Ui::save_path(const char *path) {
+    if (leaving == 1)
+        return;
     if (path == nullptr || path[0] == 0) {
         handle(state->answer(EDITOR_CANCEL));
         return;
     }
+    note_folder(path);
     pendingPath = new String();
     pendingPath->append(path);
     handle(state->provide_path(path));
@@ -602,7 +702,7 @@ void Ui::choice(int response) {
     }
     handle(state->answer(response));
     if (state->quit_ready() == 1)
-        mainWindow->close();
+        leave();
 }
 
 void Ui::user_begin(long index) {
@@ -699,6 +799,7 @@ void Ui::sync_view(long index) {
     applying = 0;
     place_cursor(index);
     highlight(index);
+    paint_line(index);
 }
 
 void Ui::changed(long index) {
@@ -740,6 +841,7 @@ void Ui::moved(long index, long line, long offset) {
     if (doc == nullptr)
         return;
     doc->buffer()->move_to(line + 1, offset + 1);
+    paint_line(index);
     paint_status();
 }
 
@@ -782,18 +884,153 @@ void Ui::hide_settings(void) {
     settingsDialog->set_visible(false);
 }
 
+static int safe_color(const char *text) {
+    long i;
+    char ch;
+
+    if (text == nullptr || text[0] == 0)
+        return 0;
+    i = 0;
+    while (text[i] != 0) {
+        if (i > 30)
+            return 0;
+        ch = text[i];
+        if (ch >= 'a' && ch <= 'z') {
+            i = i + 1;
+            continue;
+        }
+        if (ch >= 'A' && ch <= 'Z') {
+            i = i + 1;
+            continue;
+        }
+        if (ch >= '0' && ch <= '9') {
+            i = i + 1;
+            continue;
+        }
+        if (ch == '#') {
+            i = i + 1;
+            continue;
+        }
+        return 0;
+    }
+    return 1;
+}
+
+void ui_line_toggle(void *data, bool value) {
+    (void)data;
+    if (value)
+        editorUi->set_line_shown(1);
+    else
+        editorUi->set_line_shown(0);
+}
+
+void ui_margin_toggle(void *data, bool value) {
+    (void)data;
+    if (value)
+        editorUi->set_margin_shown(1);
+    else
+        editorUi->set_margin_shown(0);
+}
+
+void ui_close_toggle(void *data, bool value) {
+    (void)data;
+    if (value)
+        editorUi->set_close_shown(1);
+    else
+        editorUi->set_close_shown(0);
+}
+
+void ui_tab_spin(void *data) {
+    SpinButton *spin;
+
+    spin = (SpinButton *)data;
+    editorUi->set_width((int)spin->value());
+}
+
+void ui_margin_spin(void *data) {
+    SpinButton *spin;
+
+    spin = (SpinButton *)data;
+    editorUi->set_margin_count((int)spin->value());
+}
+
+void ui_line_entry(void *data) {
+    Entry *entry;
+
+    entry = (Entry *)data;
+    editorUi->set_line_color(entry->text());
+}
+
+void ui_margin_entry(void *data) {
+    Entry *entry;
+
+    entry = (Entry *)data;
+    editorUi->set_margin_color(entry->text());
+}
+
+void ui_font_button(void *data) {
+    (void)data;
+    editorUi->open_font();
+}
+
 void Ui::show_settings(void) {
     Box *box;
+    Button *fontButton;
+    Label *tabLabel;
+    Label *lineLabel;
+    Label *marginLabel;
 
     if (settingsDialog == nullptr) {
         settingsDialog = new Dialog("Settings");
+        settingsDialog->set_transient(mainWindow);
         box = new Box(GTK_VERTICAL, 8);
         bracketCheck = new CheckButton("Close brackets");
         indentCheck = new CheckButton("Indent a new line");
+        lineCheck = new CheckButton("Highlight the current line");
+        marginCheck = new CheckButton("Right column marker");
+        closeCheck = new CheckButton("Tab close marks");
+        tabLabel = new Label("Tab width");
+        lineLabel = new Label("Current line color");
+        marginLabel = new Label("Column marker color");
+        tabSpin = new SpinButton(1, 32, 4);
+        marginSpin = new SpinButton(1, 400, 80);
+        lineEntry = new Entry(lineColor);
+        marginEntry = new Entry(marginColor);
+        fontButton = new Button("Font");
+        bracketCheck->set_active(true);
+        indentCheck->set_active(true);
+        lineCheck->set_active(true);
+        marginCheck->set_active(false);
+        closeCheck->set_active(true);
         bracketCheck->on_toggled(ui_brackets, nullptr);
         indentCheck->on_toggled(ui_indent, nullptr);
+        lineCheck->on_toggled(ui_line_toggle, nullptr);
+        marginCheck->on_toggled(ui_margin_toggle, nullptr);
+        closeCheck->on_toggled(ui_close_toggle, nullptr);
+        tabSpin->on_changed(ui_tab_spin, (void *)tabSpin);
+        marginSpin->on_changed(
+                ui_margin_spin,
+                (void *)marginSpin);
+        lineEntry->on_changed(
+                ui_line_entry,
+                (void *)lineEntry);
+        marginEntry->on_changed(
+                ui_margin_entry,
+                (void *)marginEntry);
+        fontButton->on_clicked(ui_font_button, nullptr);
         box->append((Widget *)bracketCheck);
         box->append((Widget *)indentCheck);
+        box->append((Widget *)tabLabel);
+        box->append((Widget *)tabSpin);
+        box->append((Widget *)lineCheck);
+        box->append((Widget *)lineLabel);
+        box->append((Widget *)lineEntry);
+        box->append((Widget *)marginCheck);
+        box->append((Widget *)marginSpin);
+        box->append((Widget *)marginLabel);
+        box->append((Widget *)marginEntry);
+        box->append((Widget *)closeCheck);
+        box->append((Widget *)fontButton);
         settingsDialog->set_content((Widget *)box);
         settingsDialog->add_button("Close", 1);
         settingsDialog->on_response(
@@ -808,6 +1045,20 @@ void Ui::show_settings(void) {
         indentCheck->set_active(false);
     else
         indentCheck->set_active(true);
+    if (showLine == 0)
+        lineCheck->set_active(false);
+    else
+        lineCheck->set_active(true);
+    if (showMargin == 0)
+        marginCheck->set_active(false);
+    else
+        marginCheck->set_active(true);
+    if (showClose == 0)
+        closeCheck->set_active(false);
+    else
+        closeCheck->set_active(true);
+    tabSpin->set_value((double)state->tab_width());
+    marginSpin->set_value((double)marginCols);
     settingsDialog->present();
 }
 
@@ -845,7 +1096,7 @@ void Ui::on_menu(const char *label) {
     if (text_same(label, "Quit") == 1) {
         handle(state->run("quit"));
         if (state->quit_ready() == 1)
-            mainWindow->close();
+            leave();
         return;
     }
     if (text_same(label, "Undo") == 1) {
@@ -881,6 +1132,374 @@ void Ui::on_menu(const char *label) {
         handle(state->run("unindent"));
         return;
     }
+}
+
+void Ui::mount_tab(long index, const char *title) {
+    Box *row;
+    Label *label;
+    Button *mark;
+
+    if (index < 0 || index >= pageCount)
+        return;
+    row = new Box(GTK_HORIZONTAL, 4);
+    label = new Label(title);
+    tabTitle[index] = label;
+    row->append((Widget *)label);
+    if (showClose == 1) {
+        mark = new Button("x");
+        mark->on_clicked(ui_tab_close, (void *)&refs[index]);
+        row->append((Widget *)mark);
+    }
+    book->set_tab(index, (Widget *)row);
+}
+
+void Ui::retitle(long index) {
+    Document *doc;
+    char title[256];
+
+    if (index < 0 || index >= pageCount)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr)
+        return;
+    text_copy(title, 256, doc->title());
+    if (tabTitle[index] != nullptr)
+        tabTitle[index]->set_text(title);
+    else
+        book->set_tab_label(index, title);
+}
+
+const char *Ui::tab_text(long index) {
+    if (index < 0 || index >= pageCount)
+        return "";
+    if (tabTitle[index] == nullptr)
+        return "";
+    return tabTitle[index]->text();
+}
+
+void Ui::fill_documents(void) {
+    const char *labels[EDITOR_PAGES];
+    long n;
+    long i;
+    long j;
+    int clash;
+
+    if (docMenu == nullptr)
+        return;
+    n = state->count();
+    if (n > EDITOR_PAGES)
+        n = EDITOR_PAGES;
+    i = 0;
+    while (i < n) {
+        text_copy(docName[i], 80, state->at(i)->title());
+        clash = 0;
+        j = 0;
+        while (j < i) {
+            if (text_same(docName[j], docName[i]) == 1)
+                clash = 1;
+            j = j + 1;
+        }
+        if (clash == 1) {
+            long used;
+            char extra[8];
+            long v;
+
+            used = 0;
+            while (docName[i][used] != 0
+                    && used + 4 < 80)
+                used = used + 1;
+            docName[i][used] = ' ';
+            used = used + 1;
+            v = i + 1;
+            extra[0] = (char)('0' + (int)(v % 10));
+            extra[1] = 0;
+            docName[i][used] = extra[0];
+            docName[i][used + 1] = 0;
+        }
+        labels[i] = docName[i];
+        i = i + 1;
+    }
+    if (n == 0)
+        docMenu->set_menu(nullptr, 0, ui_doc, nullptr);
+    else
+        docMenu->set_menu(labels, n, ui_doc, nullptr);
+}
+
+void Ui::select_named(const char *title) {
+    long i;
+
+    if (leaving == 1 || title == nullptr)
+        return;
+    i = 0;
+    while (i < state->count() && i < EDITOR_PAGES) {
+        if (text_same(docName[i], title) == 1
+                || text_same(
+                        state->at(i)->title(),
+                        title) == 1) {
+            state->set_index(i);
+            if (book != nullptr && i < pageCount)
+                book->set_current_page(i);
+            paint_status();
+            return;
+        }
+        i = i + 1;
+    }
+}
+
+void Ui::paint_line(long index) {
+    Document *doc;
+    const char *text;
+    long n;
+    long line;
+    long column;
+    long endLine;
+    long endCol;
+    TextIter *start;
+    TextIter *end;
+    TextIter *from;
+    TextIter *to;
+
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].buffer == nullptr)
+        return;
+    text = pages[index].buffer->get_text();
+    n = text_length(text);
+    text_position(text, n, &endLine, &endCol);
+    pages[index].buffer->set_tag_background(
+            "current",
+            lineColor);
+    start = new TextIter(0, 0);
+    end = new TextIter(endLine, endCol);
+    if (n > 0)
+        pages[index].buffer->remove_tag(
+                "current",
+                start,
+                end);
+    if (showLine == 0)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr)
+        return;
+    doc->buffer()->line_column_at(
+            doc->buffer()->cursor_offset(),
+            &line,
+            &column);
+    from = new TextIter(line, 0);
+    if (line < endLine)
+        to = new TextIter(line + 1, 0);
+    else
+        to = new TextIter(endLine, endCol);
+    if (to->line() == from->line()
+            && to->offset() == from->offset())
+        return;
+    pages[index].buffer->apply_tag("current", from, to);
+}
+
+void Ui::apply_view(long index) {
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].view == nullptr)
+        return;
+    if (fontDesc[0] != 0)
+        pages[index].view->set_font(fontDesc);
+    if (showMargin == 1)
+        pages[index].view->set_column_marker(
+                marginCols,
+                marginColor);
+    else
+        pages[index].view->set_column_marker(
+                0,
+                marginColor);
+}
+
+void Ui::arm_dialog(void) {
+    char folder[EDITOR_PATH];
+    void *file;
+    const char *remembered;
+
+    if (files == nullptr || files->native == nullptr)
+        return;
+    files->set_parent(mainWindow);
+    remembered = nullptr;
+    if (hasLastDir == 1)
+        remembered = lastDir;
+    if (dialog_folder(
+                folder,
+                EDITOR_PATH,
+                remembered) == 0)
+        return;
+    file = g_file_new_for_path(folder);
+    if (file == nullptr)
+        return;
+    gtk_file_dialog_set_initial_folder(
+            files->native,
+            file);
+    g_object_unref(file);
+}
+
+void Ui::note_folder(const char *path) {
+    char dir[EDITOR_PATH];
+
+    path_dir(dir, EDITOR_PATH, path);
+    if (dir[0] == 0 || text_same(dir, ".") == 1)
+        return;
+    text_copy(lastDir, EDITOR_PATH, dir);
+    hasLastDir = 1;
+}
+
+void Ui::leave(void) {
+    if (leaving == 1)
+        return;
+    leaving = 1;
+    if (settingsDialog != nullptr)
+        settingsDialog->set_visible(false);
+    if (choiceDialog != nullptr)
+        choiceDialog->set_visible(false);
+    if (mainWindow != nullptr)
+        mainWindow->destroy();
+    if (app != nullptr)
+        app->quit();
+}
+
+void Ui::close_at(long index) {
+    if (leaving == 1)
+        return;
+    if (index < 0 || index >= state->count())
+        return;
+    state->set_index(index);
+    if (book != nullptr && index < pageCount)
+        book->set_current_page(index);
+    handle(state->run("close"));
+}
+
+int Ui::tab_marks(void) {
+    return showClose;
+}
+
+int Ui::shows_line(void) {
+    return showLine;
+}
+
+int Ui::shows_margin(void) {
+    return showMargin;
+}
+
+int Ui::margin_columns(void) {
+    return marginCols;
+}
+
+int Ui::is_leaving(void) {
+    return leaving;
+}
+
+void Ui::choose_font(const char *description) {
+    long i;
+
+    if (description == nullptr || description[0] == 0)
+        return;
+    text_copy(fontDesc, 128, description);
+    i = 0;
+    while (i < pageCount) {
+        apply_view(i);
+        i = i + 1;
+    }
+}
+
+void Ui::set_line_shown(int value) {
+    long i;
+
+    if (value == 0)
+        showLine = 0;
+    else
+        showLine = 1;
+    i = 0;
+    while (i < pageCount) {
+        paint_line(i);
+        i = i + 1;
+    }
+}
+
+void Ui::set_margin_shown(int value) {
+    long i;
+
+    if (value == 0)
+        showMargin = 0;
+    else
+        showMargin = 1;
+    i = 0;
+    while (i < pageCount) {
+        apply_view(i);
+        i = i + 1;
+    }
+}
+
+void Ui::set_close_shown(int value) {
+    int next;
+
+    next = 0;
+    if (value != 0)
+        next = 1;
+    if (next == showClose)
+        return;
+    showClose = next;
+    rebuild();
+    fill_documents();
+}
+
+void Ui::set_line_color(const char *color) {
+    long i;
+
+    if (safe_color(color) == 0)
+        return;
+    text_copy(lineColor, 32, color);
+    i = 0;
+    while (i < pageCount) {
+        paint_line(i);
+        i = i + 1;
+    }
+}
+
+void Ui::set_margin_color(const char *color) {
+    long i;
+
+    if (safe_color(color) == 0)
+        return;
+    text_copy(marginColor, 32, color);
+    i = 0;
+    while (i < pageCount) {
+        apply_view(i);
+        i = i + 1;
+    }
+}
+
+void Ui::set_margin_count(int value) {
+    long i;
+
+    if (value < 1)
+        value = 1;
+    if (value > 400)
+        value = 400;
+    marginCols = value;
+    i = 0;
+    while (i < pageCount) {
+        apply_view(i);
+        i = i + 1;
+    }
+}
+
+void Ui::set_width(int value) {
+    state->set_tab_width(value);
+}
+
+void Ui::open_font(void) {
+    if (leaving == 1)
+        return;
+    if (fonts == nullptr || mainWindow == nullptr)
+        return;
+    if (fonts->pending != 0)
+        return;
+    fonts->choose(mainWindow, ui_font, nullptr);
 }
 
 int Ui::start(void) {
