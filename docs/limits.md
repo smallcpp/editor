@@ -39,8 +39,10 @@ window shows at most 32 documents.
 chooser. Wrapping stays off. The menu bar is the first child
 of the window because the wrapper has no title-bar setter.
 Settings are stored in `$HOME/.config/smallcpp/editor.ini`,
-beside the compiler's `config.ini`. Apply writes that file.
-Close does not.
+beside the compiler's `config.ini`. Apply writes that file,
+including one `key-` accelerator for each command, and leaves
+the dialog open. Close does not. The setup dialog is a
+notebook with General and Keyboard pages.
 
 This editor does not open projects, run builds, talk to a language
 server, load plugins, or show a message pane or a debugger.

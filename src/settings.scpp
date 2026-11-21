@@ -16,6 +16,26 @@ void config_defaults(EditorConfig *item) {
     text_copy(item->lineColor, 32, "#d6e4f5");
     text_copy(item->marginColor, 32, "#c8c8c8");
     item->font[0] = 0;
+    {
+        int i;
+
+        i = 0;
+        while (i < EDITOR_KEY_COUNT) {
+            const char *label;
+            const char *command;
+            const char *config;
+            const char *accel;
+
+            key_info(
+                    i,
+                    &label,
+                    &command,
+                    &config,
+                    &accel);
+            text_copy(item->accel[i], 64, accel);
+            i = i + 1;
+        }
+    }
 }
 
 int config_path(char *dest, long cap) {
@@ -111,6 +131,13 @@ static void take_line(EditorConfig *item, const char *line) {
         text_copy(item->marginColor, 32, value);
     if (key_is(line, "font") == 1)
         text_copy(item->font, 128, value);
+    {
+        int which;
+
+        which = key_index(line);
+        if (which >= 0)
+            text_copy(item->accel[which], 64, value);
+    }
 }
 
 int config_read(const char *path, EditorConfig *item) {
@@ -225,6 +252,29 @@ int config_write(
     text->append("font=");
     text->append(item->font);
     text->append("\n");
+    {
+        int i;
+
+        i = 0;
+        while (i < EDITOR_KEY_COUNT) {
+            const char *label;
+            const char *command;
+            const char *config;
+            const char *accel;
+
+            key_info(
+                    i,
+                    &label,
+                    &command,
+                    &config,
+                    &accel);
+            text->append(config);
+            text->append("=");
+            text->append(item->accel[i]);
+            text->append("\n");
+            i = i + 1;
+        }
+    }
     err = "";
     return write_file(path, text->c_str(), &err);
 }

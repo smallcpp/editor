@@ -6,6 +6,7 @@
  * file is editor.ini and does not replace that one.
  */
 #include "util.shpp"
+#include "keys.shpp"
 
 class EditorConfig {
 public:
@@ -20,6 +21,7 @@ public:
     char lineColor[32];
     char marginColor[32];
     char font[128];
+    char accel[EDITOR_KEY_COUNT][64];
 };
 
 void config_defaults(EditorConfig *item);

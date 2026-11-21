@@ -81,6 +81,18 @@ public:
     void set_margin_count(int value);
     void set_width(int value);
     void open_font(void);
+    void find_query(const char *query);
+    void find_again(void);
+    void replace_query(
+            const char *query,
+            const char *repl);
+    void replace_every(
+            const char *query,
+            const char *repl);
+    void replace_again(void);
+    void replace_all_again(void);
+    void hide_search(void);
+    void hide_replace(void);
 private:
     Editor *state;
     Application *app;
@@ -122,7 +134,25 @@ private:
     Entry *marginEntry;
     FileDialog *files;
     FontDialog *fonts;
+    int searchBack;
+    int searchWhole;
+    int searchCase;
+    long searchMenu;
+    Dialog *searchDialog;
+    Dialog *replaceDialog;
+    Entry *searchEntry;
+    Entry *replaceFind;
+    Entry *replaceWith;
+    Entry *keyEntry[EDITOR_KEY_COUNT];
+    char keyAccel[EDITOR_KEY_COUNT][64];
+    char searchText[256];
+    char replaceText[256];
+    char withText[256];
     void build(void);
+    void bind_keys(void);
+    void read_keys(void);
+    void show_search(void);
+    void show_replace(void);
     void add_page(long index);
     void rebuild(void);
     void push_active(void);

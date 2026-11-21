@@ -501,6 +501,14 @@ int main(void) {
                 "untitled save");
         expect(mapped_save_dialog() == 0,
                 "untitled save has no dialog");
+        ui->find_query("untitled");
+        ui->on_menu("Search");
+        ui->on_menu("Replace");
+        ui->on_menu("Match case");
+        ui->on_menu("Close All");
+        expect(editor->count() == 1, "close all");
+        expect(text_has(ui->tab_text(0), "untitled") == 1,
+                "close all leaves one");
         ui->on_menu("Quit");
         expect(ui->is_leaving() == 1, "quit left");
         unlink(pathA);

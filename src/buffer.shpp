@@ -80,13 +80,15 @@ public:
             const char *query,
             bool matchCase,
             bool whole,
-            bool inSel);
+            bool inSel,
+            bool backward);
     int replace_next(
             const char *query,
             const char *repl,
             bool matchCase,
             bool whole,
-            bool inSel);
+            bool inSel,
+            bool backward);
     int replace_all(
             const char *query,
             const char *repl,
@@ -94,6 +96,7 @@ public:
             bool whole,
             bool inSel);
     void capture_scope(void);
+    void limit_scope(void);
     void clear_scope(void);
     bool scope_active(void);
     void set_auto_brackets(bool value);
@@ -131,6 +134,12 @@ private:
             bool matchCase,
             bool whole);
     long find_from(
+            long from,
+            long limit,
+            const char *query,
+            bool matchCase,
+            bool whole);
+    long find_before(
             long from,
             long limit,
             const char *query,

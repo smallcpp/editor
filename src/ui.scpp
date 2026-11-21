@@ -166,6 +166,28 @@ void ui_settings_response(void *data, int response) {
     editorUi->hide_settings();
 }
 
+void ui_search_response(void *data, int response) {
+    (void)data;
+    if (response == 2) {
+        editorUi->find_again();
+        return;
+    }
+    editorUi->hide_search();
+}
+
+void ui_replace_response(void *data, int response) {
+    (void)data;
+    if (response == 2) {
+        editorUi->replace_again();
+        return;
+    }
+    if (response == 3) {
+        editorUi->replace_all_again();
+        return;
+    }
+    editorUi->hide_replace();
+}
+
 Ui::Ui(Editor *editor) {
     long i;
 
@@ -194,6 +216,18 @@ Ui::Ui(Editor *editor) {
     marginEntry = nullptr;
     files = nullptr;
     fonts = nullptr;
+    searchBack = 0;
+    searchWhole = 0;
+    searchCase = 0;
+    searchMenu = 0;
+    searchDialog = nullptr;
+    replaceDialog = nullptr;
+    searchEntry = nullptr;
+    replaceFind = nullptr;
+    replaceWith = nullptr;
+    searchText[0] = 0;
+    replaceText[0] = 0;
+    withText[0] = 0;
     showLine = 1;
     showMargin = 0;
     showClose = 1;
@@ -204,6 +238,23 @@ Ui::Ui(Editor *editor) {
     text_copy(lineColor, 32, "#d6e4f5");
     text_copy(marginColor, 32, "#c8c8c8");
     fontDesc[0] = 0;
+    i = 0;
+    while (i < EDITOR_KEY_COUNT) {
+        const char *label;
+        const char *command;
+        const char *config;
+        const char *accel;
+
+        keyEntry[i] = nullptr;
+        key_info(
+                (int)i,
+                &label,
+                &command,
+                &config,
+                &accel);
+        text_copy(keyAccel[i], 64, accel);
+        i = i + 1;
+    }
     lastDir[0] = 0;
     i = 0;
     while (i < EDITOR_PAGES) {
@@ -228,8 +279,9 @@ Editor *Ui::editor(void) {
 }
 
 void Ui::build(void) {
-    const char *fileLabels[7];
+    const char *fileLabels[8];
     const char *editLabels[7];
+    const char *searchLabels[5];
     const char *viewLabels[1];
     Box *outer;
 
@@ -244,7 +296,13 @@ void Ui::build(void) {
     fileLabels[3] = "Save As";
     fileLabels[4] = "Save All";
     fileLabels[5] = "Close";
-    fileLabels[6] = "Quit";
+    fileLabels[6] = "Close All";
+    fileLabels[7] = "Quit";
+    searchLabels[0] = "Search";
+    searchLabels[1] = "Replace";
+    searchLabels[2] = "Reverse";
+    searchLabels[3] = "Whole word";
+    searchLabels[4] = "Match case";
     editLabels[0] = "Undo";
     editLabels[1] = "Redo";
     editLabels[2] = "Cut";
@@ -252,9 +310,17 @@ void Ui::build(void) {
     editLabels[4] = "Paste";
     editLabels[5] = "Indent";
     editLabels[6] = "Unindent";
-    menuBar->add_menu("File", fileLabels, 7, ui_menu, nullptr);
+    menuBar->add_menu("File", fileLabels, 8, ui_menu, nullptr);
     menuBar->add_menu("Edit", editLabels, 7, ui_menu, nullptr);
-    menuBar->add_menu("Search", nullptr, 0, ui_menu, nullptr);
+    searchMenu = menuBar->add_menu(
+            "Search",
+            searchLabels,
+            5,
+            ui_menu,
+            nullptr);
+    menuBar->set_check(searchMenu, 2, 0);
+    menuBar->set_check(searchMenu, 3, 0);
+    menuBar->set_check(searchMenu, 4, 0);
     viewLabels[0] = "Settings";
     menuBar->add_menu("View", viewLabels, 1, ui_menu, nullptr);
     documentsMenu = menuBar->add_menu(
@@ -276,42 +342,7 @@ void Ui::build(void) {
     outer->append((Widget *)book);
     outer->append((Widget *)status);
     mainWindow->set_child((Widget *)outer);
-    mainWindow->add_shortcut("<Control>o", ui_key, (void *)"Open");
-    mainWindow->add_shortcut("<Control>s", ui_key, (void *)"Save");
-    mainWindow->add_shortcut(
-            "<Control><Shift>s",
-            ui_key,
-            (void *)"Save As");
-    mainWindow->add_shortcut(
-            "<Control><Shift>l",
-            ui_key,
-            (void *)"Save All");
-    mainWindow->add_shortcut("<Control>c", ui_key, (void *)"Copy");
-    mainWindow->add_shortcut("<Control>x", ui_key, (void *)"Cut");
-    mainWindow->add_shortcut("<Control>v", ui_key, (void *)"Paste");
-    mainWindow->add_shortcut("<Control>z", ui_key, (void *)"Undo");
-    mainWindow->add_shortcut(
-            "<Control><Shift>z",
-            ui_key,
-            (void *)"Redo");
-    mainWindow->add_shortcut("<Control>y", ui_key, (void *)"Redo");
-    mainWindow->add_shortcut(
-            "<Control>bracketright",
-            ui_key,
-            (void *)"Indent");
-    mainWindow->add_shortcut(
-            "<Control>bracketleft",
-            ui_key,
-            (void *)"Unindent");
-    mainWindow->add_shortcut("Tab", ui_key, (void *)"Indent");
-    mainWindow->add_shortcut(
-            "<Shift>Tab",
-            ui_key,
-            (void *)"Unindent");
-    mainWindow->add_shortcut(
-            "ISO_Left_Tab",
-            ui_key,
-            (void *)"Unindent");
+    bind_keys();
     files = new FileDialog();
     files->set_parent(mainWindow);
     fonts = new FontDialog();
@@ -946,6 +977,317 @@ void Ui::hide_settings(void) {
     settingsDialog->set_visible(false);
 }
 
+void Ui::bind_keys(void) {
+    int n;
+
+    if (mainWindow == nullptr)
+        return;
+    mainWindow->clear_shortcuts();
+    n = 0;
+    while (n < EDITOR_KEY_COUNT) {
+        const char *label;
+        const char *command;
+        const char *config;
+        const char *accel;
+        long menu;
+        long item;
+
+        key_info(n, &label, &command, &config, &accel);
+        (void)command;
+        (void)config;
+        (void)accel;
+        if (keyAccel[n][0] != 0
+                && mainWindow->shortcut_ok(keyAccel[n]) == 1)
+            mainWindow->add_shortcut(
+                    keyAccel[n],
+                    ui_key,
+                    (void *)label);
+        if (menuBar != nullptr
+                && key_place(n, &menu, &item) == 1)
+            menuBar->set_shortcut(menu, item, keyAccel[n]);
+        n = n + 1;
+    }
+    mainWindow->add_shortcut(
+            "<Control><Shift>z",
+            ui_key,
+            (void *)"Redo");
+    mainWindow->add_shortcut("Tab", ui_key, (void *)"Indent");
+    mainWindow->add_shortcut(
+            "<Shift>Tab",
+            ui_key,
+            (void *)"Unindent");
+    mainWindow->add_shortcut(
+            "ISO_Left_Tab",
+            ui_key,
+            (void *)"Unindent");
+}
+
+void Ui::read_keys(void) {
+    int n;
+
+    n = 0;
+    while (n < EDITOR_KEY_COUNT) {
+        const char *text;
+
+        if (keyEntry[n] == nullptr) {
+            n = n + 1;
+            continue;
+        }
+        text = keyEntry[n]->text();
+        if (text == nullptr)
+            text = "";
+        if (text[0] == 0) {
+            keyAccel[n][0] = 0;
+            n = n + 1;
+            continue;
+        }
+        if (mainWindow != nullptr
+                && mainWindow->shortcut_ok(text) == 0) {
+            keyEntry[n]->set_text(keyAccel[n]);
+            n = n + 1;
+            continue;
+        }
+        text_copy(keyAccel[n], 64, text);
+        n = n + 1;
+    }
+}
+
+static void search_flags(
+        int match,
+        int word,
+        int scope,
+        int back,
+        bool *matchCase,
+        bool *whole,
+        bool *inSel,
+        bool *backward) {
+    *matchCase = false;
+    *whole = false;
+    *inSel = false;
+    *backward = false;
+    if (match != 0)
+        *matchCase = true;
+    if (word != 0)
+        *whole = true;
+    if (scope != 0)
+        *inSel = true;
+    if (back != 0)
+        *backward = true;
+}
+
+void Ui::find_query(const char *query) {
+    EditBuffer *buffer;
+    bool matchCase;
+    bool whole;
+    bool inSel;
+    bool backward;
+
+    if (query == nullptr)
+        query = "";
+    text_copy(searchText, 256, query);
+    if (searchEntry != nullptr)
+        searchEntry->set_text(searchText);
+    if (searchText[0] == 0)
+        return;
+    if (state == nullptr || state->active() == nullptr)
+        return;
+    take_selection();
+    buffer = state->active()->buffer();
+    buffer->limit_scope();
+    search_flags(
+            searchCase,
+            searchWhole,
+            0,
+            searchBack,
+            &matchCase,
+            &whole,
+            &inSel,
+            &backward);
+    if (buffer->scope_active() == true)
+        inSel = true;
+    buffer->find_next(
+            searchText,
+            matchCase,
+            whole,
+            inSel,
+            backward);
+    refresh();
+}
+
+void Ui::find_again(void) {
+    if (searchEntry != nullptr)
+        text_copy(searchText, 256, searchEntry->text());
+    find_query(searchText);
+}
+
+void Ui::replace_query(const char *query, const char *repl) {
+    EditBuffer *buffer;
+    bool matchCase;
+    bool whole;
+    bool inSel;
+    bool backward;
+
+    if (query == nullptr)
+        query = "";
+    if (repl == nullptr)
+        repl = "";
+    text_copy(replaceText, 256, query);
+    text_copy(withText, 256, repl);
+    if (replaceFind != nullptr)
+        replaceFind->set_text(replaceText);
+    if (replaceWith != nullptr)
+        replaceWith->set_text(withText);
+    if (replaceText[0] == 0)
+        return;
+    if (state == nullptr || state->active() == nullptr)
+        return;
+    take_selection();
+    buffer = state->active()->buffer();
+    buffer->limit_scope();
+    search_flags(
+            searchCase,
+            searchWhole,
+            0,
+            searchBack,
+            &matchCase,
+            &whole,
+            &inSel,
+            &backward);
+    if (buffer->scope_active() == true)
+        inSel = true;
+    buffer->replace_next(
+            replaceText,
+            withText,
+            matchCase,
+            whole,
+            inSel,
+            backward);
+    refresh();
+}
+
+void Ui::replace_every(const char *query, const char *repl) {
+    EditBuffer *buffer;
+    bool matchCase;
+    bool whole;
+    bool inSel;
+    bool backward;
+
+    if (query == nullptr)
+        query = "";
+    if (repl == nullptr)
+        repl = "";
+    text_copy(replaceText, 256, query);
+    text_copy(withText, 256, repl);
+    if (replaceText[0] == 0)
+        return;
+    if (state == nullptr || state->active() == nullptr)
+        return;
+    take_selection();
+    buffer = state->active()->buffer();
+    buffer->limit_scope();
+    search_flags(
+            searchCase,
+            searchWhole,
+            0,
+            searchBack,
+            &matchCase,
+            &whole,
+            &inSel,
+            &backward);
+    if (buffer->scope_active() == true)
+        inSel = true;
+    (void)backward;
+    buffer->replace_all(
+            replaceText,
+            withText,
+            matchCase,
+            whole,
+            inSel);
+    refresh();
+}
+
+void Ui::replace_again(void) {
+    if (replaceFind != nullptr)
+        text_copy(replaceText, 256, replaceFind->text());
+    if (replaceWith != nullptr)
+        text_copy(withText, 256, replaceWith->text());
+    replace_query(replaceText, withText);
+}
+
+void Ui::replace_all_again(void) {
+    if (replaceFind != nullptr)
+        text_copy(replaceText, 256, replaceFind->text());
+    if (replaceWith != nullptr)
+        text_copy(withText, 256, replaceWith->text());
+    replace_every(replaceText, withText);
+}
+
+void Ui::hide_search(void) {
+    if (searchDialog == nullptr)
+        return;
+    searchDialog->set_visible(false);
+}
+
+void Ui::hide_replace(void) {
+    if (replaceDialog == nullptr)
+        return;
+    replaceDialog->set_visible(false);
+}
+
+void Ui::show_search(void) {
+    Box *box;
+    Label *label;
+
+    if (searchDialog == nullptr) {
+        searchDialog = new Dialog("Search");
+        searchDialog->set_transient(mainWindow);
+        box = new Box(GTK_VERTICAL, 8);
+        label = new Label("Find");
+        searchEntry = new Entry(searchText);
+        box->append((Widget *)label);
+        box->append((Widget *)searchEntry);
+        searchDialog->set_content((Widget *)box);
+        searchDialog->add_button("Find", 2);
+        searchDialog->add_button("Close", 1);
+        searchDialog->on_response(ui_search_response, nullptr);
+    }
+    if (searchEntry != nullptr)
+        searchEntry->set_text(searchText);
+    searchDialog->present();
+}
+
+void Ui::show_replace(void) {
+    Box *box;
+    Label *findLabel;
+    Label *withLabel;
+
+    if (replaceDialog == nullptr) {
+        replaceDialog = new Dialog("Replace");
+        replaceDialog->set_transient(mainWindow);
+        box = new Box(GTK_VERTICAL, 8);
+        findLabel = new Label("Find");
+        withLabel = new Label("Replace with");
+        replaceFind = new Entry(replaceText);
+        replaceWith = new Entry(withText);
+        box->append((Widget *)findLabel);
+        box->append((Widget *)replaceFind);
+        box->append((Widget *)withLabel);
+        box->append((Widget *)replaceWith);
+        replaceDialog->set_content((Widget *)box);
+        replaceDialog->add_button("Replace", 2);
+        replaceDialog->add_button("Replace All", 3);
+        replaceDialog->add_button("Close", 1);
+        replaceDialog->on_response(
+                ui_replace_response,
+                nullptr);
+    }
+    if (replaceFind != nullptr)
+        replaceFind->set_text(replaceText);
+    if (replaceWith != nullptr)
+        replaceWith->set_text(withText);
+    replaceDialog->present();
+}
+
 static int safe_color(const char *text) {
     long i;
     char ch;
@@ -1059,6 +1401,19 @@ void Ui::use_config(EditorConfig *item) {
     set_margin_color(item->marginColor);
     if (item->font[0] != 0)
         choose_font(item->font);
+    {
+        int n;
+
+        n = 0;
+        while (n < EDITOR_KEY_COUNT) {
+            text_copy(keyAccel[n], 64, item->accel[n]);
+            if (keyEntry[n] != nullptr)
+                keyEntry[n]->set_text(keyAccel[n]);
+            n = n + 1;
+        }
+    }
+    if (mainWindow != nullptr)
+        bind_keys();
 }
 
 void Ui::load_settings(void) {
@@ -1089,6 +1444,16 @@ void Ui::apply_settings(void) {
     text_copy(item.lineColor, 32, lineColor);
     text_copy(item.marginColor, 32, marginColor);
     text_copy(item.font, 128, fontDesc);
+    read_keys();
+    {
+        int n;
+
+        n = 0;
+        while (n < EDITOR_KEY_COUNT) {
+            text_copy(item.accel[n], 64, keyAccel[n]);
+            n = n + 1;
+        }
+    }
     if (bracketCheck != nullptr) {
         if (bracketCheck->active() == true)
             item.brackets = 1;
@@ -1126,15 +1491,20 @@ void Ui::apply_settings(void) {
 
 void Ui::show_settings(void) {
     Box *box;
+    Box *keys;
+    Notebook *pages;
     Button *fontButton;
     Label *tabLabel;
     Label *lineLabel;
     Label *marginLabel;
+    int n;
 
     if (settingsDialog == nullptr) {
         settingsDialog = new Dialog("Settings");
         settingsDialog->set_transient(mainWindow);
+        pages = new Notebook();
         box = new Box(GTK_VERTICAL, 8);
+        keys = new Box(GTK_VERTICAL, 4);
         bracketCheck = new CheckButton("Close brackets");
         indentCheck = new CheckButton("Indent a new line");
         spacesCheck = new CheckButton("Indent with spaces");
@@ -1186,7 +1556,31 @@ void Ui::show_settings(void) {
         box->append((Widget *)marginEntry);
         box->append((Widget *)closeCheck);
         box->append((Widget *)fontButton);
-        settingsDialog->set_content((Widget *)box);
+        n = 0;
+        while (n < EDITOR_KEY_COUNT) {
+            const char *label;
+            const char *command;
+            const char *config;
+            const char *accel;
+            Label *name;
+            Entry *entry;
+
+            key_info(
+                    n,
+                    &label,
+                    &command,
+                    &config,
+                    &accel);
+            name = new Label(label);
+            entry = new Entry(keyAccel[n]);
+            keyEntry[n] = entry;
+            keys->append((Widget *)name);
+            keys->append((Widget *)entry);
+            n = n + 1;
+        }
+        pages->append_page((Widget *)box, "General");
+        pages->append_page((Widget *)keys, "Keyboard");
+        settingsDialog->set_content((Widget *)pages);
         settingsDialog->add_button("Apply", 2);
         settingsDialog->add_button("Close", 1);
         settingsDialog->on_response(
@@ -1219,6 +1613,12 @@ void Ui::show_settings(void) {
         closeCheck->set_active(true);
     tabSpin->set_value((double)state->tab_width());
     marginSpin->set_value((double)marginCols);
+    n = 0;
+    while (n < EDITOR_KEY_COUNT) {
+        if (keyEntry[n] != nullptr)
+            keyEntry[n]->set_text(keyAccel[n]);
+        n = n + 1;
+    }
     settingsDialog->present();
 }
 
@@ -1247,6 +1647,30 @@ void Ui::on_menu(const char *label) {
     }
     if (text_same(label, "Close") == 1) {
         handle(state->run("close"));
+        return;
+    }
+    if (text_same(label, "Close All") == 1) {
+        handle(state->run("close-all"));
+        return;
+    }
+    if (text_same(label, "Search") == 1) {
+        show_search();
+        return;
+    }
+    if (text_same(label, "Replace") == 1) {
+        show_replace();
+        return;
+    }
+    if (text_same(label, "Reverse") == 1) {
+        searchBack = menuBar->is_checked(searchMenu, 2);
+        return;
+    }
+    if (text_same(label, "Whole word") == 1) {
+        searchWhole = menuBar->is_checked(searchMenu, 3);
+        return;
+    }
+    if (text_same(label, "Match case") == 1) {
+        searchCase = menuBar->is_checked(searchMenu, 4);
         return;
     }
     if (text_same(label, "Settings") == 1) {

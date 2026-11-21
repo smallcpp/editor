@@ -65,7 +65,15 @@ Discard drops it. The last document, when closed, is replaced by
 a fresh untitled buffer.
 
 Edit covers Undo, Redo, Cut, Copy, Paste, Indent, and Unindent.
-Search is present and has no commands. View opens Settings.
+Search has Search, Replace, Reverse, Whole word, and Match
+case. The last three are check items. Search and Replace open
+dialogs and stay open while finding. A selection that spans
+lines is the only range that is searched. File includes Close
+All, which closes every document and leaves one untitled
+buffer. Each command shows its accelerator. View opens
+Settings. Settings has a General page and a Keyboard page.
+Keyboard edits those accelerators. Apply stores them in
+`editor.ini` and leaves the dialog open.
 Copy and cut read the selection in the text view. Indent,
 unindent, and Tab follow the indent settings. The default is
 spaces, and one indent is four spaces. Settings can switch to
@@ -88,10 +96,15 @@ is painted at its character column, so a multibyte character does
 not shift a later color. Undo and redo put the caret back on the
 edited spot and scroll that spot into view.
 
-Keys: Ctrl+O opens, Ctrl+S saves, Ctrl+Shift+S saves as,
-Ctrl+Shift+L saves all, Ctrl+Z undoes, Ctrl+Shift+Z and Ctrl+Y
-redo, Ctrl+X cuts, Ctrl+C copies, Ctrl+V pastes, Tab and
-Ctrl+] indent, and Shift+Tab and Ctrl+[ unindent. Ctrl+S runs
+Keys: Ctrl+N creates a document, Ctrl+O opens, Ctrl+S saves,
+Ctrl+Shift+S saves as, Ctrl+Shift+L saves all, Ctrl+W closes,
+Ctrl+Shift+W closes all, Ctrl+Q quits, Ctrl+Z undoes,
+Ctrl+Shift+Z and Ctrl+Y redo, Ctrl+X cuts, Ctrl+C copies,
+Ctrl+V pastes, Tab and Ctrl+] indent, and Shift+Tab and
+Ctrl+[ unindent. Ctrl+F searches and Ctrl+H replaces. The
+menus show the same accelerators. The Keyboard page can
+change each one. Tab, Shift+Tab, and Ctrl+Shift+Z stay bound
+as well. Ctrl+S runs
 after the key handler returns, so the save dialog is not opened
 inside that handler. Quit
 destroys the window and leaves the process, including when a
