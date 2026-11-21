@@ -76,16 +76,29 @@ Settings and then offers Whitespace, Line ends,
 and Indent stops. Whitespace draws a dot for each space and
 a line for each tab. Line ends draws a mark after each line.
 Indent stops draws a line at each tab stop inside the
-leading indent. Settings has a General page and a Keyboard
-page, and the tabs sit on the left. General also holds the
-search options and those three view options. Keyboard is a
+leading indent. Settings has General, Search, View, and
+Keyboard pages, and the tabs sit on the left. Search holds
+Wrap, Reverse, Whole word, and Match case. View holds
+Whitespace, Line ends, Indent stops, and Remember files.
+Remember files is off until it is turned on. General
+also holds how many recent files to keep. The count
+starts at 10. Keyboard is a
 grid of the command and its accelerator. Click a shortcut,
 press the new keys, and Escape cancels. A shortcut that
 another command already uses is refused, and the page names
 that command. Apply does not write a duplicate. The notebook
 and its pages grow and shrink with the dialog. Apply stores
 them in
-`editor.ini` and leaves the dialog open.
+`editor.ini` and leaves the dialog open. The same file
+stores the window width and height. The next start uses
+that size, and a first run with no saved size uses the
+usual size. Open Recent sits with Open and lists the
+newest files first, up to the saved count. Choosing one
+opens it. When Remember files is on, the named files and
+the active file are opened again next time. Untitled
+buffers are left out. Document tabs stay inside the
+window. Left and right buttons scroll them. The close
+mark and the tab border stay.
 Copy and cut read the selection in the text view. Indent,
 unindent, and Tab follow the indent settings. The default is
 spaces, and one indent is four spaces. Settings can switch to

@@ -46,6 +46,16 @@ void ui_key_click(void *data) {
     editorUi->arm_key(*slot);
 }
 
+void ui_recent(void *data, const char *path) {
+    (void)data;
+    editorUi->open_path(path);
+}
+
+void ui_resized(void *data, long width, long height) {
+    (void)data;
+    editorUi->note_size(width, height);
+}
+
 int ui_key_press(void *data, const char *accel, int escape) {
     (void)data;
     return editorUi->take_key(accel, escape);
@@ -247,8 +257,21 @@ Ui::Ui(Editor *editor) {
     showSpace = 0;
     showEnds = 0;
     showStops = 0;
+    fileMenu = 0;
     searchMenu = 0;
     viewMenu = 0;
+    rememberCheck = nullptr;
+    recentSpin = nullptr;
+    windowWidth = 0;
+    windowHeight = 0;
+    sizeSeen = 0;
+    seenWidth = 0;
+    seenHeight = 0;
+    rememberFiles = 0;
+    recentCount = 10;
+    recentUsed = 0;
+    openCount = 0;
+    activePath[0] = 0;
     wrapCheck = nullptr;
     backCheck = nullptr;
     wholeCheck = nullptr;
@@ -320,27 +343,34 @@ Editor *Ui::editor(void) {
 }
 
 void Ui::build(void) {
-    const char *fileLabels[8];
+    const char *fileLabels[9];
     const char *editLabels[7];
     const char *searchLabels[6];
-    const char *viewLabels[4];
+    const char *viewLabels[5];
     long fileMenu;
     long editMenu;
     Box *outer;
 
     app = new Application("org.smallcpp.Editor");
     mainWindow = new Window("editor");
-    mainWindow->set_default_size(880, 640);
+    if (windowWidth >= 100 && windowHeight >= 100)
+        mainWindow->set_default_size(
+                windowWidth,
+                windowHeight);
+    else
+        mainWindow->set_default_size(880, 640);
+    mainWindow->on_resize(ui_resized, nullptr);
     mainWindow->on_close_request(ui_close, nullptr);
     menuBar = new MenuBar();
     fileLabels[0] = "New";
     fileLabels[1] = "Open";
-    fileLabels[2] = "Save";
-    fileLabels[3] = "Save As";
-    fileLabels[4] = "Save All";
-    fileLabels[5] = "Close";
-    fileLabels[6] = "Close All";
-    fileLabels[7] = "Quit";
+    fileLabels[2] = "Open Recent";
+    fileLabels[3] = "Save";
+    fileLabels[4] = "Save As";
+    fileLabels[5] = "Save All";
+    fileLabels[6] = "Close";
+    fileLabels[7] = "Close All";
+    fileLabels[8] = "Quit";
     searchLabels[0] = "Search";
     searchLabels[1] = "Replace";
     searchLabels[2] = "Reverse";
@@ -351,6 +381,7 @@ void Ui::build(void) {
     viewLabels[1] = "Whitespace";
     viewLabels[2] = "Line ends";
     viewLabels[3] = "Indent stops";
+    viewLabels[4] = "Remember files";
     editLabels[0] = "Undo";
     editLabels[1] = "Redo";
     editLabels[2] = "Cut";
@@ -361,7 +392,7 @@ void Ui::build(void) {
     fileMenu = menuBar->add_menu(
             "File",
             fileLabels,
-            8,
+            9,
             ui_menu,
             nullptr);
     editMenu = menuBar->add_menu(
@@ -379,12 +410,12 @@ void Ui::build(void) {
     viewMenu = menuBar->add_menu(
             "View",
             viewLabels,
-            4,
+            5,
             ui_menu,
             nullptr);
-    menuBar->set_separator(fileMenu, 2);
-    menuBar->set_separator(fileMenu, 5);
-    menuBar->set_separator(fileMenu, 7);
+    menuBar->set_separator(fileMenu, 3);
+    menuBar->set_separator(fileMenu, 6);
+    menuBar->set_separator(fileMenu, 8);
     menuBar->set_separator(editMenu, 2);
     menuBar->set_separator(editMenu, 5);
     menuBar->set_separator(searchMenu, 2);
@@ -398,6 +429,7 @@ void Ui::build(void) {
     outer = new Box(GTK_VERTICAL, 0);
     outer->append((Widget *)menuBar);
     book = new Notebook();
+    book->set_scrollable(true);
     book->add_css("tab { border: 1px solid #222222; }");
     book->add_css("tab { margin: 2px; padding: 2px 6px; }");
     book->add_css("tab { background-color: #f4f4f4; }");
@@ -419,12 +451,25 @@ void Ui::build(void) {
     choiceDialog->add_button("Discard", EDITOR_DISCARD);
     choiceDialog->add_button("Cancel", EDITOR_CANCEL);
     choiceDialog->on_response(ui_choice_response, nullptr);
+    show_recent();
 }
 
 void Ui::prepare(void) {
+    int named;
+
     if (app != nullptr)
         return;
+    named = 0;
+    if (state->count() > 1)
+        named = 1;
+    if (state->count() == 1
+            && state->at(0)->untitled() == 0)
+        named = 1;
     build();
+    if (named == 0 && rememberFiles == 1 && openCount > 0)
+        restore_files();
+    else
+        note_loaded();
     refresh();
 }
 
@@ -803,15 +848,22 @@ void Ui::handle(int code) {
 }
 
 void Ui::open_path(const char *path) {
+    int code;
+
     if (leaving == 1)
         return;
     if (path == nullptr || path[0] == 0)
         return;
     note_folder(path);
-    handle(state->open_file(path));
+    code = state->open_file(path);
+    if (code == EDITOR_OK)
+        note_recent(path);
+    handle(code);
 }
 
 void Ui::save_path(const char *path) {
+    int code;
+
     if (leaving == 1)
         return;
     if (path == nullptr || path[0] == 0) {
@@ -821,7 +873,10 @@ void Ui::save_path(const char *path) {
     note_folder(path);
     pendingPath = new String();
     pendingPath->append(path);
-    handle(state->provide_path(path));
+    code = state->provide_path(path);
+    if (code == EDITOR_OK)
+        note_recent(path);
+    handle(code);
 }
 
 void Ui::choice(int response) {
@@ -1064,6 +1119,9 @@ void Ui::sync_boxes(void) {
     set_box(spaceCheck, showSpace);
     set_box(endCheck, showEnds);
     set_box(stopCheck, showStops);
+    set_box(rememberCheck, rememberFiles);
+    if (recentSpin != nullptr)
+        recentSpin->set_value((double)recentCount);
     applying = 0;
     i = 0;
     while (i < pageCount) {
@@ -1082,6 +1140,7 @@ void Ui::push_options(void) {
         menuBar->set_check(viewMenu, 1, showSpace);
         menuBar->set_check(viewMenu, 2, showEnds);
         menuBar->set_check(viewMenu, 3, showStops);
+        menuBar->set_check(viewMenu, 4, rememberFiles);
     }
     applying = 0;
     sync_boxes();
@@ -1111,6 +1170,8 @@ void Ui::set_option(const char *label, int on) {
         showEnds = value;
     if (text_same(label, "Indent stops") == 1)
         showStops = value;
+    if (text_same(label, "Remember files") == 1)
+        rememberFiles = value;
     push_options();
 }
 
@@ -1744,6 +1805,13 @@ void ui_tab_spin(void *data) {
     editorUi->set_width((int)spin->value());
 }
 
+void ui_recent_spin(void *data) {
+    SpinButton *spin;
+
+    spin = (SpinButton *)data;
+    editorUi->set_recent_count((int)spin->value());
+}
+
 void ui_margin_spin(void *data) {
     SpinButton *spin;
 
@@ -1801,6 +1869,33 @@ void Ui::use_config(EditorConfig *item) {
     showSpace = item->showSpace;
     showEnds = item->showEnds;
     showStops = item->showStops;
+    windowWidth = item->windowWidth;
+    windowHeight = item->windowHeight;
+    rememberFiles = item->rememberFiles;
+    recentCount = item->recentCount;
+    recentUsed = item->recentUsed;
+    openCount = item->openCount;
+    text_copy(activePath, EDITOR_PATH, item->activePath);
+    {
+        int i;
+
+        i = 0;
+        while (i < recentUsed && i < EDITOR_RECENT_MAX) {
+            text_copy(
+                    recentPath[i],
+                    EDITOR_PATH,
+                    item->recentPath[i]);
+            i = i + 1;
+        }
+        i = 0;
+        while (i < openCount && i < EDITOR_OPEN_MAX) {
+            text_copy(
+                    openPath[i],
+                    EDITOR_PATH,
+                    item->openPath[i]);
+            i = i + 1;
+        }
+    }
     {
         int n;
 
@@ -1853,6 +1948,10 @@ void Ui::apply_settings(void) {
     item.showSpace = showSpace;
     item.showEnds = showEnds;
     item.showStops = showStops;
+    item.rememberFiles = rememberFiles;
+    item.recentCount = recentCount;
+    item.windowWidth = windowWidth;
+    item.windowHeight = windowHeight;
     if (wrapCheck != nullptr) {
         if (wrapCheck->active() == true)
             item.searchWrap = 1;
@@ -1938,6 +2037,41 @@ void Ui::apply_settings(void) {
         text_copy(item.lineColor, 32, lineEntry->text());
         text_copy(item.marginColor, 32, marginEntry->text());
     }
+    if (recentSpin != nullptr)
+        item.recentCount = (int)recentSpin->value();
+    if (rememberCheck != nullptr) {
+        if (rememberCheck->active() == true)
+            item.rememberFiles = 1;
+        else
+            item.rememberFiles = 0;
+    }
+    recentCount = item.recentCount;
+    rememberFiles = item.rememberFiles;
+    if (recentCount < 1)
+        recentCount = 1;
+    if (recentCount > EDITOR_RECENT_MAX)
+        recentCount = EDITOR_RECENT_MAX;
+    item.recentCount = recentCount;
+    item.rememberFiles = rememberFiles;
+    item.recentUsed = recentUsed;
+    if (item.recentUsed > item.recentCount)
+        item.recentUsed = item.recentCount;
+    {
+        int i;
+
+        i = 0;
+        while (i < item.recentUsed) {
+            text_copy(
+                    item.recentPath[i],
+                    EDITOR_PATH,
+                    recentPath[i]);
+            i = i + 1;
+        }
+    }
+    item.openCount = 0;
+    item.activePath[0] = 0;
+    if (rememberFiles == 1)
+        collect_open(&item);
     use_config(&item);
     if (config_path(path, EDITOR_PATH) == 1)
         config_write(path, &item);
@@ -1945,8 +2079,8 @@ void Ui::apply_settings(void) {
 
 void Ui::show_settings(void) {
     Box *box;
-    Box *side;
-    Box *row;
+    Box *search;
+    Box *view;
     Grid *keys;
     Notebook *pages;
     ScrolledWindow *scroll;
@@ -2014,9 +2148,18 @@ void Ui::show_settings(void) {
         box->append((Widget *)marginLabel);
         box->append((Widget *)marginEntry);
         box->append((Widget *)closeCheck);
+        box->append((Widget *)new Label("Recent files"));
+        recentSpin = new SpinButton(1, 32, 10);
+        recentSpin->on_changed(
+                ui_recent_spin,
+                (void *)recentSpin);
+        box->append((Widget *)recentSpin);
         box->append((Widget *)fontButton);
-        side = new Box(GTK_VERTICAL, 8);
-        side->append((Widget *)new Label("Search"));
+        box->set_h_expand(true);
+        box->set_v_expand(true);
+        search = new Box(GTK_VERTICAL, 8);
+        search->set_h_expand(true);
+        search->set_v_expand(true);
         wrapCheck = new CheckButton("Wrap");
         backCheck = new CheckButton("Reverse");
         wholeCheck = new CheckButton("Whole word");
@@ -2029,11 +2172,13 @@ void Ui::show_settings(void) {
         caseCheck->on_toggled(
                 ui_option,
                 (void *)"Match case");
-        side->append((Widget *)wrapCheck);
-        side->append((Widget *)backCheck);
-        side->append((Widget *)wholeCheck);
-        side->append((Widget *)caseCheck);
-        side->append((Widget *)new Label("View"));
+        search->append((Widget *)wrapCheck);
+        search->append((Widget *)backCheck);
+        search->append((Widget *)wholeCheck);
+        search->append((Widget *)caseCheck);
+        view = new Box(GTK_VERTICAL, 8);
+        view->set_h_expand(true);
+        view->set_v_expand(true);
         spaceCheck = new CheckButton("Whitespace");
         endCheck = new CheckButton("Line ends");
         stopCheck = new CheckButton("Indent stops");
@@ -2046,14 +2191,14 @@ void Ui::show_settings(void) {
         stopCheck->on_toggled(
                 ui_option,
                 (void *)"Indent stops");
-        side->append((Widget *)spaceCheck);
-        side->append((Widget *)endCheck);
-        side->append((Widget *)stopCheck);
-        row = new Box(GTK_HORIZONTAL, 16);
-        row->set_h_expand(true);
-        row->set_v_expand(true);
-        row->append((Widget *)box);
-        row->append((Widget *)side);
+        view->append((Widget *)spaceCheck);
+        view->append((Widget *)endCheck);
+        view->append((Widget *)stopCheck);
+        rememberCheck = new CheckButton("Remember files");
+        rememberCheck->on_toggled(
+                ui_option,
+                (void *)"Remember files");
+        view->append((Widget *)rememberCheck);
         keyHelp = new Label(key_help());
         keyState = new Label("");
         keys->attach((Widget *)keyHelp, 0, 0, 2, 1);
@@ -2110,7 +2255,9 @@ void Ui::show_settings(void) {
         pages->set_v_expand(true);
         keys->set_h_expand(true);
         keys->set_v_expand(true);
-        pages->append_page((Widget *)row, "General");
+        pages->append_page((Widget *)box, "General");
+        pages->append_page((Widget *)search, "Search");
+        pages->append_page((Widget *)view, "View");
         pages->append_page((Widget *)keys, "Keyboard");
         scroll = new ScrolledWindow();
         scroll->set_h_expand(true);
@@ -2154,6 +2301,8 @@ void Ui::show_settings(void) {
     else
         closeCheck->set_active(true);
     tabSpin->set_value((double)state->tab_width());
+    if (recentSpin != nullptr)
+        recentSpin->set_value((double)recentCount);
     marginSpin->set_value((double)marginCols);
     n = 0;
     while (n < EDITOR_KEY_COUNT) {
@@ -2240,6 +2389,11 @@ void Ui::on_menu(const char *label) {
     }
     if (text_same(label, "Indent stops") == 1) {
         showStops = menuBar->is_checked(viewMenu, 3);
+        sync_boxes();
+        return;
+    }
+    if (text_same(label, "Remember files") == 1) {
+        rememberFiles = menuBar->is_checked(viewMenu, 4);
         sync_boxes();
         return;
     }
@@ -2473,9 +2627,250 @@ void Ui::note_folder(const char *path) {
     hasLastDir = 1;
 }
 
-void Ui::leave(void) {
+void Ui::note_size(long width, long height) {
     if (leaving == 1)
         return;
+    if (width < 100 || height < 100)
+        return;
+    if (sizeSeen == 0) {
+        sizeSeen = 1;
+        seenWidth = (int)width;
+        seenHeight = (int)height;
+        return;
+    }
+    if (width == seenWidth && height == seenHeight)
+        return;
+    seenWidth = (int)width;
+    seenHeight = (int)height;
+    windowWidth = (int)width;
+    windowHeight = (int)height;
+    store_session();
+}
+
+void Ui::collect_open(EditorConfig *item) {
+    long i;
+    int n;
+
+    if (item == nullptr || state == nullptr)
+        return;
+    item->openCount = 0;
+    item->activePath[0] = 0;
+    n = 0;
+    i = 0;
+    while (i < state->count() && n < EDITOR_OPEN_MAX) {
+        Document *doc;
+
+        doc = state->at(i);
+        if (doc != nullptr
+                && doc->untitled() == 0
+                && doc->path() != nullptr
+                && doc->path()[0] != 0) {
+            text_copy(
+                    item->openPath[n],
+                    EDITOR_PATH,
+                    doc->path());
+            if (i == state->index())
+                text_copy(
+                        item->activePath,
+                        EDITOR_PATH,
+                        doc->path());
+            n = n + 1;
+        }
+        i = i + 1;
+    }
+    item->openCount = n;
+}
+
+void Ui::store_session(void) {
+    EditorConfig item;
+    char path[EDITOR_PATH];
+    int i;
+
+    config_defaults(&item);
+    if (config_path(path, EDITOR_PATH) == 0)
+        return;
+    config_read(path, &item);
+    item.windowWidth = windowWidth;
+    item.windowHeight = windowHeight;
+    item.rememberFiles = rememberFiles;
+    item.recentCount = recentCount;
+    if (item.recentCount < 1)
+        item.recentCount = 1;
+    if (item.recentCount > EDITOR_RECENT_MAX)
+        item.recentCount = EDITOR_RECENT_MAX;
+    item.recentUsed = recentUsed;
+    if (item.recentUsed > item.recentCount)
+        item.recentUsed = item.recentCount;
+    i = 0;
+    while (i < item.recentUsed) {
+        text_copy(
+                item.recentPath[i],
+                EDITOR_PATH,
+                recentPath[i]);
+        i = i + 1;
+    }
+    item.openCount = 0;
+    item.activePath[0] = 0;
+    if (rememberFiles == 1)
+        collect_open(&item);
+    config_write(path, &item);
+}
+
+void Ui::show_recent(void) {
+    const char *labels[EDITOR_RECENT_MAX];
+    int n;
+    int i;
+
+    if (menuBar == nullptr)
+        return;
+    n = recentUsed;
+    if (n > recentCount)
+        n = recentCount;
+    if (n < 0)
+        n = 0;
+    i = 0;
+    while (i < n) {
+        labels[i] = recentPath[i];
+        i = i + 1;
+    }
+    menuBar->set_submenu(
+            fileMenu,
+            2,
+            labels,
+            n,
+            ui_recent,
+            nullptr);
+}
+
+void Ui::note_recent(const char *path) {
+    char kept[EDITOR_RECENT_MAX][EDITOR_PATH];
+    int n;
+    int i;
+
+    if (path == nullptr || path[0] == 0)
+        return;
+    if (recentCount < 1)
+        recentCount = 1;
+    if (recentCount > EDITOR_RECENT_MAX)
+        recentCount = EDITOR_RECENT_MAX;
+    text_copy(kept[0], EDITOR_PATH, path);
+    n = 1;
+    i = 0;
+    while (i < recentUsed && n < recentCount) {
+        if (text_same(recentPath[i], path) == 0) {
+            text_copy(kept[n], EDITOR_PATH, recentPath[i]);
+            n = n + 1;
+        }
+        i = i + 1;
+    }
+    recentUsed = n;
+    i = 0;
+    while (i < n) {
+        text_copy(recentPath[i], EDITOR_PATH, kept[i]);
+        i = i + 1;
+    }
+    show_recent();
+    store_session();
+}
+
+void Ui::set_recent_count(int value) {
+    if (value < 1)
+        value = 1;
+    if (value > EDITOR_RECENT_MAX)
+        value = EDITOR_RECENT_MAX;
+    recentCount = value;
+    if (recentUsed > recentCount)
+        recentUsed = recentCount;
+    show_recent();
+}
+
+int Ui::recent_count(void) {
+    return recentCount;
+}
+
+const char *Ui::recent_at(int index) {
+    if (index < 0 || index >= recentUsed)
+        return "";
+    return recentPath[index];
+}
+
+int Ui::remember_on(void) {
+    return rememberFiles;
+}
+
+long Ui::window_width(void) {
+    if (mainWindow == nullptr)
+        return 0;
+    return mainWindow->width();
+}
+
+long Ui::window_height(void) {
+    if (mainWindow == nullptr)
+        return 0;
+    return mainWindow->height();
+}
+
+void Ui::restore_files(void) {
+    int i;
+    long n;
+    char active[EDITOR_PATH];
+
+    text_copy(active, EDITOR_PATH, activePath);
+    i = 0;
+    while (i < openCount && i < EDITOR_OPEN_MAX) {
+        state->open_file(openPath[i]);
+        i = i + 1;
+    }
+    if (active[0] == 0)
+        return;
+    n = 0;
+    while (n < state->count()) {
+        Document *doc;
+
+        doc = state->at(n);
+        if (doc != nullptr
+                && doc->untitled() == 0
+                && text_same(doc->path(), active) == 1) {
+            state->set_index(n);
+            return;
+        }
+        n = n + 1;
+    }
+}
+
+void Ui::note_loaded(void) {
+    long i;
+    long n;
+
+    if (state == nullptr)
+        return;
+    n = state->count();
+    i = 0;
+    while (i < n) {
+        Document *doc;
+
+        doc = state->at(i);
+        if (doc != nullptr && doc->untitled() == 0)
+            note_recent(doc->path());
+        i = i + 1;
+    }
+}
+
+void Ui::leave(void) {
+    long w;
+    long h;
+
+    if (leaving == 1)
+        return;
+    if (mainWindow != nullptr) {
+        w = mainWindow->width();
+        h = mainWindow->height();
+        if (w >= 100 && h >= 100) {
+            windowWidth = (int)w;
+            windowHeight = (int)h;
+        }
+    }
+    store_session();
     leaving = 1;
     if (settingsDialog != nullptr)
         settingsDialog->set_visible(false);

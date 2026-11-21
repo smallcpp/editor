@@ -8,6 +8,11 @@
 #include "util.shpp"
 #include "keys.shpp"
 
+enum {
+    EDITOR_OPEN_MAX = 32,
+    EDITOR_RECENT_MAX = 32
+};
+
 class EditorConfig {
 public:
     int brackets;
@@ -29,6 +34,15 @@ public:
     char marginColor[32];
     char font[128];
     char accel[EDITOR_KEY_COUNT][64];
+    int windowWidth;
+    int windowHeight;
+    int rememberFiles;
+    int recentCount;
+    int openCount;
+    int recentUsed;
+    char openPath[EDITOR_OPEN_MAX][EDITOR_PATH];
+    char recentPath[EDITOR_RECENT_MAX][EDITOR_PATH];
+    char activePath[EDITOR_PATH];
 };
 
 void config_defaults(EditorConfig *item);

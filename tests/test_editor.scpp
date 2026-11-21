@@ -262,6 +262,9 @@ int main(void) {
                 "default search key");
         expect(item.searchWrap == 1, "default wrap");
         expect(item.showSpace == 0, "default whitespace");
+        expect(item.recentCount == 10, "default recent");
+        expect(item.rememberFiles == 0, "default remember");
+        expect(item.windowWidth == 0, "default width");
         item.searchWrap = 0;
         item.showSpace = 1;
         item.showEnds = 1;
@@ -275,6 +278,24 @@ int main(void) {
         text_copy(item.lineColor, 32, "#aabbcc");
         text_copy(item.marginColor, 32, "#112233");
         text_copy(item.font, 128, "Monospace 12");
+        item.recentCount = 4;
+        item.rememberFiles = 1;
+        item.windowWidth = 700;
+        item.windowHeight = 500;
+        item.recentUsed = 1;
+        text_copy(
+                item.recentPath[0],
+                EDITOR_PATH,
+                "/tmp/a.scpp");
+        item.openCount = 1;
+        text_copy(
+                item.openPath[0],
+                EDITOR_PATH,
+                "/tmp/a.scpp");
+        text_copy(
+                item.activePath,
+                EDITOR_PATH,
+                "/tmp/a.scpp");
         expect(config_path(path, EDITOR_PATH) == 1,
                 "config path");
         expect(config_write(path, &item) == 1,
@@ -303,6 +324,20 @@ int main(void) {
         expect(back.showSpace == 1, "saved whitespace");
         expect(back.showEnds == 1, "saved line ends");
         expect(back.showStops == 1, "saved indent stops");
+        expect(back.recentCount == 4, "saved recent count");
+        expect(back.rememberFiles == 1, "saved remember");
+        expect(back.windowWidth == 700, "saved width");
+        expect(back.windowHeight == 500, "saved height");
+        expect(back.recentUsed == 1, "saved recent");
+        expect(text_same(
+                    back.recentPath[0],
+                    "/tmp/a.scpp") == 1,
+                "saved recent path");
+        expect(back.openCount == 1, "saved open");
+        expect(text_same(
+                    back.activePath,
+                    "/tmp/a.scpp") == 1,
+                "saved active");
         unlink(path);
     }
     unlink(pathA);
