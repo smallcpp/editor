@@ -39,6 +39,7 @@ public:
     int rememberFiles;
     int saveOnTab;
     int saveOnWindow;
+    int trimTrailing;
     int recentCount;
     int openCount;
     int recentUsed;

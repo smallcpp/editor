@@ -138,11 +138,11 @@ int main(void) {
             "block");
     buffer->set_text("line");
     buffer->select_all();
-    buffer->indent_lines(4, true);
+    buffer->indent_lines(4, 1);
     expect(text_same(buffer->text(), "    line") == 1,
             "indent");
     buffer->select_all();
-    buffer->outdent_lines(4, true);
+    buffer->outdent_lines(4, 1);
     expect(text_same(buffer->text(), "line") == 1, "outdent");
     buffer->set_text("abcd\nefgh\nijkl");
     buffer->select_span(1, 2, 3, 2);

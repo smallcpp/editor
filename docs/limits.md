@@ -48,11 +48,12 @@ including one `key-` accelerator for each command, the
 search options, and the view options, and leaves the dialog
 open. Close does not. The setup dialog is a notebook with
 the tabs on the left. General holds the switches. Search
-holds Wrap, Reverse, Whole word, and Match case. View
-holds Whitespace, Line ends, Indent stops, and
-Remember files. Remember files is off until it is turned
-on. General holds the recent-file count, which starts at
-10. Keyboard
+holds Wrap, Reverse, Whole word, and Match case.
+Appearance holds Whitespace, Line ends, Indent stops,
+Remember files, and Font. Remember files is off until
+it is turned on. General holds the recent-file count,
+which starts at 10, and trim trailing spaces, which is
+off. Indent width is a character count. Keyboard
 is a grid of command and shortcut. Click a shortcut, press
 the new keys, and Escape cancels. Apply refuses a shortcut
 that another command already uses. The notebook fills the

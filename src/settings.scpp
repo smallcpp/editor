@@ -25,6 +25,7 @@ void config_defaults(EditorConfig *item) {
     item->rememberFiles = 0;
     item->saveOnTab = 0;
     item->saveOnWindow = 0;
+    item->trimTrailing = 0;
     item->recentCount = 10;
     item->openCount = 0;
     item->recentUsed = 0;
@@ -177,6 +178,18 @@ static void take_line(EditorConfig *item, const char *line) {
         item->saveOnWindow = read_int(
                 value,
                 item->saveOnWindow);
+    if (key_is(line, "trim-trailing") == 1)
+        item->trimTrailing = read_int(
+                value,
+                item->trimTrailing);
+    if (key_is(line, "indent-with") == 1) {
+        if (text_same(value, "tabs") == 1)
+            item->spaces = 0;
+        else if (text_same(value, "both") == 1)
+            item->spaces = 2;
+        else if (text_same(value, "spaces") == 1)
+            item->spaces = 1;
+    }
     if (key_is(line, "recent-count") == 1)
         item->recentCount = read_int(value, item->recentCount);
     if (key_is(line, "active-path") == 1)
@@ -308,7 +321,18 @@ int config_write(
     text = new String();
     add_flag(text, "brackets", item->brackets);
     add_flag(text, "indent", item->indent);
-    add_flag(text, "spaces", item->spaces);
+    if (item->spaces == 1)
+        add_flag(text, "spaces", 1);
+    else
+        add_flag(text, "spaces", 0);
+    text->append("indent-with=");
+    if (item->spaces == 0)
+        text->append("tabs");
+    else if (item->spaces == 2)
+        text->append("both");
+    else
+        text->append("spaces");
+    text->append("\n");
     add_num(text, "tab-width", item->tabWidth);
     add_flag(text, "line-highlight", item->showLine);
     text->append("line-color=");
@@ -330,6 +354,7 @@ int config_write(
     add_flag(text, "remember-files", item->rememberFiles);
     add_flag(text, "save-on-tab", item->saveOnTab);
     add_flag(text, "save-on-window", item->saveOnWindow);
+    add_flag(text, "trim-trailing", item->trimTrailing);
     add_num(text, "recent-count", item->recentCount);
     if (item->windowWidth >= 100
             && item->windowHeight >= 100) {

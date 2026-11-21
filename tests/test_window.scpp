@@ -504,6 +504,10 @@ int main(void) {
         ui->set_option(
                 "Save when the window loses focus",
                 1);
+        ui->set_option(
+                "Trim trailing spaces on save",
+                1);
+        editor->set_indent_style(2);
         ui->on_menu("Settings");
         expect(text_has(
                     ui->key_help(),
@@ -557,11 +561,23 @@ int main(void) {
                             raw,
                             "save-on-window=1") == 1,
                         "saved save window");
+                expect(text_has(
+                            raw,
+                            "trim-trailing=1") == 1,
+                        "saved trim");
+                expect(text_has(
+                            raw,
+                            "indent-with=both") == 1,
+                        "saved both");
                 expect(text_has(raw, pathA) == 1,
                         "saved open path");
             }
             unlink(path);
         }
+        editor->set_indent_style(1);
+        ui->set_option(
+                "Trim trailing spaces on save",
+                0);
         ui->on_menu("Close");
         expect(text_has(ui->tab_text(0), "untitled") == 1,
                 "fresh tab");

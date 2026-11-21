@@ -193,12 +193,12 @@ void ui_indent(void *data, bool value) {
         editorUi->editor()->use_indent(0);
 }
 
-void ui_spaces(void *data, bool value) {
-    (void)data;
-    if (value)
-        editorUi->editor()->use_spaces(1);
-    else
-        editorUi->editor()->use_spaces(0);
+void ui_indent_kind(void *data) {
+    DropDown *drop;
+
+    drop = (DropDown *)data;
+    editorUi->editor()->set_indent_style(
+            (int)drop->selected());
 }
 
 void ui_option(void *data, bool value) {
@@ -260,7 +260,8 @@ Ui::Ui(Editor *editor) {
     settingsDialog = nullptr;
     bracketCheck = nullptr;
     indentCheck = nullptr;
-    spacesCheck = nullptr;
+    indentDrop = nullptr;
+    trimCheck = nullptr;
     lineCheck = nullptr;
     marginCheck = nullptr;
     closeCheck = nullptr;
@@ -292,6 +293,7 @@ Ui::Ui(Editor *editor) {
     rememberFiles = 0;
     saveOnTab = 0;
     saveOnWindow = 0;
+    trimOn = 0;
     listedCount = 0;
     dirtyOpen = 0;
     recentCount = 10;
@@ -370,9 +372,9 @@ Editor *Ui::editor(void) {
 
 void Ui::build(void) {
     const char *fileLabels[9];
-    const char *editLabels[7];
+    const char *editLabels[8];
     const char *searchLabels[6];
-    const char *viewLabels[5];
+    const char *viewLabels[4];
     long fileMenu;
     long editMenu;
     Box *outer;
@@ -404,11 +406,10 @@ void Ui::build(void) {
     searchLabels[3] = "Whole word";
     searchLabels[4] = "Match case";
     searchLabels[5] = "Wrap";
-    viewLabels[0] = "Settings";
-    viewLabels[1] = "Whitespace";
-    viewLabels[2] = "Line ends";
-    viewLabels[3] = "Indent stops";
-    viewLabels[4] = "Remember files";
+    viewLabels[0] = "Whitespace";
+    viewLabels[1] = "Line ends";
+    viewLabels[2] = "Indent stops";
+    viewLabels[3] = "Remember files";
     editLabels[0] = "Undo";
     editLabels[1] = "Redo";
     editLabels[2] = "Cut";
@@ -416,6 +417,7 @@ void Ui::build(void) {
     editLabels[4] = "Paste";
     editLabels[5] = "Indent";
     editLabels[6] = "Unindent";
+    editLabels[7] = "Settings";
     fileMenu = menuBar->add_menu(
             "File",
             fileLabels,
@@ -425,7 +427,7 @@ void Ui::build(void) {
     editMenu = menuBar->add_menu(
             "Edit",
             editLabels,
-            7,
+            8,
             ui_menu,
             nullptr);
     searchMenu = menuBar->add_menu(
@@ -437,7 +439,7 @@ void Ui::build(void) {
     viewMenu = menuBar->add_menu(
             "View",
             viewLabels,
-            5,
+            4,
             ui_menu,
             nullptr);
     menuBar->set_separator(fileMenu, 3);
@@ -445,8 +447,8 @@ void Ui::build(void) {
     menuBar->set_separator(fileMenu, 8);
     menuBar->set_separator(editMenu, 2);
     menuBar->set_separator(editMenu, 5);
+    menuBar->set_separator(editMenu, 7);
     menuBar->set_separator(searchMenu, 2);
-    menuBar->set_separator(viewMenu, 1);
     documentsMenu = menuBar->add_menu(
             "Documents",
             nullptr,
@@ -1225,6 +1227,7 @@ void Ui::sync_boxes(void) {
     set_box(rememberCheck, rememberFiles);
     set_box(saveTabCheck, saveOnTab);
     set_box(saveWinCheck, saveOnWindow);
+    set_box(trimCheck, trimOn);
     if (recentSpin != nullptr)
         recentSpin->set_value((double)recentCount);
     applying = 0;
@@ -1242,10 +1245,10 @@ void Ui::push_options(void) {
         menuBar->set_check(searchMenu, 3, searchWhole);
         menuBar->set_check(searchMenu, 4, searchCase);
         menuBar->set_check(searchMenu, 5, searchWrap);
-        menuBar->set_check(viewMenu, 1, showSpace);
-        menuBar->set_check(viewMenu, 2, showEnds);
-        menuBar->set_check(viewMenu, 3, showStops);
-        menuBar->set_check(viewMenu, 4, rememberFiles);
+        menuBar->set_check(viewMenu, 0, showSpace);
+        menuBar->set_check(viewMenu, 1, showEnds);
+        menuBar->set_check(viewMenu, 2, showStops);
+        menuBar->set_check(viewMenu, 3, rememberFiles);
     }
     applying = 0;
     sync_boxes();
@@ -1283,6 +1286,12 @@ void Ui::set_option(const char *label, int on) {
                 label,
                 "Save when the window loses focus") == 1)
         saveOnWindow = value;
+    if (text_same(
+                label,
+                "Trim trailing spaces on save") == 1) {
+        trimOn = value;
+        state->set_trim(value);
+    }
     push_options();
 }
 
@@ -1960,10 +1969,9 @@ void Ui::use_config(EditorConfig *item) {
         state->use_indent(0);
     else
         state->use_indent(1);
-    if (item->spaces == 0)
-        state->use_spaces(0);
-    else
-        state->use_spaces(1);
+    state->set_indent_style(item->spaces);
+    state->set_trim(item->trimTrailing);
+    trimOn = item->trimTrailing;
     state->set_tab_width(item->tabWidth);
     set_line_shown(item->showLine);
     set_margin_shown(item->showMargin);
@@ -1985,6 +1993,7 @@ void Ui::use_config(EditorConfig *item) {
     rememberFiles = item->rememberFiles;
     saveOnTab = item->saveOnTab;
     saveOnWindow = item->saveOnWindow;
+    trimOn = item->trimTrailing;
     recentCount = item->recentCount;
     recentUsed = item->recentUsed;
     openCount = item->openCount;
@@ -2048,7 +2057,8 @@ void Ui::apply_settings(void) {
     config_defaults(&item);
     item.brackets = state->uses_brackets();
     item.indent = state->uses_indent();
-    item.spaces = state->uses_spaces();
+    item.spaces = state->indent_style();
+    item.trimTrailing = state->trims();
     item.tabWidth = state->tab_width();
     item.showLine = showLine;
     item.showMargin = showMargin;
@@ -2129,10 +2139,8 @@ void Ui::apply_settings(void) {
             item.indent = 1;
         else
             item.indent = 0;
-        if (spacesCheck->active() == true)
-            item.spaces = 1;
-        else
-            item.spaces = 0;
+        if (indentDrop != nullptr)
+            item.spaces = (int)indentDrop->selected();
         if (lineCheck->active() == true)
             item.showLine = 1;
         else
@@ -2170,10 +2178,19 @@ void Ui::apply_settings(void) {
         else
             item.saveOnWindow = 0;
     }
+    if (trimCheck != nullptr) {
+        if (trimCheck->active() == true)
+            item.trimTrailing = 1;
+        else
+            item.trimTrailing = 0;
+    }
     recentCount = item.recentCount;
     rememberFiles = item.rememberFiles;
     saveOnTab = item.saveOnTab;
     saveOnWindow = item.saveOnWindow;
+    trimOn = item.trimTrailing;
+    state->set_trim(trimOn);
+    state->set_indent_style(item.spaces);
     if (recentCount < 1)
         recentCount = 1;
     if (recentCount > EDITOR_RECENT_MAX)
@@ -2182,6 +2199,8 @@ void Ui::apply_settings(void) {
     item.rememberFiles = rememberFiles;
     item.saveOnTab = saveOnTab;
     item.saveOnWindow = saveOnWindow;
+    item.trimTrailing = trimOn;
+    item.spaces = state->indent_style();
     item.recentUsed = recentUsed;
     if (item.recentUsed > item.recentCount)
         item.recentUsed = item.recentCount;
@@ -2206,6 +2225,16 @@ void Ui::apply_settings(void) {
         config_write(path, &item);
 }
 
+static Box *group_box(const char *title) {
+    Box *box;
+
+    box = new Box(GTK_VERTICAL, 6);
+    box->add_css("box { border: 1px solid #222222; }");
+    box->add_css("box { padding: 8px; }");
+    box->append((Widget *)new Label(title));
+    return box;
+}
+
 static Box *labeled_field(
         const char *label,
         Widget *field) {
@@ -2225,6 +2254,12 @@ void Ui::show_settings(void) {
     Notebook *pages;
     ScrolledWindow *scroll;
     Button *fontButton;
+    Box *indentGroup;
+    Box *lineGroup;
+    Box *marginGroup;
+    Box *saveGroup;
+    Box *markGroup;
+    const char *kinds[3];
     int n;
 
     if (settingsDialog == nullptr) {
@@ -2236,28 +2271,41 @@ void Ui::show_settings(void) {
         keys = new Grid();
         keys->set_spacing(12, 4);
         bracketCheck = new CheckButton("Close brackets");
-        indentCheck = new CheckButton("Indent a new line");
-        spacesCheck = new CheckButton("Indent with spaces");
-        lineCheck = new CheckButton("Highlight the current line");
+        indentCheck = new CheckButton("Autoindent");
+        lineCheck = new CheckButton(
+                "Highlight the current line");
         marginCheck = new CheckButton("Right column marker");
         closeCheck = new CheckButton("Tab close marks");
+        trimCheck = new CheckButton(
+                "Trim trailing spaces on save");
         tabSpin = new SpinButton(1, 32, 4);
         marginSpin = new SpinButton(1, 400, 80);
         lineEntry = new Entry(lineColor);
         marginEntry = new Entry(marginColor);
         fontButton = new Button("Font");
+        kinds[0] = "Tabs";
+        kinds[1] = "Spaces";
+        kinds[2] = "Both";
+        indentDrop = new DropDown();
+        indentDrop->set_items(kinds, 3);
+        indentDrop->set_selected(1);
         bracketCheck->set_active(true);
         indentCheck->set_active(true);
-        spacesCheck->set_active(true);
         lineCheck->set_active(true);
         marginCheck->set_active(false);
         closeCheck->set_active(true);
+        trimCheck->set_active(false);
         bracketCheck->on_toggled(ui_brackets, nullptr);
         indentCheck->on_toggled(ui_indent, nullptr);
-        spacesCheck->on_toggled(ui_spaces, nullptr);
+        indentDrop->on_changed(
+                ui_indent_kind,
+                (void *)indentDrop);
         lineCheck->on_toggled(ui_line_toggle, nullptr);
         marginCheck->on_toggled(ui_margin_toggle, nullptr);
         closeCheck->on_toggled(ui_close_toggle, nullptr);
+        trimCheck->on_toggled(
+                ui_option,
+                (void *)"Trim trailing spaces on save");
         tabSpin->on_changed(ui_tab_spin, (void *)tabSpin);
         marginSpin->on_changed(
                 ui_margin_spin,
@@ -2274,22 +2322,30 @@ void Ui::show_settings(void) {
         lineEntry->set_width_chars(12);
         marginEntry->set_width_chars(12);
         box->append((Widget *)bracketCheck);
-        box->append((Widget *)indentCheck);
-        box->append((Widget *)spacesCheck);
-        box->append((Widget *)labeled_field(
-                "Spaces per indent",
+        indentGroup = group_box("Indenting");
+        indentGroup->append((Widget *)indentCheck);
+        indentGroup->append((Widget *)labeled_field(
+                "Indent with",
+                (Widget *)indentDrop));
+        indentGroup->append((Widget *)labeled_field(
+                "Indent width",
                 (Widget *)tabSpin));
-        box->append((Widget *)lineCheck);
-        box->append((Widget *)labeled_field(
+        box->append((Widget *)indentGroup);
+        lineGroup = group_box("Current line");
+        lineGroup->append((Widget *)lineCheck);
+        lineGroup->append((Widget *)labeled_field(
                 "Current line color",
                 (Widget *)lineEntry));
-        box->append((Widget *)marginCheck);
-        box->append((Widget *)labeled_field(
+        box->append((Widget *)lineGroup);
+        marginGroup = group_box("Column marker");
+        marginGroup->append((Widget *)marginCheck);
+        marginGroup->append((Widget *)labeled_field(
                 "Columns",
                 (Widget *)marginSpin));
-        box->append((Widget *)labeled_field(
+        marginGroup->append((Widget *)labeled_field(
                 "Column marker color",
                 (Widget *)marginEntry));
+        box->append((Widget *)marginGroup);
         box->append((Widget *)closeCheck);
         recentSpin = new SpinButton(1, 32, 10);
         recentSpin->set_width_chars(12);
@@ -2309,9 +2365,11 @@ void Ui::show_settings(void) {
         saveWinCheck->on_toggled(
                 ui_option,
                 (void *)"Save when the window loses focus");
-        box->append((Widget *)saveTabCheck);
-        box->append((Widget *)saveWinCheck);
-        box->append((Widget *)fontButton);
+        saveGroup = group_box("Saving");
+        saveGroup->append((Widget *)trimCheck);
+        saveGroup->append((Widget *)saveTabCheck);
+        saveGroup->append((Widget *)saveWinCheck);
+        box->append((Widget *)saveGroup);
         box->set_h_expand(true);
         box->set_v_expand(true);
         search = new Box(GTK_VERTICAL, 8);
@@ -2352,9 +2410,18 @@ void Ui::show_settings(void) {
         stopCheck->on_toggled(
                 ui_option,
                 (void *)"Indent stops");
-        view->append((Widget *)spaceCheck);
-        view->append((Widget *)endCheck);
-        view->append((Widget *)stopCheck);
+        markGroup = group_box("Marks");
+        markGroup->append((Widget *)spaceCheck);
+        markGroup->append((Widget *)endCheck);
+        markGroup->append((Widget *)stopCheck);
+        view->append((Widget *)markGroup);
+        {
+            Box *fontGroup;
+
+            fontGroup = group_box("Font");
+            fontGroup->append((Widget *)fontButton);
+            view->append((Widget *)fontGroup);
+        }
         rememberCheck = new CheckButton("Remember files");
         rememberCheck->on_toggled(
                 ui_option,
@@ -2418,7 +2485,7 @@ void Ui::show_settings(void) {
         keys->set_v_expand(true);
         pages->append_page((Widget *)box, "General");
         pages->append_page((Widget *)search, "Search");
-        pages->append_page((Widget *)view, "View");
+        pages->append_page((Widget *)view, "Appearance");
         pages->append_page((Widget *)keys, "Keyboard");
         scroll = new ScrolledWindow();
         scroll->set_h_expand(true);
@@ -2445,10 +2512,11 @@ void Ui::show_settings(void) {
         indentCheck->set_active(false);
     else
         indentCheck->set_active(true);
-    if (state->uses_spaces() == 0)
-        spacesCheck->set_active(false);
-    else
-        spacesCheck->set_active(true);
+    if (indentDrop != nullptr)
+        indentDrop->set_selected(
+                state->indent_style());
+    if (trimCheck != nullptr)
+        set_box(trimCheck, trimOn);
     if (showLine == 0)
         lineCheck->set_active(false);
     else
@@ -2539,22 +2607,22 @@ void Ui::on_menu(const char *label) {
         return;
     }
     if (text_same(label, "Whitespace") == 1) {
-        showSpace = menuBar->is_checked(viewMenu, 1);
+        showSpace = menuBar->is_checked(viewMenu, 0);
         sync_boxes();
         return;
     }
     if (text_same(label, "Line ends") == 1) {
-        showEnds = menuBar->is_checked(viewMenu, 2);
+        showEnds = menuBar->is_checked(viewMenu, 1);
         sync_boxes();
         return;
     }
     if (text_same(label, "Indent stops") == 1) {
-        showStops = menuBar->is_checked(viewMenu, 3);
+        showStops = menuBar->is_checked(viewMenu, 2);
         sync_boxes();
         return;
     }
     if (text_same(label, "Remember files") == 1) {
-        rememberFiles = menuBar->is_checked(viewMenu, 4);
+        rememberFiles = menuBar->is_checked(viewMenu, 3);
         sync_boxes();
         return;
     }
@@ -2761,6 +2829,7 @@ void Ui::apply_view(long index) {
             pages[index].view->set_column_marker(
                     0,
                     marginColor);
+    pages[index].view->set_tab_width(state->tab_width());
     pages[index].view->set_marks(
             showSpace,
             showEnds,
@@ -2871,6 +2940,8 @@ void Ui::store_session(void) {
     item.rememberFiles = rememberFiles;
     item.saveOnTab = saveOnTab;
     item.saveOnWindow = saveOnWindow;
+    item.trimTrailing = trimOn;
+    item.spaces = state->indent_style();
     item.recentCount = recentCount;
     if (item.recentCount < 1)
         item.recentCount = 1;
