@@ -11,8 +11,8 @@ replaces the untitled buffer. Documents lists the loaded files
 and switches to the chosen one. Tabs have a border and, by
 default, a close mark. Settings can hide the close mark.
 
-Line numbers sit in the left gutter, one per text line, including
-an empty buffer. The current line is highlighted. Settings has a
+Line numbers sit in the left gutter, one per buffer line, and they
+scroll with the text. An empty buffer shows line 1. The current line is highlighted. Settings has a
 toggle and a color, and the highlight is on by default. The
 settings dialog uses the editor window as its transient parent.
 
@@ -27,6 +27,10 @@ types, and names used as calls. Other languages are unchanged.
 Quit destroys the window and leaves the process, including after
 a save dialog. Ctrl+S runs the save command after the key handler
 returns, and the file dialog uses the editor window as its parent.
+The shortcut hook stays alive after the window is built, so a
+later Ctrl+S still reaches that command. The window test builds
+the window in a function that returns, then sends Ctrl+S to a
+named dirty file and checks that the file is written.
 Every file dialog starts in the process current directory the
 first time, then in the directory last chosen. That directory is
 remembered for the session only.
