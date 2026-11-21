@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+The top of the window is a menu bar. File, Edit, Search, View,
+and Documents are submenus. File has New, Open, Save, Save As,
+Save All, Close, and Quit. Edit has Undo, Redo, Cut, Copy,
+Paste, Indent, and Unindent. Search is empty. View has
+Settings. Documents lists the open files. Open can select
+several files. Each one is opened, and the last one is the
+active tab. A new line shows its gutter number when Enter
+creates it, before any character is typed. Settings has Apply.
+Apply writes `$HOME/.config/smallcpp/editor.ini` and leaves the
+dialog open. A missing file keeps the defaults. Tabs show a
+dark border.
+
 Documents keeps underscores in a file name, so `howdy.scpp` and
 `how_dy.scpp` appear as written. Opening a file selects that tab.
 The tab close control is a flat mark. The gutter holds four digits

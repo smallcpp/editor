@@ -36,9 +36,10 @@ open focuses that document.
 
 ## Window
 
-The window has File, Edit, and Documents menus, document tabs,
-and a status line. The status line shows the title, a dirty star,
-the line, the column, and the language. Each tab has a border.
+The window has a menu bar, document tabs, and a status line.
+The menus are File, Edit, Search, View, and Documents. The
+status line shows the title, a dirty star, the line, the
+column, and the language. Each tab has a dark border.
 A close mark is drawn on the tab unless Settings turns that off.
 The mark closes that document, with the same dirty-file question
 as File, Close. Documents lists the loaded files and switches to
@@ -46,9 +47,11 @@ the chosen one. A name is shown as written, including an
 underscore. Opening a file selects that tab and sets its title,
 including when the open replaces the single untitled buffer.
 
-File covers New, Open, Save, Save As, Save All, Close, Settings,
-and Quit. The first file dialog starts in the process current
-directory. The next one starts in the directory last chosen.
+File covers New, Open, Save, Save As, Save All, Close, and
+Quit. Open can select several files. Each selected file is
+opened, and the last one is the active tab. The first file
+dialog starts in the process current directory. The next one
+starts in the directory last chosen.
 That directory is remembered for the session only, not in a
 config key. Save writes the active named document. An untitled
 document asks for a path.
@@ -62,6 +65,7 @@ Discard drops it. The last document, when closed, is replaced by
 a fresh untitled buffer.
 
 Edit covers Undo, Redo, Cut, Copy, Paste, Indent, and Unindent.
+Search is present and has no commands. View opens Settings.
 Copy and cut read the selection in the text view. Indent,
 unindent, and Tab follow the indent settings. The default is
 spaces, and one indent is four spaces. Settings can switch to
@@ -94,5 +98,8 @@ destroys the window and leaves the process, including when a
 save dialog is open. Settings toggles closing brackets,
 indenting a new line, and indenting with spaces. It also sets
 how many spaces one indent moves. Those apply to every open
-document and to the next one. The settings dialog is transient
-for the editor window.
+document and to the next one. Apply writes those choices to
+`$HOME/.config/smallcpp/editor.ini` and leaves the dialog
+open. Close only hides it. A missing file, or a missing
+`HOME`, keeps the defaults. The dialog is transient for the
+editor window.

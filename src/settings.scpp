@@ -1,0 +1,230 @@
+#include "settings.shpp"
+
+extern char *getenv(const char *name);
+
+void config_defaults(EditorConfig *item) {
+    if (item == nullptr)
+        return;
+    item->brackets = 1;
+    item->indent = 1;
+    item->spaces = 1;
+    item->tabWidth = 4;
+    item->showLine = 1;
+    item->showMargin = 0;
+    item->showClose = 1;
+    item->marginCols = 80;
+    text_copy(item->lineColor, 32, "#d6e4f5");
+    text_copy(item->marginColor, 32, "#c8c8c8");
+    item->font[0] = 0;
+}
+
+int config_path(char *dest, long cap) {
+    char *home;
+    char config[EDITOR_PATH];
+    char dir[EDITOR_PATH];
+
+    if (dest == nullptr || cap < 2)
+        return 0;
+    dest[0] = 0;
+    home = getenv("HOME");
+    if (home == nullptr || home[0] == 0)
+        return 0;
+    path_join(config, EDITOR_PATH, home, ".config");
+    if (ensure_dir(config) == 0)
+        return 0;
+    path_join(dir, EDITOR_PATH, config, "smallcpp");
+    if (ensure_dir(dir) == 0)
+        return 0;
+    path_join(dest, cap, dir, "editor.ini");
+    if (dest[0] == 0)
+        return 0;
+    return 1;
+}
+
+static int key_is(const char *line, const char *key) {
+    long i;
+
+    i = 0;
+    while (key[i] != 0) {
+        if (line[i] != key[i])
+            return 0;
+        i = i + 1;
+    }
+    if (line[i] != '=')
+        return 0;
+    return 1;
+}
+
+static const char *after_eq(const char *line) {
+    long i;
+
+    i = 0;
+    while (line[i] != 0 && line[i] != '=')
+        i = i + 1;
+    if (line[i] != '=')
+        return "";
+    return line + i + 1;
+}
+
+static int read_int(const char *text, int fallback) {
+    long i;
+    int value;
+
+    if (text == nullptr || text[0] == 0)
+        return fallback;
+    i = 0;
+    if (text[i] < '0' || text[i] > '9')
+        return fallback;
+    value = 0;
+    while (text[i] >= '0' && text[i] <= '9') {
+        value = value * 10 + (text[i] - '0');
+        i = i + 1;
+        if (value > 100000)
+            return fallback;
+    }
+    return value;
+}
+
+static void take_line(EditorConfig *item, const char *line) {
+    const char *value;
+
+    value = after_eq(line);
+    if (key_is(line, "brackets") == 1)
+        item->brackets = read_int(value, item->brackets);
+    if (key_is(line, "indent") == 1)
+        item->indent = read_int(value, item->indent);
+    if (key_is(line, "spaces") == 1)
+        item->spaces = read_int(value, item->spaces);
+    if (key_is(line, "tab-width") == 1)
+        item->tabWidth = read_int(value, item->tabWidth);
+    if (key_is(line, "line-highlight") == 1)
+        item->showLine = read_int(value, item->showLine);
+    if (key_is(line, "margin") == 1)
+        item->showMargin = read_int(value, item->showMargin);
+    if (key_is(line, "close-marks") == 1)
+        item->showClose = read_int(value, item->showClose);
+    if (key_is(line, "margin-columns") == 1)
+        item->marginCols = read_int(value, item->marginCols);
+    if (key_is(line, "line-color") == 1)
+        text_copy(item->lineColor, 32, value);
+    if (key_is(line, "margin-color") == 1)
+        text_copy(item->marginColor, 32, value);
+    if (key_is(line, "font") == 1)
+        text_copy(item->font, 128, value);
+}
+
+int config_read(const char *path, EditorConfig *item) {
+    char *raw;
+    long n;
+    long i;
+    long start;
+    const char *err;
+    char line[192];
+
+    if (item == nullptr || path == nullptr || path[0] == 0)
+        return 0;
+    if (file_exists(path) == 0)
+        return 0;
+    err = "";
+    n = 0;
+    raw = read_file(path, &n, &err);
+    if (raw == nullptr)
+        return 0;
+    i = 0;
+    start = 0;
+    while (i <= n) {
+        if (i == n || raw[i] == '\n' || raw[i] == '\r') {
+            long len;
+            long k;
+
+            len = i - start;
+            if (len > 190)
+                len = 190;
+            k = 0;
+            while (k < len) {
+                line[k] = raw[start + k];
+                k = k + 1;
+            }
+            line[k] = 0;
+            if (line[0] != 0 && line[0] != '#')
+                take_line(item, line);
+            if (i < n && raw[i] == '\r' && raw[i + 1] == '\n')
+                i = i + 1;
+            start = i + 1;
+        }
+        i = i + 1;
+    }
+    return 1;
+}
+
+static void add_flag(
+        String *text,
+        const char *key,
+        int value) {
+    text->append(key);
+    text->append("=");
+    if (value == 0)
+        text->append("0\n");
+    else
+        text->append("1\n");
+}
+
+static void add_num(
+        String *text,
+        const char *key,
+        int value) {
+    char digits[16];
+    long n;
+    long i;
+
+    text->append(key);
+    text->append("=");
+    if (value < 0)
+        value = 0;
+    n = 0;
+    if (value == 0) {
+        digits[0] = '0';
+        n = 1;
+    }
+    while (value > 0 && n < 15) {
+        digits[n] = (char)('0' + (value % 10));
+        value = value / 10;
+        n = n + 1;
+    }
+    i = n;
+    while (i > 0) {
+        i = i - 1;
+        text->append(digits[i]);
+    }
+    text->append("\n");
+}
+
+int config_write(
+        const char *path,
+        const EditorConfig *item) {
+    String *text;
+    const char *err;
+
+    if (path == nullptr || item == nullptr)
+        return 0;
+    text = new String();
+    add_flag(text, "brackets", item->brackets);
+    add_flag(text, "indent", item->indent);
+    add_flag(text, "spaces", item->spaces);
+    add_num(text, "tab-width", item->tabWidth);
+    add_flag(text, "line-highlight", item->showLine);
+    text->append("line-color=");
+    text->append(item->lineColor);
+    text->append("\n");
+    add_flag(text, "margin", item->showMargin);
+    add_num(text, "margin-columns", item->marginCols);
+    text->append("margin-color=");
+    text->append(item->marginColor);
+    text->append("\n");
+    add_flag(text, "close-marks", item->showClose);
+    text->append("font=");
+    text->append(item->font);
+    text->append("\n");
+    err = "";
+    return write_file(path, text->c_str(), &err);
+}

@@ -1,4 +1,10 @@
 #include "../src/editor.shpp"
+#include "../src/settings.shpp"
+
+extern int setenv(
+        const char *name,
+        const char *value,
+        int overwrite);
 
 static int failures;
 
@@ -239,6 +245,43 @@ int main(void) {
         expect(text_same(folder, dir) == 1,
                 "missing is cwd");
         expect(chdir(was) == 0, "leave folder cwd");
+    }
+    expect(setenv("HOME", dir, 1) == 0, "config home");
+    {
+        EditorConfig item;
+        EditorConfig back;
+        char path[EDITOR_PATH];
+
+        config_defaults(&item);
+        item.brackets = 0;
+        item.spaces = 0;
+        item.tabWidth = 2;
+        item.showMargin = 1;
+        item.marginCols = 90;
+        text_copy(item.lineColor, 32, "#aabbcc");
+        text_copy(item.marginColor, 32, "#112233");
+        text_copy(item.font, 128, "Monospace 12");
+        expect(config_path(path, EDITOR_PATH) == 1,
+                "config path");
+        expect(config_write(path, &item) == 1,
+                "config write");
+        config_defaults(&back);
+        expect(config_read(path, &back) == 1,
+                "config read");
+        expect(back.brackets == 0, "saved brackets");
+        expect(back.spaces == 0, "saved spaces");
+        expect(back.tabWidth == 2, "saved tab");
+        expect(back.showMargin == 1, "saved margin");
+        expect(back.marginCols == 90, "saved columns");
+        expect(text_same(back.lineColor, "#aabbcc") == 1,
+                "saved line color");
+        expect(text_same(
+                    back.marginColor,
+                    "#112233") == 1,
+                "saved margin color");
+        expect(text_same(back.font, "Monospace 12") == 1,
+                "saved font");
+        unlink(path);
     }
     unlink(pathA);
     unlink(pathB);

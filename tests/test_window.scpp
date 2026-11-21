@@ -97,6 +97,10 @@ static int x_error(void *display, void *event) {
     return 0;
 }
 
+extern int setenv(
+        const char *name,
+        const char *value,
+        int overwrite);
 extern void *XOpenDisplay(const char *name);
 extern int XCloseDisplay(void *display);
 extern int XSetErrorHandler(void *handler);
@@ -278,6 +282,7 @@ int main(void) {
         editor = new Editor();
         expect(editor->open_file(pathA) == EDITOR_OK, "open a");
         expect(editor->open_file(pathB) == EDITOR_OK, "open b");
+        expect(setenv("HOME", dir, 1) == 0, "home");
         ui = open_ui(editor);
         burn_stack(8);
         expect(text_same(ui->page_text(0), "one\n") == 1,
@@ -305,6 +310,8 @@ int main(void) {
         expect(view != nullptr, "view");
         expect(text_has(ui->line_number_text(), "1") == 1,
                 "line numbers");
+        expect(text_has(ui->line_number_text(), "2") == 1,
+                "blank line number");
         view->set_text("");
         type_text(view, "(");
         expect(text_same(ui->page_text(0), "()") == 1,
@@ -453,6 +460,26 @@ int main(void) {
         expect(ui->shows_margin() == 0, "margin off");
         expect(ui->margin_columns() == 80, "margin columns");
         expect(editor->tab_width() == 4, "tab default");
+        editor->set_tab_width(7);
+        ui->on_menu("Settings");
+        ui->apply_settings();
+        {
+            char path[EDITOR_PATH];
+            char *raw;
+            long n;
+            const char *err;
+
+            err = "";
+            n = 0;
+            expect(config_path(path, EDITOR_PATH) == 1,
+                    "settings path");
+            raw = read_file(path, &n, &err);
+            expect(raw != nullptr, "settings file");
+            if (raw != nullptr)
+                expect(text_has(raw, "tab-width=7") == 1,
+                        "saved tab width");
+            unlink(path);
+        }
         ui->on_menu("Close");
         expect(text_has(ui->tab_text(0), "untitled") == 1,
                 "fresh tab");

@@ -1,0 +1,32 @@
+#ifndef EDITOR_SETTINGS
+#define EDITOR_SETTINGS
+
+/* The editor's settings file. The directory is the
+ * same one the compiler uses for config.ini. This
+ * file is editor.ini and does not replace that one.
+ */
+#include "util.shpp"
+
+class EditorConfig {
+public:
+    int brackets;
+    int indent;
+    int spaces;
+    int tabWidth;
+    int showLine;
+    int showMargin;
+    int showClose;
+    int marginCols;
+    char lineColor[32];
+    char marginColor[32];
+    char font[128];
+};
+
+void config_defaults(EditorConfig *item);
+int config_path(char *dest, long cap);
+int config_read(const char *path, EditorConfig *item);
+int config_write(
+        const char *path,
+        const EditorConfig *item);
+
+#endif

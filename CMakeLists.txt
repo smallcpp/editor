@@ -61,7 +61,8 @@ set(EDITOR_LIB_SOURCES
     "${CMAKE_SOURCE_DIR}/src/buffer.scpp"
     "${CMAKE_SOURCE_DIR}/src/syntax.scpp"
     "${CMAKE_SOURCE_DIR}/src/document.scpp"
-    "${CMAKE_SOURCE_DIR}/src/editor.scpp")
+    "${CMAKE_SOURCE_DIR}/src/editor.scpp"
+    "${CMAKE_SOURCE_DIR}/src/settings.scpp")
 
 set(EDITOR_SOURCES
     ${EDITOR_LIB_SOURCES}
@@ -75,7 +76,8 @@ set(EDITOR_HEADERS
     "${CMAKE_SOURCE_DIR}/src/syntax.shpp"
     "${CMAKE_SOURCE_DIR}/src/document.shpp"
     "${CMAKE_SOURCE_DIR}/src/editor.shpp"
-    "${CMAKE_SOURCE_DIR}/src/ui.shpp")
+    "${CMAKE_SOURCE_DIR}/src/ui.shpp"
+    "${CMAKE_SOURCE_DIR}/src/settings.shpp")
 
 set(SCPP_FLAGS "")
 if(CMAKE_BUILD_TYPE STREQUAL "Debug"

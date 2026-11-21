@@ -2,11 +2,12 @@
 #define EDITOR_UI
 
 /* GTK window for the text editor. Headless tests do
- * not include this file. The menu row is the first
+ * not include this file. The menu bar is the first
  * child of the window because the wrapper has no
  * title-bar setter.
  */
 #include "editor.shpp"
+#include "settings.shpp"
 #include "syntax.shpp"
 #include <exceptions>
 #include <gtk>
@@ -51,6 +52,9 @@ public:
     void switched(long index);
     void show_settings(void);
     void hide_settings(void);
+    void apply_settings(void);
+    void load_settings(void);
+    void use_config(EditorConfig *item);
     void user_begin(long index);
     void user_end(long index);
     void flush_sync(long index);
@@ -81,8 +85,8 @@ private:
     Editor *state;
     Application *app;
     Window *mainWindow;
-    MenuButton *fileMenu;
-    MenuButton *docMenu;
+    MenuBar *menuBar;
+    long documentsMenu;
     Notebook *book;
     Label *status;
     EditPage pages[EDITOR_PAGES];
