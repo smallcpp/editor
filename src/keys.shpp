@@ -1,0 +1,20 @@
+#ifndef EDITOR_KEYS_H
+#define EDITOR_KEYS_H
+
+/* One accelerator for each menu command. The menu
+ * index matches the order File, Edit, Search.
+ */
+enum {
+    EDITOR_KEY_COUNT = 17
+};
+
+void key_info(
+        int index,
+        const char **label,
+        const char **command,
+        const char **config,
+        const char **accel);
+int key_index(const char *line);
+int key_place(int index, long *menu, long *item);
+
+#endif

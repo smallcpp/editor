@@ -251,8 +251,16 @@ int main(void) {
         EditorConfig item;
         EditorConfig back;
         char path[EDITOR_PATH];
+        int which;
 
         config_defaults(&item);
+        which = key_index("key-search=");
+        expect(which >= 0, "search key");
+        expect(text_same(
+                    item.accel[which],
+                    "<Control>f") == 1,
+                "default search key");
+        text_copy(item.accel[which], 64, "<Control>g");
         item.brackets = 0;
         item.spaces = 0;
         item.tabWidth = 2;
@@ -281,6 +289,10 @@ int main(void) {
                 "saved margin color");
         expect(text_same(back.font, "Monospace 12") == 1,
                 "saved font");
+        expect(text_same(
+                    back.accel[which],
+                    "<Control>g") == 1,
+                "saved search key");
         unlink(path);
     }
     unlink(pathA);

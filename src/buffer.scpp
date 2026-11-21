@@ -1219,11 +1219,33 @@ long EditBuffer::find_from(
     return -1;
 }
 
+long EditBuffer::find_before(
+        long from,
+        long limit,
+        const char *query,
+        bool matchCase,
+        bool whole) {
+    long i;
+
+    if (from <= limit)
+        return -1;
+    i = from - 1;
+    while (i >= limit) {
+        if (match_at(i, query, matchCase, whole) == 1)
+            return i;
+        if (i == 0)
+            break;
+        i = i - 1;
+    }
+    return -1;
+}
+
 int EditBuffer::find_next(
         const char *query,
         bool matchCase,
         bool whole,
-        bool inSel) {
+        bool inSel,
+        bool backward) {
     long begin;
     long end;
     long from;
@@ -1240,14 +1262,38 @@ int EditBuffer::find_next(
         begin = scopeStart;
         end = scopeEnd;
     }
-    from = sel_hi();
+    if (backward == true)
+        from = sel_lo();
+    else
+        from = sel_hi();
     if (from < begin)
         from = begin;
     if (from > end)
         from = end;
-    at = find_from(from, end, query, matchCase, whole);
-    if (at < 0 && from > begin)
-        at = find_from(begin, from, query, matchCase, whole);
+    if (backward == true) {
+        at = find_before(
+                from,
+                begin,
+                query,
+                matchCase,
+                whole);
+        if (at < 0 && from < end)
+            at = find_before(
+                    end,
+                    from,
+                    query,
+                    matchCase,
+                    whole);
+    } else {
+        at = find_from(from, end, query, matchCase, whole);
+        if (at < 0 && from > begin)
+            at = find_from(
+                    begin,
+                    from,
+                    query,
+                    matchCase,
+                    whole);
+    }
     if (at < 0)
         return 0;
     qn = text_length(query);
@@ -1275,7 +1321,8 @@ int EditBuffer::replace_next(
         const char *repl,
         bool matchCase,
         bool whole,
-        bool inSel) {
+        bool inSel,
+        bool backward) {
     long lo;
     long hi;
     int found;
@@ -1293,7 +1340,12 @@ int EditBuffer::replace_next(
         replace_span(lo, hi, repl);
         return 1;
     }
-    found = find_next(query, matchCase, whole, inSel);
+    found = find_next(
+            query,
+            matchCase,
+            whole,
+            inSel,
+            backward);
     if (found != 1)
         return found;
     push_undo();
@@ -1369,6 +1421,19 @@ int EditBuffer::replace_all(
     anchor = cursor;
     clamp_point();
     return count;
+}
+
+void EditBuffer::limit_scope(void) {
+    if (spans_lines() == true) {
+        capture_scope();
+        return;
+    }
+    if (has_selection() == true
+            && hasMatch == true
+            && sel_lo() == matchStart
+            && sel_hi() == matchEnd)
+        return;
+    scopeOn = false;
 }
 
 void EditBuffer::capture_scope(void) {

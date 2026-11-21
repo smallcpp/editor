@@ -1,0 +1,119 @@
+#include "keys.shpp"
+
+static void key_row(
+        int index,
+        int want,
+        const char *label,
+        const char *command,
+        const char *config,
+        const char *accel,
+        const char **outLabel,
+        const char **outCommand,
+        const char **outConfig,
+        const char **outAccel) {
+    if (index != want)
+        return;
+    *outLabel = label;
+    *outCommand = command;
+    *outConfig = config;
+    *outAccel = accel;
+}
+
+void key_info(
+        int index,
+        const char **label,
+        const char **command,
+        const char **config,
+        const char **accel) {
+    if (label == nullptr || command == nullptr
+            || config == nullptr || accel == nullptr)
+        return;
+    *label = "";
+    *command = "";
+    *config = "";
+    *accel = "";
+    key_row(index, 0, "New", "new", "key-new",
+            "<Control>n", label, command, config, accel);
+    key_row(index, 1, "Open", "open", "key-open",
+            "<Control>o", label, command, config, accel);
+    key_row(index, 2, "Save", "save", "key-save",
+            "<Control>s", label, command, config, accel);
+    key_row(index, 3, "Save As", "save-as", "key-save-as",
+            "<Control><Shift>s",
+            label, command, config, accel);
+    key_row(index, 4, "Save All", "save-all",
+            "key-save-all", "<Control><Shift>l",
+            label, command, config, accel);
+    key_row(index, 5, "Close", "close", "key-close",
+            "<Control>w", label, command, config, accel);
+    key_row(index, 6, "Close All", "close-all",
+            "key-close-all", "<Control><Shift>w",
+            label, command, config, accel);
+    key_row(index, 7, "Quit", "quit", "key-quit",
+            "<Control>q", label, command, config, accel);
+    key_row(index, 8, "Undo", "undo", "key-undo",
+            "<Control>z", label, command, config, accel);
+    key_row(index, 9, "Redo", "redo", "key-redo",
+            "<Control>y", label, command, config, accel);
+    key_row(index, 10, "Cut", "cut", "key-cut",
+            "<Control>x", label, command, config, accel);
+    key_row(index, 11, "Copy", "copy", "key-copy",
+            "<Control>c", label, command, config, accel);
+    key_row(index, 12, "Paste", "paste", "key-paste",
+            "<Control>v", label, command, config, accel);
+    key_row(index, 13, "Indent", "indent", "key-indent",
+            "<Control>bracketright",
+            label, command, config, accel);
+    key_row(index, 14, "Unindent", "unindent",
+            "key-unindent", "<Control>bracketleft",
+            label, command, config, accel);
+    key_row(index, 15, "Search", "search", "key-search",
+            "<Control>f", label, command, config, accel);
+    key_row(index, 16, "Replace", "replace",
+            "key-replace", "<Control>h",
+            label, command, config, accel);
+}
+
+int key_index(const char *line) {
+    int i;
+
+    if (line == nullptr)
+        return -1;
+    i = 0;
+    while (i < EDITOR_KEY_COUNT) {
+        const char *label;
+        const char *command;
+        const char *config;
+        const char *accel;
+        long n;
+
+        key_info(i, &label, &command, &config, &accel);
+        n = 0;
+        while (config[n] != 0 && line[n] == config[n])
+            n = n + 1;
+        if (config[n] == 0 && line[n] == '=')
+            return i;
+        i = i + 1;
+    }
+    return -1;
+}
+
+int key_place(int index, long *menu, long *item) {
+    if (menu == nullptr || item == nullptr)
+        return 0;
+    if (index < 0 || index >= EDITOR_KEY_COUNT)
+        return 0;
+    if (index < 8) {
+        *menu = 0;
+        *item = index;
+        return 1;
+    }
+    if (index < 15) {
+        *menu = 1;
+        *item = index - 8;
+        return 1;
+    }
+    *menu = 2;
+    *item = index - 15;
+    return 1;
+}
