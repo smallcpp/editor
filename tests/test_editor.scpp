@@ -260,6 +260,12 @@ int main(void) {
                     item.accel[which],
                     "<Control>f") == 1,
                 "default search key");
+        expect(item.searchWrap == 1, "default wrap");
+        expect(item.showSpace == 0, "default whitespace");
+        item.searchWrap = 0;
+        item.showSpace = 1;
+        item.showEnds = 1;
+        item.showStops = 1;
         text_copy(item.accel[which], 64, "<Control>g");
         item.brackets = 0;
         item.spaces = 0;
@@ -293,6 +299,10 @@ int main(void) {
                     back.accel[which],
                     "<Control>g") == 1,
                 "saved search key");
+        expect(back.searchWrap == 0, "saved wrap");
+        expect(back.showSpace == 1, "saved whitespace");
+        expect(back.showEnds == 1, "saved line ends");
+        expect(back.showStops == 1, "saved indent stops");
         unlink(path);
     }
     unlink(pathA);

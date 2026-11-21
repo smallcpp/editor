@@ -65,14 +65,22 @@ Discard drops it. The last document, when closed, is replaced by
 a fresh untitled buffer.
 
 Edit covers Undo, Redo, Cut, Copy, Paste, Indent, and Unindent.
-Search has Search, Replace, Reverse, Whole word, and Match
-case. The last three are check items. Search and Replace open
+Search has Search, Replace, Reverse, Whole word, Match
+case, and Wrap. The last four are check items. Wrap is on
+by default. Search and Replace open
 dialogs and stay open while finding. A selection that spans
 lines is the only range that is searched. File includes Close
 All, which closes every document and leaves one untitled
 buffer. Each command shows its accelerator. View opens
-Settings. Settings has a General page and a Keyboard page.
-Keyboard edits those accelerators. Apply stores them in
+Settings and then offers Whitespace, Line ends,
+and Indent stops. Whitespace draws a dot for each space and
+a line for each tab. Line ends draws a mark after each line.
+Indent stops draws a line at each tab stop inside the
+leading indent. Settings has a General page and a Keyboard
+page, and the tabs sit on the left. General also holds the
+search options and those three view options. Keyboard is a
+grid of the command and its accelerator. Apply stores them
+in
 `editor.ini` and leaves the dialog open.
 Copy and cut read the selection in the text view. Indent,
 unindent, and Tab follow the indent settings. The default is

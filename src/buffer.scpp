@@ -1245,7 +1245,8 @@ int EditBuffer::find_next(
         bool matchCase,
         bool whole,
         bool inSel,
-        bool backward) {
+        bool backward,
+        bool wrap) {
     long begin;
     long end;
     long from;
@@ -1277,7 +1278,7 @@ int EditBuffer::find_next(
                 query,
                 matchCase,
                 whole);
-        if (at < 0 && from < end)
+        if (at < 0 && wrap == true && from < end)
             at = find_before(
                     end,
                     from,
@@ -1286,7 +1287,7 @@ int EditBuffer::find_next(
                     whole);
     } else {
         at = find_from(from, end, query, matchCase, whole);
-        if (at < 0 && from > begin)
+        if (at < 0 && wrap == true && from > begin)
             at = find_from(
                     begin,
                     from,
@@ -1322,7 +1323,8 @@ int EditBuffer::replace_next(
         bool matchCase,
         bool whole,
         bool inSel,
-        bool backward) {
+        bool backward,
+        bool wrap) {
     long lo;
     long hi;
     int found;
@@ -1345,7 +1347,8 @@ int EditBuffer::replace_next(
             matchCase,
             whole,
             inSel,
-            backward);
+            backward,
+            wrap);
     if (found != 1)
         return found;
     push_undo();

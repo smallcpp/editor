@@ -18,6 +18,13 @@ public:
     int showMargin;
     int showClose;
     int marginCols;
+    int searchWrap;
+    int searchBack;
+    int searchWhole;
+    int searchCase;
+    int showSpace;
+    int showEnds;
+    int showStops;
     char lineColor[32];
     char marginColor[32];
     char font[128];

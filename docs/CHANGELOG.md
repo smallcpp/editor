@@ -6,18 +6,26 @@ The top of the window is a menu bar. File, Edit, Search, View,
 and Documents are submenus. File has New, Open, Save, Save As,
 Save All, Close, and Quit. Edit has Undo, Redo, Cut, Copy,
 Paste, Indent, and Unindent. Search has Search, Replace,
-Reverse, Whole word, and Match case. Reverse, Whole word,
-and Match case are check items. A selection that covers more
-than one line limits the search to those lines. View has
-Settings. Documents lists the open files. File also has
+Reverse, Whole word, Match case, and Wrap. The last four are
+check items. A selection that covers more than one line
+limits the search to those lines. Wrap is on unless it is
+turned off. View has Settings, then Whitespace, Line ends,
+and Indent stops. Those three draw in the text. Documents
+lists the open files. Menus place a separator between
+groups: File separates new and open, the saves, the closes,
+and Quit. Edit separates undo, the clipboard, and indent.
+Search separates the commands from the options. View
+separates Settings from the checks. File also has
 Close All. Open can select
 several files. Each one is opened, and the last one is the
 active tab. A new line shows its gutter number when Enter
 creates it, before any character is typed. Settings has Apply.
 Apply writes `$HOME/.config/smallcpp/editor.ini` and leaves the
-dialog open. Settings is a notebook. General holds the
-existing switches. Keyboard edits one accelerator for each
-command, and those accelerators are shown on the menus.
+dialog open. Settings is a notebook with the tabs on the
+left. General holds the existing switches, the search
+options, and the view options. Keyboard is a grid with the
+command in one column and the accelerator in the other.
+Apply writes the search options and the view options too.
 A missing file keeps the defaults. Tabs show a
 dark border.
 
@@ -40,7 +48,8 @@ and switches to the chosen one. Tabs have a border and, by
 default, a close mark. Settings can hide the close mark.
 
 Line numbers sit in the left gutter, one per buffer line, and they
-scroll with the text. An empty buffer shows line 1. The current line is highlighted. Settings has a
+scroll with the text. An empty buffer shows line 1. The current
+line is highlighted. Settings has a
 toggle and a color, and the highlight is on by default. The
 settings dialog uses the editor window as its transient parent.
 
