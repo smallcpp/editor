@@ -105,6 +105,7 @@ Editor::Editor() {
     allowOverwrite = 0;
     closeIndex = -1;
     typeBrackets = 1;
+    copy_bracket_pairs(bracketPairs, 64, bracket_list());
     typeIndent = 1;
     tabWidth = EDITOR_TAB;
     indentStyle = 1;
@@ -118,10 +119,26 @@ void Editor::apply_typing(Document *doc) {
         doc->buffer()->set_auto_brackets(false);
     else
         doc->buffer()->set_auto_brackets(true);
+    doc->buffer()->set_bracket_pairs(bracketPairs);
     if (typeIndent == 0)
         doc->buffer()->set_auto_indent(false);
     else
         doc->buffer()->set_auto_indent(true);
+}
+
+void Editor::set_bracket_pairs(const char *value) {
+    long i;
+
+    copy_bracket_pairs(bracketPairs, 64, value);
+    i = 0;
+    while (i < docs->size()) {
+        apply_typing(docs->at(i));
+        i = i + 1;
+    }
+}
+
+const char *Editor::bracket_pairs(void) {
+    return bracketPairs;
 }
 
 void Editor::use_brackets(int value) {

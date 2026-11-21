@@ -238,6 +238,20 @@ int main(void) {
                 editor->active()->buffer()->text(),
                 "()") == 1,
             "brackets restored");
+    editor->set_bracket_pairs("<>");
+    editor->active()->buffer()->set_text("");
+    editor->active()->buffer()->insert_text("<");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "<>") == 1,
+            "custom pairs");
+    editor->active()->buffer()->set_text("");
+    editor->active()->buffer()->insert_text("(");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "(") == 1,
+            "pairs omit parens");
+    editor->set_bracket_pairs(bracket_list());
     expect(editor->tab_width() == 4, "tab default");
     editor->set_tab_width(2);
     expect(editor->tab_width() == 2, "tab width");
@@ -348,6 +362,10 @@ int main(void) {
         expect(item.saveOnTab == 0, "default save tab");
         expect(item.saveOnWindow == 0, "default save window");
         expect(item.trimTrailing == 0, "default trim");
+        expect(text_same(
+                    item.bracketPairs,
+                    "()[]{}\"\"''") == 1,
+                "default pairs");
         expect(item.windowWidth == 0, "default width");
         item.searchWrap = 0;
         item.showSpace = 1;
@@ -355,6 +373,7 @@ int main(void) {
         item.showStops = 1;
         text_copy(item.accel[which], 64, "<Control>g");
         item.brackets = 0;
+        text_copy(item.bracketPairs, 64, "<>");
         item.spaces = 2;
         item.trimTrailing = 1;
         item.tabWidth = 2;
@@ -391,6 +410,8 @@ int main(void) {
         expect(config_read(path, &back) == 1,
                 "config read");
         expect(back.brackets == 0, "saved brackets");
+        expect(text_same(back.bracketPairs, "<>") == 1,
+                "saved pairs");
         expect(back.spaces == 2, "saved both");
         expect(back.trimTrailing == 1, "saved trim");
         expect(back.tabWidth == 2, "saved tab");

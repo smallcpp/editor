@@ -177,6 +177,34 @@ void ui_font(void *data, const char *description) {
     editorUi->choose_font(description);
 }
 
+void ui_color(void *data, const char *color) {
+    (void)data;
+    editorUi->take_color(color);
+}
+
+void ui_line_color(void *data) {
+    (void)data;
+    editorUi->open_line_color();
+}
+
+void ui_margin_color(void *data) {
+    (void)data;
+    editorUi->open_margin_color();
+}
+
+static int pairFill = 0;
+
+void ui_pairs(void *data) {
+    Entry *entry;
+    char copy[64];
+
+    if (pairFill != 0)
+        return;
+    entry = (Entry *)data;
+    copy_bracket_pairs(copy, 64, entry->text());
+    editorUi->editor()->set_bracket_pairs(copy);
+}
+
 void ui_brackets(void *data, bool value) {
     (void)data;
     if (value)
@@ -269,8 +297,13 @@ Ui::Ui(Editor *editor) {
     marginSpin = nullptr;
     lineEntry = nullptr;
     marginEntry = nullptr;
+    bracketEntry = nullptr;
+    lineColorButton = nullptr;
+    marginColorButton = nullptr;
     files = nullptr;
     fonts = nullptr;
+    colors = nullptr;
+    colorKind = 0;
     searchBack = 0;
     searchWhole = 0;
     searchCase = 0;
@@ -474,6 +507,7 @@ void Ui::build(void) {
     files = new FileDialog();
     files->set_parent(mainWindow);
     fonts = new FontDialog();
+    colors = new ColorDialog();
     choiceDialog = new Dialog("Confirm");
     choiceDialog->set_transient(mainWindow);
     choiceDialog->add_button("Save", EDITOR_SAVE);
@@ -1965,6 +1999,7 @@ void Ui::use_config(EditorConfig *item) {
         state->use_brackets(0);
     else
         state->use_brackets(1);
+    state->set_bracket_pairs(item->bracketPairs);
     if (item->indent == 0)
         state->use_indent(0);
     else
@@ -2130,6 +2165,16 @@ void Ui::apply_settings(void) {
             n = n + 1;
         }
     }
+    if (bracketEntry != nullptr)
+        copy_bracket_pairs(
+                item.bracketPairs,
+                64,
+                bracketEntry->text());
+    else
+        copy_bracket_pairs(
+                item.bracketPairs,
+                64,
+                state->bracket_pairs());
     if (bracketCheck != nullptr) {
         if (bracketCheck->active() == true)
             item.brackets = 1;
@@ -2239,29 +2284,13 @@ static ScrolledWindow *page_scroll(Widget *child) {
     return scroll;
 }
 
-static void append_pairs(Box *box) {
-    const char *list;
-    char line[8];
-    long i;
-    long n;
+static Box *color_field(Entry *entry, Button *button) {
+    Box *row;
 
-    list = bracket_list();
-    i = 0;
-    while (list[i] != 0) {
-        n = 0;
-        while (list[i] != 0
-                && list[i] != '\n'
-                && n + 1 < 8) {
-            line[n] = list[i];
-            n = n + 1;
-            i = i + 1;
-        }
-        line[n] = 0;
-        if (n > 0)
-            box->append((Widget *)new Label(line));
-        if (list[i] == '\n')
-            i = i + 1;
-    }
+    row = new Box(GTK_HORIZONTAL, 8);
+    row->append((Widget *)entry);
+    row->append((Widget *)button);
+    return row;
 }
 
 static Box *group_box(const char *title) {
@@ -2321,6 +2350,9 @@ void Ui::show_settings(void) {
         marginSpin = new SpinButton(1, 400, 80);
         lineEntry = new Entry(lineColor);
         marginEntry = new Entry(marginColor);
+        bracketEntry = new Entry(bracket_list());
+        lineColorButton = new Button("Color");
+        marginColorButton = new Button("Color");
         fontButton = new Button("Font");
         kinds[0] = "Tabs";
         kinds[1] = "Spaces";
@@ -2355,17 +2387,27 @@ void Ui::show_settings(void) {
         marginEntry->on_changed(
                 ui_margin_entry,
                 (void *)marginEntry);
+        bracketEntry->on_changed(
+                ui_pairs,
+                (void *)bracketEntry);
+        lineColorButton->on_clicked(ui_line_color, nullptr);
+        marginColorButton->on_clicked(
+                ui_margin_color,
+                nullptr);
         fontButton->on_clicked(ui_font_button, nullptr);
         tabSpin->set_width_chars(12);
         marginSpin->set_width_chars(12);
         lineEntry->set_width_chars(12);
         marginEntry->set_width_chars(12);
+        bracketEntry->set_width_chars(12);
         {
             Box *pairGroup;
 
             pairGroup = group_box("Brackets");
             pairGroup->append((Widget *)bracketCheck);
-            append_pairs(pairGroup);
+            pairGroup->append((Widget *)labeled_field(
+                    "Pairs",
+                    (Widget *)bracketEntry));
             box->append((Widget *)pairGroup);
         }
         indentGroup = group_box("Indenting");
@@ -2381,7 +2423,9 @@ void Ui::show_settings(void) {
         lineGroup->append((Widget *)lineCheck);
         lineGroup->append((Widget *)labeled_field(
                 "Current line color",
-                (Widget *)lineEntry));
+                (Widget *)color_field(
+                        lineEntry,
+                        lineColorButton)));
         box->append((Widget *)lineGroup);
         marginGroup = group_box("Column marker");
         marginGroup->append((Widget *)marginCheck);
@@ -2390,9 +2434,10 @@ void Ui::show_settings(void) {
                 (Widget *)marginSpin));
         marginGroup->append((Widget *)labeled_field(
                 "Column marker color",
-                (Widget *)marginEntry));
+                (Widget *)color_field(
+                        marginEntry,
+                        marginColorButton)));
         box->append((Widget *)marginGroup);
-        box->append((Widget *)closeCheck);
         recentSpin = new SpinButton(1, 32, 10);
         recentSpin->set_width_chars(12);
         recentSpin->on_changed(
@@ -2548,7 +2593,16 @@ void Ui::show_settings(void) {
                 (Widget *)page_scroll((Widget *)keys),
                 "Keyboard");
         settingsDialog->set_default_size(760, 560);
-        settingsDialog->set_content((Widget *)pages);
+        {
+            Box *shell;
+
+            shell = new Box(GTK_VERTICAL, 8);
+            shell->set_h_expand(true);
+            shell->set_v_expand(true);
+            shell->append((Widget *)pages);
+            shell->append((Widget *)closeCheck);
+            settingsDialog->set_content((Widget *)shell);
+        }
         settingsDialog->on_key(ui_key_press, nullptr);
         settingsDialog->add_button("Apply", 2);
         settingsDialog->add_button("Close", 1);
@@ -2581,6 +2635,21 @@ void Ui::show_settings(void) {
         closeCheck->set_active(false);
     else
         closeCheck->set_active(true);
+    if (bracketEntry != nullptr) {
+        char shown[64];
+
+        copy_bracket_pairs(
+                shown,
+                64,
+                state->bracket_pairs());
+        pairFill = 1;
+        bracketEntry->set_text(shown);
+        pairFill = 0;
+    }
+    if (lineEntry != nullptr)
+        lineEntry->set_text(lineColor);
+    if (marginEntry != nullptr)
+        marginEntry->set_text(marginColor);
     tabSpin->set_value((double)state->tab_width());
     if (recentSpin != nullptr)
         recentSpin->set_value((double)recentCount);
@@ -3427,6 +3496,50 @@ void Ui::set_width(int value) {
         apply_view(i);
         i = i + 1;
     }
+}
+
+void Ui::open_line_color(void) {
+    if (leaving == 1)
+        return;
+    if (colors == nullptr || mainWindow == nullptr)
+        return;
+    if (colors->pending != 0)
+        return;
+    colorKind = 0;
+    colors->choose(
+            mainWindow,
+            lineColor,
+            ui_color,
+            nullptr);
+}
+
+void Ui::open_margin_color(void) {
+    if (leaving == 1)
+        return;
+    if (colors == nullptr || mainWindow == nullptr)
+        return;
+    if (colors->pending != 0)
+        return;
+    colorKind = 1;
+    colors->choose(
+            mainWindow,
+            marginColor,
+            ui_color,
+            nullptr);
+}
+
+void Ui::take_color(const char *color) {
+    if (safe_color(color) == 0)
+        return;
+    if (colorKind == 0) {
+        set_line_color(color);
+        if (lineEntry != nullptr)
+            lineEntry->set_text(color);
+        return;
+    }
+    set_margin_color(color);
+    if (marginEntry != nullptr)
+        marginEntry->set_text(color);
 }
 
 void Ui::open_font(void) {

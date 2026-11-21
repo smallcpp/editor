@@ -95,11 +95,16 @@ the width is how many character places one indent shows.
 Autoindent is the name of the new-line indent. Trim
 trailing spaces on save is off until it is turned on.
 Font is on Appearance. Remember files sits with the
-recent-file count on General. Autoclose brackets uses the
-pairs `()`, `[]`, `{}`, `""`, and `''`, and that list is
-shown beside the switch. Search names the wrap, reverse,
+recent-file count on General. Autoclose brackets keeps an
+edit box of the pairs. The default is `()[]{}""''`. The
+editor closes whatever pairs are in that box, and Apply
+stores them as `bracket-pairs`. Search names the wrap, reverse,
 whole-word, and match-case choices in full. The left tabs
-stay in place while a settings page scrolls. The save
+stay in place while a settings page scrolls. The close
+button switch sits at the bottom of the dialog, above
+Apply and Close. Current line color and column marker
+color each have a Color button. That button opens the
+color chooser and stores `#rrggbb`. The save
 dialog lists every
 modified file.
 Each one can be saved or discarded, and Save all and Discard
