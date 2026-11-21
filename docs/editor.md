@@ -79,8 +79,12 @@ Indent stops draws a line at each tab stop inside the
 leading indent. Settings has a General page and a Keyboard
 page, and the tabs sit on the left. General also holds the
 search options and those three view options. Keyboard is a
-grid of the command and its accelerator. Apply stores them
-in
+grid of the command and its accelerator. Click a shortcut,
+press the new keys, and Escape cancels. A shortcut that
+another command already uses is refused, and the page names
+that command. Apply does not write a duplicate. The notebook
+and its pages grow and shrink with the dialog. Apply stores
+them in
 `editor.ini` and leaves the dialog open.
 Copy and cut read the selection in the text view. Indent,
 unindent, and Tab follow the indent settings. The default is

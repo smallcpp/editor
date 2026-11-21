@@ -20,8 +20,9 @@ the view can turn on. The right column marker is an overlay at a character
 column. The status line shows the line and column from the
 editor buffer.
 
-Shortcuts use `Widget::add_shortcut`. There is still no key-press
-signal on the text view. Menus run the same commands. The text
+Shortcuts use `Widget::add_shortcut`. `Widget::on_key` reports
+one key while a shortcut cell is waiting. Escape cancels that
+wait. Menus run the same commands. The text
 view keeps GTK's own navigation keys. Copy, cut, indent, and
 unindent read the view's selection and then run on the editor
 buffer, which also owns undo.
@@ -43,7 +44,10 @@ including one `key-` accelerator for each command, the
 search options, and the view options, and leaves the dialog
 open. Close does not. The setup dialog is a notebook with
 the tabs on the left. General holds the switches. Keyboard
-is a grid of command and shortcut.
+is a grid of command and shortcut. Click a shortcut, press
+the new keys, and Escape cancels. Apply refuses a shortcut
+that another command already uses. The notebook fills the
+dialog and follows its size.
 
 This editor does not open projects, run builds, talk to a language
 server, load plugins, or show a message pane or a debugger.

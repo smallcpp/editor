@@ -462,6 +462,18 @@ int main(void) {
         expect(editor->tab_width() == 4, "tab default");
         editor->set_tab_width(7);
         ui->on_menu("Settings");
+        expect(text_has(
+                    ui->key_help(),
+                    "Escape cancels") == 1,
+                "key help");
+        expect(ui->assign_key(0, "<Control>o") == 0,
+                "duplicate key");
+        expect(text_has(ui->key_warning(), "Open") == 1,
+                "names the command");
+        expect(text_same(
+                    ui->key_text(0),
+                    "<Control>n") == 1,
+                "keeps New");
         ui->apply_settings();
         {
             char path[EDITOR_PATH];
@@ -484,6 +496,10 @@ int main(void) {
                             raw,
                             "show-whitespace=0") == 1,
                         "saved whitespace");
+                expect(text_has(
+                            raw,
+                            "key-new=<Control>n") == 1,
+                        "saved new key");
             }
             unlink(path);
         }

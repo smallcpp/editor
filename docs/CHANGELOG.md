@@ -25,6 +25,10 @@ dialog open. Settings is a notebook with the tabs on the
 left. General holds the existing switches, the search
 options, and the view options. Keyboard is a grid with the
 command in one column and the accelerator in the other.
+Click a shortcut, press the new keys, and Escape cancels.
+A shortcut already used by another command is refused, and
+the page names that command. Apply does not save it.
+The notebook grows and shrinks with the dialog.
 Apply writes the search options and the view options too.
 A missing file keeps the defaults. Tabs show a
 dark border.

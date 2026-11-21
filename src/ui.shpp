@@ -82,6 +82,12 @@ public:
     void set_width(int value);
     void open_font(void);
     void set_option(const char *label, int on);
+    int assign_key(int index, const char *accel);
+    void arm_key(int index);
+    int take_key(const char *accel, int escape);
+    const char *key_text(int index);
+    const char *key_warning(void);
+    const char *key_help(void);
     int shows_space(void);
     int shows_ends(void);
     int shows_stops(void);
@@ -160,7 +166,12 @@ private:
     Entry *searchEntry;
     Entry *replaceFind;
     Entry *replaceWith;
-    Entry *keyEntry[EDITOR_KEY_COUNT];
+    Button *keyButton[EDITOR_KEY_COUNT];
+    Label *keyHelp;
+    Label *keyState;
+    int keyCapture;
+    char keyWarn[160];
+    char keyPrompt[160];
     char keyAccel[EDITOR_KEY_COUNT][64];
     char searchText[256];
     char replaceText[256];
@@ -170,6 +181,7 @@ private:
     void push_options(void);
     void sync_boxes(void);
     void read_keys(void);
+    void show_key_note(void);
     void show_search(void);
     void show_replace(void);
     void add_page(long index);
