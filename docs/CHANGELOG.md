@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+Documents keeps underscores in a file name, so `howdy.scpp` and
+`how_dy.scpp` appear as written. Opening a file selects that tab.
+The tab close control is a flat mark. The gutter holds four digits
+and one space before the text. The current line highlight is one
+line, including the last line and a line just inserted. Indent,
+unindent, and Tab use spaces by default, four spaces wide, and
+Settings can choose tabs or a different space count. The right
+column marker is two pixels wide.
+
 `test-window` saves a named file through the menu and checks that
 an untitled save asks for a path. Neither step presents a file
 dialog.

@@ -254,6 +254,7 @@ int main(void) {
     char pattern[64];
     char pathA[EDITOR_PATH];
     char pathB[EDITOR_PATH];
+    char pathC[EDITOR_PATH];
     char *dir;
     Editor *editor;
     Ui *ui;
@@ -283,6 +284,21 @@ int main(void) {
                 "page a");
         expect(text_same(ui->page_text(1), "two\n") == 1,
                 "page b");
+        path_join(pathC, EDITOR_PATH, dir, "how_dy.scpp");
+        expect(write_file(pathC, "howdy\n", &io) == 1,
+                "seed howdy");
+        ui->open_path(pathC);
+        expect(editor->index() == 2, "open activates the tab");
+        expect(text_has(
+                    ui->tab_text(editor->index()),
+                    "how_dy.scpp") == 1,
+                "underscore in the name");
+        expect(text_same(
+                    ui->page_text(editor->index()),
+                    "howdy\n") == 1,
+                "opened howdy");
+        ui->on_menu("Close");
+        expect(editor->count() == 2, "closed howdy");
         ui->switched(0);
         expect(editor->index() == 0, "switch");
         view = ui->view_buffer();
@@ -462,6 +478,7 @@ int main(void) {
         expect(ui->is_leaving() == 1, "quit left");
         unlink(pathA);
         unlink(pathB);
+        unlink(pathC);
         rmdir(dir);
     } catch (Exception error) {
         print("fail exception\n");

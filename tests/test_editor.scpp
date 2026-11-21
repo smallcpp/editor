@@ -197,6 +197,23 @@ int main(void) {
             "two spaces");
     editor->set_tab_width(0);
     expect(editor->tab_width() == 1, "tab clamps");
+    expect(editor->uses_spaces() == 1, "spaces default");
+    editor->set_tab_width(4);
+    editor->use_spaces(0);
+    editor->active()->buffer()->set_text("line");
+    editor->active()->buffer()->select_all();
+    expect(editor->run("indent") == EDITOR_OK, "tab indent");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "\tline") == 1,
+            "indent inserts a tab");
+    editor->active()->buffer()->select_all();
+    expect(editor->run("unindent") == EDITOR_OK, "tab unindent");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "line") == 1,
+            "unindent removes a tab");
+    editor->use_spaces(1);
     {
         char folder[EDITOR_PATH];
 

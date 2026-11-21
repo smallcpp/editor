@@ -91,6 +91,7 @@ private:
     long pageCount;
     int choiceMode;
     int applying;
+    int building;
     int showLine;
     int showMargin;
     int showClose;
@@ -107,6 +108,7 @@ private:
     Dialog *settingsDialog;
     CheckButton *bracketCheck;
     CheckButton *indentCheck;
+    CheckButton *spacesCheck;
     CheckButton *lineCheck;
     CheckButton *marginCheck;
     CheckButton *closeCheck;

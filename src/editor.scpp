@@ -106,6 +106,7 @@ Editor::Editor() {
     typeBrackets = 1;
     typeIndent = 1;
     tabWidth = EDITOR_TAB;
+    indentSpaces = 1;
 }
 
 void Editor::apply_typing(Document *doc) {
@@ -167,6 +168,17 @@ void Editor::set_tab_width(int value) {
 
 int Editor::tab_width(void) {
     return tabWidth;
+}
+
+void Editor::use_spaces(int value) {
+    if (value == 0)
+        indentSpaces = 0;
+    else
+        indentSpaces = 1;
+}
+
+int Editor::uses_spaces(void) {
+    return indentSpaces;
 }
 
 void Editor::set_error(const char *msg) {
@@ -546,14 +558,14 @@ int Editor::run(const char *command) {
         if (active() != nullptr)
             active()->buffer()->indent_lines(
                     tabWidth,
-                    true);
+                    indentSpaces != 0);
         return EDITOR_OK;
     }
     if (text_same(command, "unindent") == 1) {
         if (active() != nullptr)
             active()->buffer()->outdent_lines(
                     tabWidth,
-                    true);
+                    indentSpaces != 0);
         return EDITOR_OK;
     }
     set_error("unknown command");

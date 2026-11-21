@@ -149,6 +149,14 @@ void ui_indent(void *data, bool value) {
         editorUi->editor()->use_indent(0);
 }
 
+void ui_spaces(void *data, bool value) {
+    (void)data;
+    if (value)
+        editorUi->editor()->use_spaces(1);
+    else
+        editorUi->editor()->use_spaces(0);
+}
+
 void ui_settings_response(void *data, int response) {
     (void)data;
     (void)response;
@@ -173,6 +181,7 @@ Ui::Ui(Editor *editor) {
     settingsDialog = nullptr;
     bracketCheck = nullptr;
     indentCheck = nullptr;
+    spacesCheck = nullptr;
     lineCheck = nullptr;
     marginCheck = nullptr;
     closeCheck = nullptr;
@@ -188,6 +197,7 @@ Ui::Ui(Editor *editor) {
     marginCols = 80;
     hasLastDir = 0;
     leaving = 0;
+    building = 0;
     text_copy(lineColor, 32, "#d6e4f5");
     text_copy(marginColor, 32, "#c8c8c8");
     fontDesc[0] = 0;
@@ -289,6 +299,15 @@ void Ui::build(void) {
             "<Control>bracketleft",
             ui_key,
             (void *)"Unindent");
+    mainWindow->add_shortcut("Tab", ui_key, (void *)"Indent");
+    mainWindow->add_shortcut(
+            "<Shift>Tab",
+            ui_key,
+            (void *)"Unindent");
+    mainWindow->add_shortcut(
+            "ISO_Left_Tab",
+            ui_key,
+            (void *)"Unindent");
     files = new FileDialog();
     files->set_parent(mainWindow);
     fonts = new FontDialog();
@@ -366,7 +385,10 @@ void Ui::add_page(long index) {
 void Ui::rebuild(void) {
     long i;
     long n;
+    long want;
 
+    want = state->index();
+    building = 1;
     while (pageCount > 0) {
         book->remove_page(0);
         pageCount = pageCount - 1;
@@ -391,8 +413,13 @@ void Ui::rebuild(void) {
         add_page(i);
         i = i + 1;
     }
-    if (pageCount > 0 && state->index() < pageCount)
-        book->set_current_page(state->index());
+    building = 0;
+    if (pageCount == 0)
+        return;
+    if (want < 0 || want >= pageCount)
+        want = 0;
+    state->set_index(want);
+    book->set_current_page(want);
 }
 
 void Ui::place_cursor(long index) {
@@ -610,11 +637,18 @@ void Ui::paint_status(void) {
 
 void Ui::refresh(void) {
     long i;
+    long want;
 
+    want = state->index();
     if (pageCount != state->count())
         rebuild();
-    else
+    else {
         push_active();
+        if (book != nullptr
+                && want >= 0
+                && want < pageCount)
+            book->set_current_page(want);
+    }
     i = 0;
     while (i < pageCount) {
         retitle(i);
@@ -846,6 +880,8 @@ void Ui::moved(long index, long line, long offset) {
 }
 
 void Ui::switched(long index) {
+    if (building == 1)
+        return;
     state->set_index(index);
     paint_status();
 }
@@ -1008,10 +1044,11 @@ void Ui::show_settings(void) {
         box = new Box(GTK_VERTICAL, 8);
         bracketCheck = new CheckButton("Close brackets");
         indentCheck = new CheckButton("Indent a new line");
+        spacesCheck = new CheckButton("Indent with spaces");
         lineCheck = new CheckButton("Highlight the current line");
         marginCheck = new CheckButton("Right column marker");
         closeCheck = new CheckButton("Tab close marks");
-        tabLabel = new Label("Tab width");
+        tabLabel = new Label("Spaces per indent");
         lineLabel = new Label("Current line color");
         marginLabel = new Label("Column marker color");
         tabSpin = new SpinButton(1, 32, 4);
@@ -1021,11 +1058,13 @@ void Ui::show_settings(void) {
         fontButton = new Button("Font");
         bracketCheck->set_active(true);
         indentCheck->set_active(true);
+        spacesCheck->set_active(true);
         lineCheck->set_active(true);
         marginCheck->set_active(false);
         closeCheck->set_active(true);
         bracketCheck->on_toggled(ui_brackets, nullptr);
         indentCheck->on_toggled(ui_indent, nullptr);
+        spacesCheck->on_toggled(ui_spaces, nullptr);
         lineCheck->on_toggled(ui_line_toggle, nullptr);
         marginCheck->on_toggled(ui_margin_toggle, nullptr);
         closeCheck->on_toggled(ui_close_toggle, nullptr);
@@ -1042,6 +1081,7 @@ void Ui::show_settings(void) {
         fontButton->on_clicked(ui_font_button, nullptr);
         box->append((Widget *)bracketCheck);
         box->append((Widget *)indentCheck);
+        box->append((Widget *)spacesCheck);
         box->append((Widget *)tabLabel);
         box->append((Widget *)tabSpin);
         box->append((Widget *)lineCheck);
@@ -1067,6 +1107,10 @@ void Ui::show_settings(void) {
         indentCheck->set_active(false);
     else
         indentCheck->set_active(true);
+    if (state->uses_spaces() == 0)
+        spacesCheck->set_active(false);
+    else
+        spacesCheck->set_active(true);
     if (showLine == 0)
         lineCheck->set_active(false);
     else
@@ -1169,6 +1213,10 @@ void Ui::mount_tab(long index, const char *title) {
     row->append((Widget *)label);
     if (showClose == 1) {
         mark = new Button("x");
+        mark->add_css_class("flat");
+        mark->add_css("button{padding:0;min-width:0;min-height:0;}");
+        mark->add_css("button{border:none;background:none;}");
+        mark->add_css("button{box-shadow:none;}");
         mark->on_clicked(ui_tab_close, (void *)&refs[index]);
         row->append((Widget *)mark);
     }
@@ -1269,53 +1317,16 @@ void Ui::select_named(const char *title) {
 }
 
 void Ui::paint_line(long index) {
-    Document *doc;
-    const char *text;
-    long n;
-    long line;
-    long column;
-    long endLine;
-    long endCol;
-    TextIter *start;
-    TextIter *end;
-    TextIter *from;
-    TextIter *to;
+    int on;
 
     if (index < 0 || index >= pageCount)
         return;
-    if (pages[index].buffer == nullptr)
+    if (pages[index].view == nullptr)
         return;
-    text = pages[index].buffer->get_text();
-    n = text_length(text);
-    text_position(text, n, &endLine, &endCol);
-    pages[index].buffer->set_tag_background(
-            "current",
-            lineColor);
-    start = new TextIter(0, 0);
-    end = new TextIter(endLine, endCol);
-    if (n > 0)
-        pages[index].buffer->remove_tag(
-                "current",
-                start,
-                end);
-    if (showLine == 0)
-        return;
-    doc = state->at(index);
-    if (doc == nullptr)
-        return;
-    doc->buffer()->line_column_at(
-            doc->buffer()->cursor_offset(),
-            &line,
-            &column);
-    from = new TextIter(line, 0);
-    if (line < endLine)
-        to = new TextIter(line + 1, 0);
-    else
-        to = new TextIter(endLine, endCol);
-    if (to->line() == from->line()
-            && to->offset() == from->offset())
-        return;
-    pages[index].buffer->apply_tag("current", from, to);
+    on = 0;
+    if (showLine != 0)
+        on = 1;
+    pages[index].view->set_line_shade(on, lineColor);
 }
 
 void Ui::apply_view(long index) {
