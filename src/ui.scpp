@@ -157,6 +157,15 @@ void ui_spaces(void *data, bool value) {
         editorUi->editor()->use_spaces(0);
 }
 
+void ui_option(void *data, bool value) {
+    int on;
+
+    on = 0;
+    if (value == true)
+        on = 1;
+    editorUi->set_option((const char *)data, on);
+}
+
 void ui_settings_response(void *data, int response) {
     (void)data;
     if (response == 2) {
@@ -219,7 +228,19 @@ Ui::Ui(Editor *editor) {
     searchBack = 0;
     searchWhole = 0;
     searchCase = 0;
+    searchWrap = 1;
+    showSpace = 0;
+    showEnds = 0;
+    showStops = 0;
     searchMenu = 0;
+    viewMenu = 0;
+    wrapCheck = nullptr;
+    backCheck = nullptr;
+    wholeCheck = nullptr;
+    caseCheck = nullptr;
+    spaceCheck = nullptr;
+    endCheck = nullptr;
+    stopCheck = nullptr;
     searchDialog = nullptr;
     replaceDialog = nullptr;
     searchEntry = nullptr;
@@ -281,8 +302,10 @@ Editor *Ui::editor(void) {
 void Ui::build(void) {
     const char *fileLabels[8];
     const char *editLabels[7];
-    const char *searchLabels[5];
-    const char *viewLabels[1];
+    const char *searchLabels[6];
+    const char *viewLabels[4];
+    long fileMenu;
+    long editMenu;
     Box *outer;
 
     app = new Application("org.smallcpp.Editor");
@@ -303,6 +326,11 @@ void Ui::build(void) {
     searchLabels[2] = "Reverse";
     searchLabels[3] = "Whole word";
     searchLabels[4] = "Match case";
+    searchLabels[5] = "Wrap";
+    viewLabels[0] = "Settings";
+    viewLabels[1] = "Whitespace";
+    viewLabels[2] = "Line ends";
+    viewLabels[3] = "Indent stops";
     editLabels[0] = "Undo";
     editLabels[1] = "Redo";
     editLabels[2] = "Cut";
@@ -310,19 +338,37 @@ void Ui::build(void) {
     editLabels[4] = "Paste";
     editLabels[5] = "Indent";
     editLabels[6] = "Unindent";
-    menuBar->add_menu("File", fileLabels, 8, ui_menu, nullptr);
-    menuBar->add_menu("Edit", editLabels, 7, ui_menu, nullptr);
+    fileMenu = menuBar->add_menu(
+            "File",
+            fileLabels,
+            8,
+            ui_menu,
+            nullptr);
+    editMenu = menuBar->add_menu(
+            "Edit",
+            editLabels,
+            7,
+            ui_menu,
+            nullptr);
     searchMenu = menuBar->add_menu(
             "Search",
             searchLabels,
-            5,
+            6,
             ui_menu,
             nullptr);
-    menuBar->set_check(searchMenu, 2, 0);
-    menuBar->set_check(searchMenu, 3, 0);
-    menuBar->set_check(searchMenu, 4, 0);
-    viewLabels[0] = "Settings";
-    menuBar->add_menu("View", viewLabels, 1, ui_menu, nullptr);
+    viewMenu = menuBar->add_menu(
+            "View",
+            viewLabels,
+            4,
+            ui_menu,
+            nullptr);
+    menuBar->set_separator(fileMenu, 2);
+    menuBar->set_separator(fileMenu, 5);
+    menuBar->set_separator(fileMenu, 7);
+    menuBar->set_separator(editMenu, 2);
+    menuBar->set_separator(editMenu, 5);
+    menuBar->set_separator(searchMenu, 2);
+    menuBar->set_separator(viewMenu, 1);
     documentsMenu = menuBar->add_menu(
             "Documents",
             nullptr,
@@ -343,6 +389,7 @@ void Ui::build(void) {
     outer->append((Widget *)status);
     mainWindow->set_child((Widget *)outer);
     bind_keys();
+    push_options();
     files = new FileDialog();
     files->set_parent(mainWindow);
     fonts = new FontDialog();
@@ -977,6 +1024,92 @@ void Ui::hide_settings(void) {
     settingsDialog->set_visible(false);
 }
 
+static void set_box(CheckButton *box, int on) {
+    if (box == nullptr)
+        return;
+    if (on == 0)
+        box->set_active(false);
+    else
+        box->set_active(true);
+}
+
+void Ui::sync_boxes(void) {
+    long i;
+
+    applying = 1;
+    set_box(wrapCheck, searchWrap);
+    set_box(backCheck, searchBack);
+    set_box(wholeCheck, searchWhole);
+    set_box(caseCheck, searchCase);
+    set_box(spaceCheck, showSpace);
+    set_box(endCheck, showEnds);
+    set_box(stopCheck, showStops);
+    applying = 0;
+    i = 0;
+    while (i < pageCount) {
+        apply_view(i);
+        i = i + 1;
+    }
+}
+
+void Ui::push_options(void) {
+    applying = 1;
+    if (menuBar != nullptr) {
+        menuBar->set_check(searchMenu, 2, searchBack);
+        menuBar->set_check(searchMenu, 3, searchWhole);
+        menuBar->set_check(searchMenu, 4, searchCase);
+        menuBar->set_check(searchMenu, 5, searchWrap);
+        menuBar->set_check(viewMenu, 1, showSpace);
+        menuBar->set_check(viewMenu, 2, showEnds);
+        menuBar->set_check(viewMenu, 3, showStops);
+    }
+    applying = 0;
+    sync_boxes();
+}
+
+void Ui::set_option(const char *label, int on) {
+    int value;
+
+    if (applying == 1)
+        return;
+    if (label == nullptr)
+        return;
+    value = 0;
+    if (on != 0)
+        value = 1;
+    if (text_same(label, "Wrap") == 1)
+        searchWrap = value;
+    if (text_same(label, "Reverse") == 1)
+        searchBack = value;
+    if (text_same(label, "Whole word") == 1)
+        searchWhole = value;
+    if (text_same(label, "Match case") == 1)
+        searchCase = value;
+    if (text_same(label, "Whitespace") == 1)
+        showSpace = value;
+    if (text_same(label, "Line ends") == 1)
+        showEnds = value;
+    if (text_same(label, "Indent stops") == 1)
+        showStops = value;
+    push_options();
+}
+
+int Ui::shows_space(void) {
+    return showSpace;
+}
+
+int Ui::shows_ends(void) {
+    return showEnds;
+}
+
+int Ui::shows_stops(void) {
+    return showStops;
+}
+
+int Ui::search_wrap(void) {
+    return searchWrap;
+}
+
 void Ui::bind_keys(void) {
     int n;
 
@@ -1081,6 +1214,7 @@ void Ui::find_query(const char *query) {
     bool whole;
     bool inSel;
     bool backward;
+    bool wrap;
 
     if (query == nullptr)
         query = "";
@@ -1105,12 +1239,16 @@ void Ui::find_query(const char *query) {
             &backward);
     if (buffer->scope_active() == true)
         inSel = true;
+    wrap = false;
+    if (searchWrap != 0)
+        wrap = true;
     buffer->find_next(
             searchText,
             matchCase,
             whole,
             inSel,
-            backward);
+            backward,
+            wrap);
     refresh();
 }
 
@@ -1126,6 +1264,7 @@ void Ui::replace_query(const char *query, const char *repl) {
     bool whole;
     bool inSel;
     bool backward;
+    bool wrap;
 
     if (query == nullptr)
         query = "";
@@ -1155,13 +1294,17 @@ void Ui::replace_query(const char *query, const char *repl) {
             &backward);
     if (buffer->scope_active() == true)
         inSel = true;
+    wrap = false;
+    if (searchWrap != 0)
+        wrap = true;
     buffer->replace_next(
             replaceText,
             withText,
             matchCase,
             whole,
             inSel,
-            backward);
+            backward,
+            wrap);
     refresh();
 }
 
@@ -1401,6 +1544,13 @@ void Ui::use_config(EditorConfig *item) {
     set_margin_color(item->marginColor);
     if (item->font[0] != 0)
         choose_font(item->font);
+    searchWrap = item->searchWrap;
+    searchBack = item->searchBack;
+    searchWhole = item->searchWhole;
+    searchCase = item->searchCase;
+    showSpace = item->showSpace;
+    showEnds = item->showEnds;
+    showStops = item->showStops;
     {
         int n;
 
@@ -1414,6 +1564,7 @@ void Ui::use_config(EditorConfig *item) {
     }
     if (mainWindow != nullptr)
         bind_keys();
+    push_options();
 }
 
 void Ui::load_settings(void) {
@@ -1441,6 +1592,55 @@ void Ui::apply_settings(void) {
     item.showMargin = showMargin;
     item.showClose = showClose;
     item.marginCols = marginCols;
+    item.searchWrap = searchWrap;
+    item.searchBack = searchBack;
+    item.searchWhole = searchWhole;
+    item.searchCase = searchCase;
+    item.showSpace = showSpace;
+    item.showEnds = showEnds;
+    item.showStops = showStops;
+    if (wrapCheck != nullptr) {
+        if (wrapCheck->active() == true)
+            item.searchWrap = 1;
+        else
+            item.searchWrap = 0;
+    }
+    if (backCheck != nullptr) {
+        if (backCheck->active() == true)
+            item.searchBack = 1;
+        else
+            item.searchBack = 0;
+    }
+    if (wholeCheck != nullptr) {
+        if (wholeCheck->active() == true)
+            item.searchWhole = 1;
+        else
+            item.searchWhole = 0;
+    }
+    if (caseCheck != nullptr) {
+        if (caseCheck->active() == true)
+            item.searchCase = 1;
+        else
+            item.searchCase = 0;
+    }
+    if (spaceCheck != nullptr) {
+        if (spaceCheck->active() == true)
+            item.showSpace = 1;
+        else
+            item.showSpace = 0;
+    }
+    if (endCheck != nullptr) {
+        if (endCheck->active() == true)
+            item.showEnds = 1;
+        else
+            item.showEnds = 0;
+    }
+    if (stopCheck != nullptr) {
+        if (stopCheck->active() == true)
+            item.showStops = 1;
+        else
+            item.showStops = 0;
+    }
     text_copy(item.lineColor, 32, lineColor);
     text_copy(item.marginColor, 32, marginColor);
     text_copy(item.font, 128, fontDesc);
@@ -1491,8 +1691,11 @@ void Ui::apply_settings(void) {
 
 void Ui::show_settings(void) {
     Box *box;
-    Box *keys;
+    Box *side;
+    Box *row;
+    Grid *keys;
     Notebook *pages;
+    ScrolledWindow *scroll;
     Button *fontButton;
     Label *tabLabel;
     Label *lineLabel;
@@ -1503,8 +1706,10 @@ void Ui::show_settings(void) {
         settingsDialog = new Dialog("Settings");
         settingsDialog->set_transient(mainWindow);
         pages = new Notebook();
+        pages->set_tabs_left();
         box = new Box(GTK_VERTICAL, 8);
-        keys = new Box(GTK_VERTICAL, 4);
+        keys = new Grid();
+        keys->set_spacing(12, 4);
         bracketCheck = new CheckButton("Close brackets");
         indentCheck = new CheckButton("Indent a new line");
         spacesCheck = new CheckButton("Indent with spaces");
@@ -1556,6 +1761,55 @@ void Ui::show_settings(void) {
         box->append((Widget *)marginEntry);
         box->append((Widget *)closeCheck);
         box->append((Widget *)fontButton);
+        side = new Box(GTK_VERTICAL, 8);
+        side->append((Widget *)new Label("Search"));
+        wrapCheck = new CheckButton("Wrap");
+        backCheck = new CheckButton("Reverse");
+        wholeCheck = new CheckButton("Whole word");
+        caseCheck = new CheckButton("Match case");
+        wrapCheck->on_toggled(ui_option, (void *)"Wrap");
+        backCheck->on_toggled(ui_option, (void *)"Reverse");
+        wholeCheck->on_toggled(
+                ui_option,
+                (void *)"Whole word");
+        caseCheck->on_toggled(
+                ui_option,
+                (void *)"Match case");
+        side->append((Widget *)wrapCheck);
+        side->append((Widget *)backCheck);
+        side->append((Widget *)wholeCheck);
+        side->append((Widget *)caseCheck);
+        side->append((Widget *)new Label("View"));
+        spaceCheck = new CheckButton("Whitespace");
+        endCheck = new CheckButton("Line ends");
+        stopCheck = new CheckButton("Indent stops");
+        spaceCheck->on_toggled(
+                ui_option,
+                (void *)"Whitespace");
+        endCheck->on_toggled(
+                ui_option,
+                (void *)"Line ends");
+        stopCheck->on_toggled(
+                ui_option,
+                (void *)"Indent stops");
+        side->append((Widget *)spaceCheck);
+        side->append((Widget *)endCheck);
+        side->append((Widget *)stopCheck);
+        row = new Box(GTK_HORIZONTAL, 16);
+        row->append((Widget *)box);
+        row->append((Widget *)side);
+        keys->attach(
+                (Widget *)new Label("Command"),
+                0,
+                0,
+                1,
+                1);
+        keys->attach(
+                (Widget *)new Label("Shortcut"),
+                1,
+                0,
+                1,
+                1);
         n = 0;
         while (n < EDITOR_KEY_COUNT) {
             const char *label;
@@ -1574,13 +1828,22 @@ void Ui::show_settings(void) {
             name = new Label(label);
             entry = new Entry(keyAccel[n]);
             keyEntry[n] = entry;
-            keys->append((Widget *)name);
-            keys->append((Widget *)entry);
+            keys->attach((Widget *)name, 0, n + 1, 1, 1);
+            keys->attach((Widget *)entry, 1, n + 1, 1, 1);
             n = n + 1;
         }
-        pages->append_page((Widget *)box, "General");
+        pages->append_page((Widget *)row, "General");
         pages->append_page((Widget *)keys, "Keyboard");
-        settingsDialog->set_content((Widget *)pages);
+        scroll = new ScrolledWindow();
+        scroll->set_policy(
+                GTK_POLICY_NEVER,
+                GTK_POLICY_AUTOMATIC);
+        scroll->add_css(
+                "scrolledwindow { min-height: 320px; }");
+        scroll->add_css(
+                "scrolledwindow { max-height: 460px; }");
+        scroll->set_child((Widget *)pages);
+        settingsDialog->set_content((Widget *)scroll);
         settingsDialog->add_button("Apply", 2);
         settingsDialog->add_button("Close", 1);
         settingsDialog->on_response(
@@ -1619,6 +1882,7 @@ void Ui::show_settings(void) {
             keyEntry[n]->set_text(keyAccel[n]);
         n = n + 1;
     }
+    push_options();
     settingsDialog->present();
 }
 
@@ -1663,14 +1927,37 @@ void Ui::on_menu(const char *label) {
     }
     if (text_same(label, "Reverse") == 1) {
         searchBack = menuBar->is_checked(searchMenu, 2);
+        sync_boxes();
         return;
     }
     if (text_same(label, "Whole word") == 1) {
         searchWhole = menuBar->is_checked(searchMenu, 3);
+        sync_boxes();
         return;
     }
     if (text_same(label, "Match case") == 1) {
         searchCase = menuBar->is_checked(searchMenu, 4);
+        sync_boxes();
+        return;
+    }
+    if (text_same(label, "Wrap") == 1) {
+        searchWrap = menuBar->is_checked(searchMenu, 5);
+        sync_boxes();
+        return;
+    }
+    if (text_same(label, "Whitespace") == 1) {
+        showSpace = menuBar->is_checked(viewMenu, 1);
+        sync_boxes();
+        return;
+    }
+    if (text_same(label, "Line ends") == 1) {
+        showEnds = menuBar->is_checked(viewMenu, 2);
+        sync_boxes();
+        return;
+    }
+    if (text_same(label, "Indent stops") == 1) {
+        showStops = menuBar->is_checked(viewMenu, 3);
+        sync_boxes();
         return;
     }
     if (text_same(label, "Settings") == 1) {
@@ -1857,10 +2144,15 @@ void Ui::apply_view(long index) {
         pages[index].view->set_column_marker(
                 marginCols,
                 marginColor);
-    else
-        pages[index].view->set_column_marker(
-                0,
-                marginColor);
+        else
+            pages[index].view->set_column_marker(
+                    0,
+                    marginColor);
+    pages[index].view->set_marks(
+            showSpace,
+            showEnds,
+            showStops,
+            state->tab_width());
 }
 
 void Ui::arm_dialog(void) {
@@ -2041,7 +2333,14 @@ void Ui::set_margin_count(int value) {
 }
 
 void Ui::set_width(int value) {
+    long i;
+
     state->set_tab_width(value);
+    i = 0;
+    while (i < pageCount) {
+        apply_view(i);
+        i = i + 1;
+    }
 }
 
 void Ui::open_font(void) {

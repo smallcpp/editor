@@ -15,9 +15,8 @@ line high, including a blank line. Line numbers are a gutter of
 the visible lines, wide enough for four digits and one space.
 Each number is drawn at its buffer line and scrolls with the
 text. A line Enter just created is numbered before it has
-characters. There is no whitespace
-glyph, newline mark, or indent
-guide. The right column marker is an overlay at a character
+characters. Whitespace, line ends, and indent stops are overlays
+the view can turn on. The right column marker is an overlay at a character
 column. The status line shows the line and column from the
 editor buffer.
 
@@ -40,9 +39,11 @@ chooser. Wrapping stays off. The menu bar is the first child
 of the window because the wrapper has no title-bar setter.
 Settings are stored in `$HOME/.config/smallcpp/editor.ini`,
 beside the compiler's `config.ini`. Apply writes that file,
-including one `key-` accelerator for each command, and leaves
-the dialog open. Close does not. The setup dialog is a
-notebook with General and Keyboard pages.
+including one `key-` accelerator for each command, the
+search options, and the view options, and leaves the dialog
+open. Close does not. The setup dialog is a notebook with
+the tabs on the left. General holds the switches. Keyboard
+is a grid of command and shortcut.
 
 This editor does not open projects, run builds, talk to a language
 server, load plugins, or show a message pane or a debugger.

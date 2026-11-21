@@ -13,6 +13,13 @@ void config_defaults(EditorConfig *item) {
     item->showMargin = 0;
     item->showClose = 1;
     item->marginCols = 80;
+    item->searchWrap = 1;
+    item->searchBack = 0;
+    item->searchWhole = 0;
+    item->searchCase = 0;
+    item->showSpace = 0;
+    item->showEnds = 0;
+    item->showStops = 0;
     text_copy(item->lineColor, 32, "#d6e4f5");
     text_copy(item->marginColor, 32, "#c8c8c8");
     item->font[0] = 0;
@@ -131,6 +138,20 @@ static void take_line(EditorConfig *item, const char *line) {
         text_copy(item->marginColor, 32, value);
     if (key_is(line, "font") == 1)
         text_copy(item->font, 128, value);
+    if (key_is(line, "search-wrap") == 1)
+        item->searchWrap = read_int(value, item->searchWrap);
+    if (key_is(line, "search-reverse") == 1)
+        item->searchBack = read_int(value, item->searchBack);
+    if (key_is(line, "search-whole") == 1)
+        item->searchWhole = read_int(value, item->searchWhole);
+    if (key_is(line, "search-case") == 1)
+        item->searchCase = read_int(value, item->searchCase);
+    if (key_is(line, "show-whitespace") == 1)
+        item->showSpace = read_int(value, item->showSpace);
+    if (key_is(line, "show-line-ends") == 1)
+        item->showEnds = read_int(value, item->showEnds);
+    if (key_is(line, "show-indent-stops") == 1)
+        item->showStops = read_int(value, item->showStops);
     {
         int which;
 
@@ -249,6 +270,13 @@ int config_write(
     text->append(item->marginColor);
     text->append("\n");
     add_flag(text, "close-marks", item->showClose);
+    add_flag(text, "search-wrap", item->searchWrap);
+    add_flag(text, "search-reverse", item->searchBack);
+    add_flag(text, "search-whole", item->searchWhole);
+    add_flag(text, "search-case", item->searchCase);
+    add_flag(text, "show-whitespace", item->showSpace);
+    add_flag(text, "show-line-ends", item->showEnds);
+    add_flag(text, "show-indent-stops", item->showStops);
     text->append("font=");
     text->append(item->font);
     text->append("\n");

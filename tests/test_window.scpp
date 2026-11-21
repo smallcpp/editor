@@ -475,9 +475,16 @@ int main(void) {
                     "settings path");
             raw = read_file(path, &n, &err);
             expect(raw != nullptr, "settings file");
-            if (raw != nullptr)
+            if (raw != nullptr) {
                 expect(text_has(raw, "tab-width=7") == 1,
                         "saved tab width");
+                expect(text_has(raw, "search-wrap=1") == 1,
+                        "saved wrap");
+                expect(text_has(
+                            raw,
+                            "show-whitespace=0") == 1,
+                        "saved whitespace");
+            }
             unlink(path);
         }
         ui->on_menu("Close");
@@ -505,6 +512,15 @@ int main(void) {
         ui->on_menu("Search");
         ui->on_menu("Replace");
         ui->on_menu("Match case");
+        ui->on_menu("Wrap");
+        ui->set_option("Whitespace", 1);
+        expect(ui->shows_space() == 1, "whitespace on");
+        ui->set_option("Line ends", 1);
+        ui->set_option("Indent stops", 1);
+        expect(ui->shows_ends() == 1, "line ends on");
+        expect(ui->shows_stops() == 1, "indent stops on");
+        ui->set_option("Wrap", 0);
+        expect(ui->search_wrap() == 0, "wrap off");
         ui->on_menu("Close All");
         expect(editor->count() == 1, "close all");
         expect(text_has(ui->tab_text(0), "untitled") == 1,

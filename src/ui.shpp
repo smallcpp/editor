@@ -81,6 +81,11 @@ public:
     void set_margin_count(int value);
     void set_width(int value);
     void open_font(void);
+    void set_option(const char *label, int on);
+    int shows_space(void);
+    int shows_ends(void);
+    int shows_stops(void);
+    int search_wrap(void);
     void find_query(const char *query);
     void find_again(void);
     void replace_query(
@@ -137,7 +142,19 @@ private:
     int searchBack;
     int searchWhole;
     int searchCase;
+    int searchWrap;
+    int showSpace;
+    int showEnds;
+    int showStops;
     long searchMenu;
+    long viewMenu;
+    CheckButton *wrapCheck;
+    CheckButton *backCheck;
+    CheckButton *wholeCheck;
+    CheckButton *caseCheck;
+    CheckButton *spaceCheck;
+    CheckButton *endCheck;
+    CheckButton *stopCheck;
     Dialog *searchDialog;
     Dialog *replaceDialog;
     Entry *searchEntry;
@@ -150,6 +167,8 @@ private:
     char withText[256];
     void build(void);
     void bind_keys(void);
+    void push_options(void);
+    void sync_boxes(void);
     void read_keys(void);
     void show_search(void);
     void show_replace(void);
