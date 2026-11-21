@@ -10,9 +10,11 @@ that same coloring. The same scanner also colors C,
 C++, cw, Python, shell, and toml. Preprocessor lines, extra
 keywords, types, and call names are colored for scpp and
 for a .shpp file. Other
-files, including Markdown, stay plain. Keyword, type, call,
-preprocessor, string, comment, and number tags are foreground
-colors. The current line is drawn under the cursor line, one
+files, including Markdown, stay plain. A span stores a tag
+name. The theme in editor.ini maps that tag to a foreground
+color. The default theme is shared by every language. A
+language may override one tag, and a missing tag uses the
+default. The current line is drawn under the cursor line, one
 line high, including a blank line. Line numbers are a gutter of
 the visible lines, wide enough for four digits and one space.
 Each number is drawn at its buffer line and scrolls with the

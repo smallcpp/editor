@@ -362,6 +362,8 @@ Ui::Ui(Editor *editor) {
     building = 0;
     text_copy(lineColor, 32, "#d6e4f5");
     text_copy(marginColor, 32, "#c8c8c8");
+    themeConfig = new EditorConfig();
+    config_defaults(themeConfig);
     fontDesc[0] = 0;
     i = 0;
     while (i < EDITOR_KEY_COUNT) {
@@ -786,7 +788,9 @@ void Ui::highlight(long index) {
     TextIter *start;
     TextIter *end;
     const char *name;
+    const char *color;
     Span *span;
+    int kind;
 
     if (index < 0 || index >= pageCount)
         return;
@@ -803,58 +807,27 @@ void Ui::highlight(long index) {
     start = new TextIter(0, 0);
     end = new TextIter(line2, col2);
     if (pages[index].tags == 0) {
-        pages[index].buffer->create_tag(
-                "keyword",
-                "#2040c0");
-        pages[index].buffer->create_tag(
-                "string",
-                "#208020");
-        pages[index].buffer->create_tag(
-                "comment",
-                "#808080");
-        pages[index].buffer->create_tag(
-                "number",
-                "#804000");
-        pages[index].buffer->create_tag(
-                "type",
-                "#6030a0");
-        pages[index].buffer->create_tag(
-                "preproc",
-                "#a04020");
-        pages[index].buffer->create_tag(
-                "call",
-                "#106060");
+        kind = SPAN_KEYWORD;
+        while (kind <= SPAN_CALL) {
+            name = span_tag(kind);
+            color = theme_color(
+                    themeConfig,
+                    doc->language(),
+                    name);
+            pages[index].buffer->create_tag(name, color);
+            kind = kind + 1;
+        }
         pages[index].tags = 1;
     }
     if (n > 0) {
-        pages[index].buffer->remove_tag(
-                "keyword",
-                start,
-                end);
-        pages[index].buffer->remove_tag(
-                "string",
-                start,
-                end);
-        pages[index].buffer->remove_tag(
-                "comment",
-                start,
-                end);
-        pages[index].buffer->remove_tag(
-                "number",
-                start,
-                end);
-        pages[index].buffer->remove_tag(
-                "type",
-                start,
-                end);
-        pages[index].buffer->remove_tag(
-                "preproc",
-                start,
-                end);
-        pages[index].buffer->remove_tag(
-                "call",
-                start,
-                end);
+        kind = SPAN_KEYWORD;
+        while (kind <= SPAN_CALL) {
+            pages[index].buffer->remove_tag(
+                    span_tag(kind),
+                    start,
+                    end);
+            kind = kind + 1;
+        }
     }
     scan = new Highlighter();
     scan->scan(text, doc->language());
@@ -870,20 +843,12 @@ void Ui::highlight(long index) {
         seek_offset(text, n, span->end, &byte, &line, &col);
         start = new TextIter(line2, col2);
         end = new TextIter(line, col);
-        name = "keyword";
-        if (span->kind == SPAN_STRING)
-            name = "string";
-        if (span->kind == SPAN_COMMENT)
-            name = "comment";
-        if (span->kind == SPAN_NUMBER)
-            name = "number";
-        if (span->kind == SPAN_TYPE)
-            name = "type";
-        if (span->kind == SPAN_PREPROC)
-            name = "preproc";
-        if (span->kind == SPAN_CALL)
-            name = "call";
-        pages[index].buffer->apply_tag(name, start, end);
+        name = span->tag;
+        if (name != nullptr && name[0] != 0)
+            pages[index].buffer->apply_tag(
+                    name,
+                    start,
+                    end);
         i = i + 1;
     }
 }
@@ -1995,6 +1960,7 @@ void ui_font_button(void *data) {
 void Ui::use_config(EditorConfig *item) {
     if (item == nullptr)
         return;
+    theme_copy(themeConfig, item);
     if (item->brackets == 0)
         state->use_brackets(0);
     else
@@ -2265,6 +2231,7 @@ void Ui::apply_settings(void) {
     item.activePath[0] = 0;
     if (rememberFiles == 1)
         collect_open(&item);
+    theme_copy(&item, themeConfig);
     use_config(&item);
     if (config_path(path, EDITOR_PATH) == 1)
         config_write(path, &item);

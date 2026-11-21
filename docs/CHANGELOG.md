@@ -104,9 +104,17 @@ stay in place while a settings page scrolls. The close
 button switch sits at the bottom of the dialog, above
 Apply and Close. Current line color and column marker
 color each have a Color button. That button opens the
-color chooser and stores `#rrggbb`. The save
-dialog lists every
-modified file.
+color chooser and stores `#rrggbb`. Syntax spans store a
+tag name: keyword, type, string, comment, number,
+preprocessor, or call. A span does not store a color.
+The theme in editor.ini maps each tag to a color. The
+default theme is the same for every language and keeps
+the colors the editor already used. A language can
+override one tag, so a Python keyword can differ from a
+C keyword. A tag with no override uses the default. The
+file text never contains a tag. One scanner still covers
+every language, and language_of is still the suffix map.
+The save dialog lists every modified file.
 Each one can be saved or discarded, and Save all and Discard
 all do the whole list. Saving an untitled file still asks
 for a path.

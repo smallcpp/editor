@@ -134,10 +134,17 @@ can turn that highlight off and can set its color. A right
 column marker is off by default and is two pixels wide. Settings
 turns it on, sets its color, and sets the character count,
 which starts at 80. Font and size are chosen with a font
-chooser dialog. Tags color scpp and shpp keywords, types, calls,
-preprocessor lines, strings, comments, and numbers. A span
-is painted at its character column, so a multibyte character does
-not shift a later color. Undo and redo put the caret back on the
+chooser dialog. A span stores a tag name, not a color.
+The tags are keyword, type, string, comment, number,
+preprocessor, and call. The theme in `editor.ini` maps each
+tag to a color. The default theme is the same for every
+language and keeps the colors already used. A language can
+override one tag. A missing tag uses the default color.
+The file text never contains a tag. One scanner covers
+every language, and `language_of` is still the suffix map.
+A span is painted at its character column, so a multibyte
+character does not shift a later color. Undo and redo put
+the caret back on the
 edited spot and scroll that spot into view.
 
 Keys: Ctrl+N creates a document, Ctrl+O opens, Ctrl+S saves,

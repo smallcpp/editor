@@ -21,7 +21,10 @@ public:
     long start;
     long end;
     int kind;
+    const char *tag;
 };
+
+const char *span_tag(int kind);
 
 class SpanVec : public Array {
 public:
