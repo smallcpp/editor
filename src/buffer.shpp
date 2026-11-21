@@ -31,6 +31,8 @@ public:
     EditMark * next(long *cursor);
 };
 
+const char *bracket_list(void);
+
 class EditBuffer {
 public:
     EditBuffer();

@@ -22,10 +22,12 @@ active tab. A new line shows its gutter number when Enter
 creates it, before any character is typed. Settings has Apply.
 Apply writes `$HOME/.config/smallcpp/editor.ini` and leaves the
 dialog open. Settings is a notebook with the tabs on the
-left. General holds the switches. Search holds Wrap,
-Reverse, Whole word, and Match case. View holds
-Whitespace, Line ends, and Indent stops. Remember files
-is off until it is turned on. General holds how many
+left. Those tabs stay put while the page scrolls. General
+holds the switches. Search names wrap at the end of the
+buffer, reverse direction, whole words, and exact word
+case. Appearance holds Whitespace, Line ends, Indent
+stops, and Font. Remember files sits with the recent-file
+count and is off until it is turned on. General holds how many
 recent files to keep, and that count starts at 10.
 Keyboard is a
 grid of the command and its accelerator.
@@ -48,7 +50,7 @@ dark border.
 
 Documents keeps underscores in a file name, so `howdy.scpp` and
 `how_dy.scpp` appear as written. Opening a file selects that tab.
-The tab close control is a flat mark. The gutter holds four digits
+The tab close control is a button. The gutter holds four digits
 and one space before the text. The current line highlight is one
 line, including the last line and a line just inserted. Indent,
 unindent, and Tab use spaces by default, four spaces wide, and
@@ -62,7 +64,7 @@ dialog.
 Opening a file updates the tab title, including when that open
 replaces the untitled buffer. Documents lists the loaded files
 and switches to the chosen one. Tabs have a border and, by
-default, a close mark. Settings can hide the close mark.
+default, a close button. Settings can hide that button.
 
 Line numbers sit in the left gutter, one per buffer line, and they
 scroll with the text. An empty buffer shows line 1. The current
@@ -92,7 +94,13 @@ bordered group. Indent can use tabs, spaces, or both, and
 the width is how many character places one indent shows.
 Autoindent is the name of the new-line indent. Trim
 trailing spaces on save is off until it is turned on.
-Font is on Appearance. The save dialog lists every
+Font is on Appearance. Remember files sits with the
+recent-file count on General. Autoclose brackets uses the
+pairs `()`, `[]`, `{}`, `""`, and `''`, and that list is
+shown beside the switch. Search names the wrap, reverse,
+whole-word, and match-case choices in full. The left tabs
+stay in place while a settings page scrolls. The save
+dialog lists every
 modified file.
 Each one can be saved or discarded, and Save all and Discard
 all do the whole list. Saving an untitled file still asks
@@ -118,7 +126,7 @@ scrolls a mark, so the caret stays on the edited spot.
 Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+L, Ctrl+Z, Ctrl+Y,
 Ctrl+Shift+Z, Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+], and Ctrl+[ run the
 existing commands. The view shows line numbers. Settings toggles
-closing brackets and indenting a new line.
+autoclose brackets and indenting a new line.
 
 File, Open starts in the process current directory.
 `gtk_file_dialog_set_initial_folder` receives that directory.

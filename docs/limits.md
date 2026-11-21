@@ -35,7 +35,7 @@ process current directory, and later dialogs start in the
 directory last chosen
 during this session. Tab titles are the file name. A modified
 tab draws a dot before that name. The dirty star is on the
-status line. A tab can show a close mark. The save dialog
+status line. A tab can show a close button. The save dialog
 lists every modified file. The window shows at most
 32 documents.
 
@@ -48,16 +48,17 @@ including one `key-` accelerator for each command, the
 search options, and the view options, and leaves the dialog
 open. Close does not. The setup dialog is a notebook with
 the tabs on the left. General holds the switches. Search
-holds Wrap, Reverse, Whole word, and Match case.
-Appearance holds Whitespace, Line ends, Indent stops,
-Remember files, and Font. Remember files is off until
-it is turned on. General holds the recent-file count,
-which starts at 10, and trim trailing spaces, which is
-off. Indent width is a character count. Keyboard
+holds wrap at the end of the buffer, reverse direction,
+whole words only, and exact word case. Appearance holds
+Whitespace, Line ends, Indent stops, and Font. General
+holds the recent-file count, which starts at 10, Remember
+files, which is off until turned on, and trim trailing
+spaces, which is off. Autoclose uses `()`, `[]`, `{}`,
+`""`, and `''`. Indent width is a character count. Keyboard
 is a grid of command and shortcut. Click a shortcut, press
 the new keys, and Escape cancels. Apply refuses a shortcut
 that another command already uses. The notebook fills the
-dialog and follows its size.
+dialog. The left tabs stay fixed, and the page scrolls.
 
 This editor does not open projects, run builds, talk to a language
 server, load plugins, or show a message pane or a debugger.
