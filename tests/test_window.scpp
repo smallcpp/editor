@@ -293,6 +293,9 @@ int main(void) {
         expect(write_file(pathC, "howdy\n", &io) == 1,
                 "seed howdy");
         ui->open_path(pathC);
+        expect(text_same(ui->recent_at(0), pathC) == 1,
+                "recent first");
+        expect(ui->recent_count() == 10, "recent count");
         expect(editor->index() == 2, "open activates the tab");
         expect(text_has(
                     ui->tab_text(editor->index()),
@@ -461,6 +464,7 @@ int main(void) {
         expect(ui->margin_columns() == 80, "margin columns");
         expect(editor->tab_width() == 4, "tab default");
         editor->set_tab_width(7);
+        ui->set_option("Remember files", 1);
         ui->on_menu("Settings");
         expect(text_has(
                     ui->key_help(),
@@ -500,6 +504,16 @@ int main(void) {
                             raw,
                             "key-new=<Control>n") == 1,
                         "saved new key");
+                expect(text_has(
+                            raw,
+                            "recent-count=10") == 1,
+                        "saved recent count");
+                expect(text_has(
+                            raw,
+                            "remember-files=1") == 1,
+                        "saved remember");
+                expect(text_has(raw, pathA) == 1,
+                        "saved open path");
             }
             unlink(path);
         }
@@ -541,6 +555,21 @@ int main(void) {
         expect(editor->count() == 1, "close all");
         expect(text_has(ui->tab_text(0), "untitled") == 1,
                 "close all leaves one");
+        {
+            int i;
+
+            i = 0;
+            while (i < 16) {
+                editor->new_file();
+                i = i + 1;
+            }
+            ui->refresh();
+            pump(30);
+            expect(ui->window_width() > 200,
+                    "window has a width");
+            expect(ui->window_width() < 1100,
+                    "tabs do not widen the window");
+        }
         ui->on_menu("Quit");
         expect(ui->is_leaving() == 1, "quit left");
         unlink(pathA);

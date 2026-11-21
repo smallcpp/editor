@@ -20,6 +20,13 @@ void config_defaults(EditorConfig *item) {
     item->showSpace = 0;
     item->showEnds = 0;
     item->showStops = 0;
+    item->windowWidth = 0;
+    item->windowHeight = 0;
+    item->rememberFiles = 0;
+    item->recentCount = 10;
+    item->openCount = 0;
+    item->recentUsed = 0;
+    item->activePath[0] = 0;
     text_copy(item->lineColor, 32, "#d6e4f5");
     text_copy(item->marginColor, 32, "#c8c8c8");
     item->font[0] = 0;
@@ -152,6 +159,34 @@ static void take_line(EditorConfig *item, const char *line) {
         item->showEnds = read_int(value, item->showEnds);
     if (key_is(line, "show-indent-stops") == 1)
         item->showStops = read_int(value, item->showStops);
+    if (key_is(line, "window-width") == 1)
+        item->windowWidth = read_int(value, item->windowWidth);
+    if (key_is(line, "window-height") == 1)
+        item->windowHeight = read_int(value, item->windowHeight);
+    if (key_is(line, "remember-files") == 1)
+        item->rememberFiles = read_int(
+                value,
+                item->rememberFiles);
+    if (key_is(line, "recent-count") == 1)
+        item->recentCount = read_int(value, item->recentCount);
+    if (key_is(line, "active-path") == 1)
+        text_copy(item->activePath, EDITOR_PATH, value);
+    if (key_is(line, "open") == 1
+            && item->openCount < EDITOR_OPEN_MAX) {
+        text_copy(
+                item->openPath[item->openCount],
+                EDITOR_PATH,
+                value);
+        item->openCount = item->openCount + 1;
+    }
+    if (key_is(line, "recent") == 1
+            && item->recentUsed < EDITOR_RECENT_MAX) {
+        text_copy(
+                item->recentPath[item->recentUsed],
+                EDITOR_PATH,
+                value);
+        item->recentUsed = item->recentUsed + 1;
+    }
     {
         int which;
 
@@ -167,7 +202,7 @@ int config_read(const char *path, EditorConfig *item) {
     long i;
     long start;
     const char *err;
-    char line[192];
+    char line[EDITOR_PATH];
 
     if (item == nullptr || path == nullptr || path[0] == 0)
         return 0;
@@ -186,8 +221,8 @@ int config_read(const char *path, EditorConfig *item) {
             long k;
 
             len = i - start;
-            if (len > 190)
-                len = 190;
+            if (len > EDITOR_PATH - 1)
+                len = EDITOR_PATH - 1;
             k = 0;
             while (k < len) {
                 line[k] = raw[start + k];
@@ -202,6 +237,10 @@ int config_read(const char *path, EditorConfig *item) {
         }
         i = i + 1;
     }
+    if (item->recentCount < 1 || item->recentCount > 32)
+        item->recentCount = 10;
+    if (item->recentUsed > item->recentCount)
+        item->recentUsed = item->recentCount;
     return 1;
 }
 
@@ -252,6 +291,7 @@ int config_write(
         const EditorConfig *item) {
     String *text;
     const char *err;
+    int i;
 
     if (path == nullptr || item == nullptr)
         return 0;
@@ -277,31 +317,55 @@ int config_write(
     add_flag(text, "show-whitespace", item->showSpace);
     add_flag(text, "show-line-ends", item->showEnds);
     add_flag(text, "show-indent-stops", item->showStops);
+    add_flag(text, "remember-files", item->rememberFiles);
+    add_num(text, "recent-count", item->recentCount);
+    if (item->windowWidth >= 100
+            && item->windowHeight >= 100) {
+        add_num(text, "window-width", item->windowWidth);
+        add_num(text, "window-height", item->windowHeight);
+    }
     text->append("font=");
     text->append(item->font);
     text->append("\n");
-    {
-        int i;
+    i = 0;
+    while (i < EDITOR_KEY_COUNT) {
+        const char *label;
+        const char *command;
+        const char *config;
+        const char *accel;
 
-        i = 0;
-        while (i < EDITOR_KEY_COUNT) {
-            const char *label;
-            const char *command;
-            const char *config;
-            const char *accel;
-
-            key_info(
-                    i,
-                    &label,
-                    &command,
-                    &config,
-                    &accel);
-            text->append(config);
-            text->append("=");
-            text->append(item->accel[i]);
-            text->append("\n");
-            i = i + 1;
-        }
+        key_info(
+                i,
+                &label,
+                &command,
+                &config,
+                &accel);
+        text->append(config);
+        text->append("=");
+        text->append(item->accel[i]);
+        text->append("\n");
+        i = i + 1;
+    }
+    i = 0;
+    while (i < item->openCount && i < EDITOR_OPEN_MAX) {
+        text->append("open=");
+        text->append(item->openPath[i]);
+        text->append("\n");
+        i = i + 1;
+    }
+    if (item->activePath[0] != 0) {
+        text->append("active-path=");
+        text->append(item->activePath);
+        text->append("\n");
+    }
+    i = 0;
+    while (i < item->recentUsed
+            && i < item->recentCount
+            && i < EDITOR_RECENT_MAX) {
+        text->append("recent=");
+        text->append(item->recentPath[i]);
+        text->append("\n");
+        i = i + 1;
     }
     err = "";
     return write_file(path, text->c_str(), &err);

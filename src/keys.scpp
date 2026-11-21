@@ -103,9 +103,14 @@ int key_place(int index, long *menu, long *item) {
         return 0;
     if (index < 0 || index >= EDITOR_KEY_COUNT)
         return 0;
-    if (index < 8) {
+    if (index < 2) {
         *menu = 0;
         *item = index;
+        return 1;
+    }
+    if (index < 8) {
+        *menu = 0;
+        *item = index + 1;
         return 1;
     }
     if (index < 15) {

@@ -22,13 +22,26 @@ active tab. A new line shows its gutter number when Enter
 creates it, before any character is typed. Settings has Apply.
 Apply writes `$HOME/.config/smallcpp/editor.ini` and leaves the
 dialog open. Settings is a notebook with the tabs on the
-left. General holds the existing switches, the search
-options, and the view options. Keyboard is a grid with the
-command in one column and the accelerator in the other.
+left. General holds the switches. Search holds Wrap,
+Reverse, Whole word, and Match case. View holds
+Whitespace, Line ends, and Indent stops. Remember files
+is off until it is turned on. General holds how many
+recent files to keep, and that count starts at 10.
+Keyboard is a
+grid of the command and its accelerator.
 Click a shortcut, press the new keys, and Escape cancels.
 A shortcut already used by another command is refused, and
 the page names that command. Apply does not save it.
 The notebook grows and shrinks with the dialog.
+The editor window keeps its width and height in that
+file and uses them the next time it starts. A first run
+with no saved size uses the usual size. File has Open
+Recent beside Open. It lists the newest files first, and
+only as many as the recent-file count. When Remember
+files is on, the open file paths and the active file are
+stored and opened again next time. An untitled buffer is
+not restored. The document tabs scroll with left and
+right buttons instead of stretching the window.
 Apply writes the search options and the view options too.
 A missing file keeps the defaults. Tabs show a
 dark border.
