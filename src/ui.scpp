@@ -203,6 +203,7 @@ void ui_pairs(void *data) {
     entry = (Entry *)data;
     copy_bracket_pairs(copy, 64, entry->text());
     editorUi->editor()->set_bracket_pairs(copy);
+    editorUi->apply_settings();
 }
 
 void ui_brackets(void *data, bool value) {
@@ -211,6 +212,7 @@ void ui_brackets(void *data, bool value) {
         editorUi->editor()->use_brackets(1);
     else
         editorUi->editor()->use_brackets(0);
+    editorUi->apply_settings();
 }
 
 void ui_indent(void *data, bool value) {
@@ -219,6 +221,7 @@ void ui_indent(void *data, bool value) {
         editorUi->editor()->use_indent(1);
     else
         editorUi->editor()->use_indent(0);
+    editorUi->apply_settings();
 }
 
 void ui_indent_kind(void *data) {
@@ -227,6 +230,7 @@ void ui_indent_kind(void *data) {
     drop = (DropDown *)data;
     editorUi->editor()->set_indent_style(
             (int)drop->selected());
+    editorUi->apply_settings();
 }
 
 void ui_option(void *data, bool value) {
@@ -240,10 +244,7 @@ void ui_option(void *data, bool value) {
 
 void ui_settings_response(void *data, int response) {
     (void)data;
-    if (response == 2) {
-        editorUi->apply_settings();
-        return;
-    }
+    (void)response;
     editorUi->hide_settings();
 }
 
@@ -274,6 +275,9 @@ Ui::Ui(Editor *editor) {
 
     state = editor;
     applying = 0;
+    settingsHold = 0;
+    themeFill = 0;
+    themeTag = 0;
     pageCount = 0;
     choiceMode = 0;
     pendingPath = new String();
@@ -286,6 +290,14 @@ Ui::Ui(Editor *editor) {
     choiceDialog = nullptr;
     dirtyDialog = nullptr;
     settingsDialog = nullptr;
+    themeDialog = nullptr;
+    themeDrop = nullptr;
+    i = 0;
+    while (i < THEME_TAGS) {
+        themeEntry[i] = nullptr;
+        themeColorButton[i] = nullptr;
+        i = i + 1;
+    }
     bracketCheck = nullptr;
     indentCheck = nullptr;
     indentDrop = nullptr;
@@ -806,29 +818,24 @@ void Ui::highlight(long index) {
     text_position(text, n, &line2, &col2);
     start = new TextIter(0, 0);
     end = new TextIter(line2, col2);
-    if (pages[index].tags == 0) {
-        kind = SPAN_KEYWORD;
-        while (kind <= SPAN_CALL) {
-            name = span_tag(kind);
-            color = theme_color(
-                    themeConfig,
-                    doc->language(),
-                    name);
-            pages[index].buffer->create_tag(name, color);
-            kind = kind + 1;
-        }
-        pages[index].tags = 1;
-    }
-    if (n > 0) {
-        kind = SPAN_KEYWORD;
-        while (kind <= SPAN_CALL) {
+    kind = SPAN_KEYWORD;
+    while (kind <= SPAN_OPERATOR) {
+        name = span_tag(kind);
+        color = theme_color(
+                themeConfig,
+                doc->language(),
+                name);
+        pages[index].buffer->set_tag_foreground(
+                name,
+                color);
+        if (n > 0)
             pages[index].buffer->remove_tag(
-                    span_tag(kind),
+                    name,
                     start,
                     end);
-            kind = kind + 1;
-        }
+        kind = kind + 1;
     }
+    pages[index].tags = 1;
     scan = new Highlighter();
     scan->scan(text, doc->language());
     byte = 0;
@@ -1292,6 +1299,7 @@ void Ui::set_option(const char *label, int on) {
         state->set_trim(value);
     }
     push_options();
+    apply_settings();
 }
 
 int Ui::shows_space(void) {
@@ -1524,6 +1532,7 @@ int Ui::assign_key(int index, const char *accel) {
     }
     keyWarn[0] = 0;
     show_key_note();
+    apply_settings();
     return 1;
 }
 
@@ -1899,6 +1908,7 @@ void ui_line_toggle(void *data, bool value) {
         editorUi->set_line_shown(1);
     else
         editorUi->set_line_shown(0);
+    editorUi->apply_settings();
 }
 
 void ui_margin_toggle(void *data, bool value) {
@@ -1907,6 +1917,7 @@ void ui_margin_toggle(void *data, bool value) {
         editorUi->set_margin_shown(1);
     else
         editorUi->set_margin_shown(0);
+    editorUi->apply_settings();
 }
 
 void ui_close_toggle(void *data, bool value) {
@@ -1915,6 +1926,7 @@ void ui_close_toggle(void *data, bool value) {
         editorUi->set_close_shown(1);
     else
         editorUi->set_close_shown(0);
+    editorUi->apply_settings();
 }
 
 void ui_tab_spin(void *data) {
@@ -1922,6 +1934,7 @@ void ui_tab_spin(void *data) {
 
     spin = (SpinButton *)data;
     editorUi->set_width((int)spin->value());
+    editorUi->apply_settings();
 }
 
 void ui_recent_spin(void *data) {
@@ -1929,6 +1942,7 @@ void ui_recent_spin(void *data) {
 
     spin = (SpinButton *)data;
     editorUi->set_recent_count((int)spin->value());
+    editorUi->apply_settings();
 }
 
 void ui_margin_spin(void *data) {
@@ -1936,6 +1950,7 @@ void ui_margin_spin(void *data) {
 
     spin = (SpinButton *)data;
     editorUi->set_margin_count((int)spin->value());
+    editorUi->apply_settings();
 }
 
 void ui_line_entry(void *data) {
@@ -1943,6 +1958,7 @@ void ui_line_entry(void *data) {
 
     entry = (Entry *)data;
     editorUi->set_line_color(entry->text());
+    editorUi->apply_settings();
 }
 
 void ui_margin_entry(void *data) {
@@ -1950,6 +1966,7 @@ void ui_margin_entry(void *data) {
 
     entry = (Entry *)data;
     editorUi->set_margin_color(entry->text());
+    editorUi->apply_settings();
 }
 
 void ui_font_button(void *data) {
@@ -2055,6 +2072,9 @@ void Ui::apply_settings(void) {
     EditorConfig item;
     char path[EDITOR_PATH];
 
+    if (settingsHold != 0)
+        return;
+    settingsHold = 1;
     config_defaults(&item);
     item.brackets = state->uses_brackets();
     item.indent = state->uses_indent();
@@ -2073,51 +2093,11 @@ void Ui::apply_settings(void) {
     item.showEnds = showEnds;
     item.showStops = showStops;
     item.rememberFiles = rememberFiles;
+    item.saveOnTab = saveOnTab;
+    item.saveOnWindow = saveOnWindow;
     item.recentCount = recentCount;
     item.windowWidth = windowWidth;
     item.windowHeight = windowHeight;
-    if (wrapCheck != nullptr) {
-        if (wrapCheck->active() == true)
-            item.searchWrap = 1;
-        else
-            item.searchWrap = 0;
-    }
-    if (backCheck != nullptr) {
-        if (backCheck->active() == true)
-            item.searchBack = 1;
-        else
-            item.searchBack = 0;
-    }
-    if (wholeCheck != nullptr) {
-        if (wholeCheck->active() == true)
-            item.searchWhole = 1;
-        else
-            item.searchWhole = 0;
-    }
-    if (caseCheck != nullptr) {
-        if (caseCheck->active() == true)
-            item.searchCase = 1;
-        else
-            item.searchCase = 0;
-    }
-    if (spaceCheck != nullptr) {
-        if (spaceCheck->active() == true)
-            item.showSpace = 1;
-        else
-            item.showSpace = 0;
-    }
-    if (endCheck != nullptr) {
-        if (endCheck->active() == true)
-            item.showEnds = 1;
-        else
-            item.showEnds = 0;
-    }
-    if (stopCheck != nullptr) {
-        if (stopCheck->active() == true)
-            item.showStops = 1;
-        else
-            item.showStops = 0;
-    }
     text_copy(item.lineColor, 32, lineColor);
     text_copy(item.marginColor, 32, marginColor);
     text_copy(item.font, 128, fontDesc);
@@ -2131,70 +2111,10 @@ void Ui::apply_settings(void) {
             n = n + 1;
         }
     }
-    if (bracketEntry != nullptr)
-        copy_bracket_pairs(
-                item.bracketPairs,
-                64,
-                bracketEntry->text());
-    else
-        copy_bracket_pairs(
-                item.bracketPairs,
-                64,
-                state->bracket_pairs());
-    if (bracketCheck != nullptr) {
-        if (bracketCheck->active() == true)
-            item.brackets = 1;
-        else
-            item.brackets = 0;
-        if (indentCheck->active() == true)
-            item.indent = 1;
-        else
-            item.indent = 0;
-        if (indentDrop != nullptr)
-            item.spaces = (int)indentDrop->selected();
-        if (lineCheck->active() == true)
-            item.showLine = 1;
-        else
-            item.showLine = 0;
-        if (marginCheck->active() == true)
-            item.showMargin = 1;
-        else
-            item.showMargin = 0;
-        if (closeCheck->active() == true)
-            item.showClose = 1;
-        else
-            item.showClose = 0;
-        item.tabWidth = (int)tabSpin->value();
-        item.marginCols = (int)marginSpin->value();
-        text_copy(item.lineColor, 32, lineEntry->text());
-        text_copy(item.marginColor, 32, marginEntry->text());
-    }
-    if (recentSpin != nullptr)
-        item.recentCount = (int)recentSpin->value();
-    if (rememberCheck != nullptr) {
-        if (rememberCheck->active() == true)
-            item.rememberFiles = 1;
-        else
-            item.rememberFiles = 0;
-    }
-    if (saveTabCheck != nullptr) {
-        if (saveTabCheck->active() == true)
-            item.saveOnTab = 1;
-        else
-            item.saveOnTab = 0;
-    }
-    if (saveWinCheck != nullptr) {
-        if (saveWinCheck->active() == true)
-            item.saveOnWindow = 1;
-        else
-            item.saveOnWindow = 0;
-    }
-    if (trimCheck != nullptr) {
-        if (trimCheck->active() == true)
-            item.trimTrailing = 1;
-        else
-            item.trimTrailing = 0;
-    }
+    copy_bracket_pairs(
+            item.bracketPairs,
+            64,
+            state->bracket_pairs());
     recentCount = item.recentCount;
     rememberFiles = item.rememberFiles;
     saveOnTab = item.saveOnTab;
@@ -2235,6 +2155,7 @@ void Ui::apply_settings(void) {
     use_config(&item);
     if (config_path(path, EDITOR_PATH) == 1)
         config_write(path, &item);
+    settingsHold = 0;
 }
 
 static ScrolledWindow *page_scroll(Widget *child) {
@@ -2279,6 +2200,252 @@ static Box *labeled_field(
     row->append((Widget *)new Label(label));
     row->append(field);
     return row;
+}
+
+static int themeSlots[THEME_TAGS];
+static int themeSlotsReady = 0;
+
+static int theme_type_count(void) {
+    return 7;
+}
+
+static const char *theme_type_name(int index) {
+    if (index == 1)
+        return "c";
+    if (index == 2)
+        return "cpp";
+    if (index == 3)
+        return "cw";
+    if (index == 4)
+        return "python";
+    if (index == 5)
+        return "shell";
+    if (index == 6)
+        return "toml";
+    return "scpp";
+}
+
+static const char *theme_type_label(int index) {
+    if (index == 1)
+        return "C";
+    if (index == 2)
+        return "C++";
+    if (index == 4)
+        return "Python";
+    return theme_type_name(index);
+}
+
+void ui_theme_button(void *data) {
+    (void)data;
+    editorUi->show_theme();
+}
+
+void ui_theme_type(void *data) {
+    (void)data;
+    editorUi->fill_theme();
+}
+
+void ui_theme_entry(void *data) {
+    int slot;
+
+    slot = *(int *)data;
+    editorUi->take_theme_entry(slot);
+}
+
+void ui_theme_color(void *data) {
+    int slot;
+
+    slot = *(int *)data;
+    editorUi->open_theme_color(slot);
+}
+
+void ui_theme_response(void *data, int response) {
+    (void)data;
+    (void)response;
+    editorUi->hide_theme();
+}
+
+void Ui::hide_theme(void) {
+    if (themeDialog == nullptr)
+        return;
+    themeDialog->set_visible(false);
+}
+
+void Ui::show_theme(void) {
+    Box *box;
+    int i;
+    int pick;
+    const char *labels[7];
+    Document *doc;
+
+    if (themeDialog == nullptr) {
+        themeDialog = new Dialog("Syntax colors");
+        themeDialog->set_transient(mainWindow);
+        box = new Box(GTK_VERTICAL, 8);
+        themeDrop = new DropDown();
+        i = 0;
+        while (i < theme_type_count()) {
+            labels[i] = theme_type_label(i);
+            i = i + 1;
+        }
+        themeDrop->set_items(labels, theme_type_count());
+        themeDrop->on_changed(ui_theme_type, nullptr);
+        box->append((Widget *)labeled_field(
+                "File type",
+                (Widget *)themeDrop));
+        if (themeSlotsReady == 0) {
+            i = 0;
+            while (i < THEME_TAGS) {
+                themeSlots[i] = i;
+                i = i + 1;
+            }
+            themeSlotsReady = 1;
+        }
+        i = 0;
+        while (i < THEME_TAGS) {
+            Entry *entry;
+            Button *button;
+
+            entry = new Entry("#000000");
+            entry->set_width_chars(12);
+            entry->on_changed(
+                    ui_theme_entry,
+                    (void *)&themeSlots[i]);
+            button = new Button("Color");
+            button->on_clicked(
+                    ui_theme_color,
+                    (void *)&themeSlots[i]);
+            themeEntry[i] = entry;
+            themeColorButton[i] = button;
+            box->append((Widget *)labeled_field(
+                    span_tag(i + 1),
+                    (Widget *)color_field(
+                            entry,
+                            button)));
+            i = i + 1;
+        }
+        themeDialog->set_content((Widget *)box);
+        themeDialog->add_button("Close", 1);
+        themeDialog->on_response(
+                ui_theme_response,
+                nullptr);
+        themeDialog->set_default_size(520, 480);
+    }
+    pick = 0;
+    doc = nullptr;
+    if (state != nullptr)
+        doc = state->at(state->index());
+    if (doc != nullptr) {
+        i = 0;
+        while (i < theme_type_count()) {
+            if (text_same(
+                    doc->language(),
+                    theme_type_name(i)) == 1)
+                pick = i;
+            i = i + 1;
+        }
+    }
+    themeFill = 1;
+    themeDrop->set_selected((long)pick);
+    themeFill = 0;
+    fill_theme();
+    themeDialog->present();
+}
+
+void Ui::fill_theme(void) {
+    int which;
+    int i;
+    const char *language;
+    const char *color;
+
+    if (themeDrop == nullptr)
+        return;
+    which = (int)themeDrop->selected();
+    if (which < 0 || which >= theme_type_count())
+        which = 0;
+    language = theme_type_name(which);
+    themeFill = 1;
+    i = 0;
+    while (i < THEME_TAGS) {
+        if (themeEntry[i] != nullptr) {
+            color = theme_color(
+                    themeConfig,
+                    language,
+                    span_tag(i + 1));
+            themeEntry[i]->set_text(color);
+        }
+        i = i + 1;
+    }
+    themeFill = 0;
+}
+
+void Ui::take_theme_entry(int slot) {
+    int which;
+    const char *language;
+    const char *color;
+
+    if (themeFill != 0)
+        return;
+    if (slot < 0 || slot >= THEME_TAGS)
+        return;
+    if (themeEntry[slot] == nullptr)
+        return;
+    which = 0;
+    if (themeDrop != nullptr)
+        which = (int)themeDrop->selected();
+    if (which < 0 || which >= theme_type_count())
+        which = 0;
+    language = theme_type_name(which);
+    color = themeEntry[slot]->text();
+    if (theme_set(
+            themeConfig,
+            language,
+            span_tag(slot + 1),
+            color) == 0)
+        return;
+    paint_theme(language);
+    apply_settings();
+}
+
+void Ui::open_theme_color(int slot) {
+    const char *color;
+
+    if (leaving == 1)
+        return;
+    if (colors == nullptr || mainWindow == nullptr)
+        return;
+    if (colors->pending != 0)
+        return;
+    if (slot < 0 || slot >= THEME_TAGS)
+        return;
+    if (themeEntry[slot] == nullptr)
+        return;
+    themeTag = slot;
+    colorKind = 2;
+    color = themeEntry[slot]->text();
+    colors->choose(
+            mainWindow,
+            color,
+            ui_color,
+            nullptr);
+}
+
+void Ui::paint_theme(const char *language) {
+    long i;
+    Document *doc;
+
+    if (language == nullptr)
+        return;
+    i = 0;
+    while (i < pageCount) {
+        doc = state->at(i);
+        if (doc != nullptr
+                && text_same(
+                        doc->language(),
+                        language) == 1)
+            highlight(i);
+        i = i + 1;
+    }
 }
 
 void Ui::show_settings(void) {
@@ -2422,6 +2589,7 @@ void Ui::show_settings(void) {
                     "Recent files",
                     (Widget *)recentSpin));
             fileGroup->append((Widget *)rememberCheck);
+            fileGroup->append((Widget *)closeCheck);
             box->append((Widget *)fileGroup);
         }
         saveTabCheck = new CheckButton(
@@ -2492,6 +2660,18 @@ void Ui::show_settings(void) {
             fontGroup->append((Widget *)fontButton);
             view->append((Widget *)fontGroup);
         }
+        {
+            Box *syntaxGroup;
+            Button *syntaxButton;
+
+            syntaxGroup = group_box("Syntax");
+            syntaxButton = new Button("Syntax colors");
+            syntaxButton->on_clicked(
+                    ui_theme_button,
+                    nullptr);
+            syntaxGroup->append((Widget *)syntaxButton);
+            view->append((Widget *)syntaxGroup);
+        }
         keyHelp = new Label(key_help());
         keyState = new Label("");
         keys->attach((Widget *)keyHelp, 0, 0, 2, 1);
@@ -2560,23 +2740,14 @@ void Ui::show_settings(void) {
                 (Widget *)page_scroll((Widget *)keys),
                 "Keyboard");
         settingsDialog->set_default_size(760, 560);
-        {
-            Box *shell;
-
-            shell = new Box(GTK_VERTICAL, 8);
-            shell->set_h_expand(true);
-            shell->set_v_expand(true);
-            shell->append((Widget *)pages);
-            shell->append((Widget *)closeCheck);
-            settingsDialog->set_content((Widget *)shell);
-        }
+        settingsDialog->set_content((Widget *)pages);
         settingsDialog->on_key(ui_key_press, nullptr);
-        settingsDialog->add_button("Apply", 2);
         settingsDialog->add_button("Close", 1);
         settingsDialog->on_response(
                 ui_settings_response,
                 nullptr);
     }
+    settingsHold = 1;
     if (state->uses_brackets() == 0)
         bracketCheck->set_active(false);
     else
@@ -2631,6 +2802,7 @@ void Ui::show_settings(void) {
         }
         n = n + 1;
     }
+    settingsHold = 0;
     push_options();
     settingsDialog->present();
 }
@@ -3368,6 +3540,7 @@ void Ui::choose_font(const char *description) {
         apply_view(i);
         i = i + 1;
     }
+    apply_settings();
 }
 
 void Ui::set_line_shown(int value) {
@@ -3498,6 +3671,13 @@ void Ui::open_margin_color(void) {
 void Ui::take_color(const char *color) {
     if (safe_color(color) == 0)
         return;
+    if (colorKind == 2) {
+        if (themeTag >= 0
+                && themeTag < THEME_TAGS
+                && themeEntry[themeTag] != nullptr)
+            themeEntry[themeTag]->set_text(color);
+        return;
+    }
     if (colorKind == 0) {
         set_line_color(color);
         if (lineEntry != nullptr)

@@ -11,7 +11,7 @@
 enum {
     EDITOR_OPEN_MAX = 32,
     EDITOR_RECENT_MAX = 32,
-    THEME_TAGS = 7,
+    THEME_TAGS = 8,
     THEME_MAX = 16
 };
 

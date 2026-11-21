@@ -19,9 +19,10 @@ separates Settings from the other commands. File also has
 Close All. Open can select
 several files. Each one is opened, and the last one is the
 active tab. A new line shows its gutter number when Enter
-creates it, before any character is typed. Settings has Apply.
-Apply writes `$HOME/.config/smallcpp/editor.ini` and leaves the
-dialog open. Settings is a notebook with the tabs on the
+creates it, before any character is typed. A settings
+control writes `$HOME/.config/smallcpp/editor.ini` when it
+changes. Close only hides the dialog. Settings is a notebook
+with the tabs on the
 left. Those tabs stay put while the page scrolls. General
 holds the switches. Search names wrap at the end of the
 buffer, reverse direction, whole words, and exact word
@@ -33,7 +34,8 @@ Keyboard is a
 grid of the command and its accelerator.
 Click a shortcut, press the new keys, and Escape cancels.
 A shortcut already used by another command is refused, and
-the page names that command. Apply does not save it.
+the page names that command. An accepted shortcut is
+written with the other settings.
 The notebook grows and shrinks with the dialog.
 The editor window keeps its width and height in that
 file and uses them the next time it starts. A first run
@@ -44,8 +46,8 @@ files is on, the open file paths and the active file are
 stored and opened again next time. An untitled buffer is
 not restored. The document tabs scroll with left and
 right buttons instead of stretching the window.
-Apply writes the search options and the view options too.
-A missing file keeps the defaults. Tabs show a
+Search options and view options are written with the
+other settings. A missing file keeps the defaults. Tabs show a
 dark border.
 
 Documents keeps underscores in a file name, so `howdy.scpp` and
@@ -97,16 +99,19 @@ trailing spaces on save is off until it is turned on.
 Font is on Appearance. Remember files sits with the
 recent-file count on General. Autoclose brackets keeps an
 edit box of the pairs. The default is `()[]{}""''`. The
-editor closes whatever pairs are in that box, and Apply
+editor closes whatever pairs are in that box, and a change
 stores them as `bracket-pairs`. Search names the wrap, reverse,
 whole-word, and match-case choices in full. The left tabs
-stay in place while a settings page scrolls. The close
-button switch sits at the bottom of the dialog, above
-Apply and Close. Current line color and column marker
+stay in place while a settings page scrolls. Close button
+on file tabs sits on General, with the file choices. It is
+not on the dialog frame. There is no Apply button. Current
+line color and column marker
 color each have a Color button. That button opens the
 color chooser and stores `#rrggbb`. Syntax spans store a
 tag name: keyword, type, string, comment, number,
-preprocessor, or call. A span does not store a color.
+preprocessor, call, or operator. Operator covers
+characters such as `()`, `{}`, `[]`, and `+`. A span does
+not store a color.
 The theme in editor.ini maps each tag to a color. The
 default theme is the same for every language and keeps
 the colors the editor already used. A language can
@@ -114,6 +119,9 @@ override one tag, so a Python keyword can differ from a
 C keyword. A tag with no override uses the default. The
 file text never contains a tag. One scanner still covers
 every language, and language_of is still the suffix map.
+Appearance opens Syntax colors. That dialog picks one
+file type and sets a color for each tag. The color is
+stored as an override, such as `theme-python-keyword`.
 The save dialog lists every modified file.
 Each one can be saved or discarded, and Save all and Discard
 all do the whole list. Saving an untitled file still asks

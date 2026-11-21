@@ -13,7 +13,8 @@ enum {
     SPAN_NUMBER = 4,
     SPAN_TYPE = 5,
     SPAN_PREPROC = 6,
-    SPAN_CALL = 7
+    SPAN_CALL = 7,
+    SPAN_OPERATOR = 8
 };
 
 class Span {
