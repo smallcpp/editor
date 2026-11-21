@@ -159,7 +159,10 @@ void ui_spaces(void *data, bool value) {
 
 void ui_settings_response(void *data, int response) {
     (void)data;
-    (void)response;
+    if (response == 2) {
+        editorUi->apply_settings();
+        return;
+    }
     editorUi->hide_settings();
 }
 
@@ -171,8 +174,8 @@ Ui::Ui(Editor *editor) {
     pageCount = 0;
     choiceMode = 0;
     pendingPath = new String();
-    fileMenu = nullptr;
-    docMenu = nullptr;
+    menuBar = nullptr;
+    documentsMenu = 0;
     app = nullptr;
     mainWindow = nullptr;
     book = nullptr;
@@ -217,6 +220,7 @@ Ui::Ui(Editor *editor) {
         i = i + 1;
     }
     editorUi = this;
+    load_settings();
 }
 
 Editor *Ui::editor(void) {
@@ -224,30 +228,23 @@ Editor *Ui::editor(void) {
 }
 
 void Ui::build(void) {
-    HeaderBar *bar;
-    MenuButton *editMenu;
-    const char *fileLabels[8];
-    const char *editLabels[8];
+    const char *fileLabels[7];
+    const char *editLabels[7];
+    const char *viewLabels[1];
     Box *outer;
 
     app = new Application("org.smallcpp.Editor");
     mainWindow = new Window("editor");
     mainWindow->set_default_size(880, 640);
     mainWindow->on_close_request(ui_close, nullptr);
-    bar = new HeaderBar();
-    bar->set_show_title_buttons(false);
-    bar->set_title("editor");
-    fileMenu = new MenuButton("File");
-    editMenu = new MenuButton("Edit");
+    menuBar = new MenuBar();
     fileLabels[0] = "New";
     fileLabels[1] = "Open";
     fileLabels[2] = "Save";
     fileLabels[3] = "Save As";
     fileLabels[4] = "Save All";
     fileLabels[5] = "Close";
-    fileLabels[6] = "Settings";
-    fileLabels[7] = "Quit";
-    fileMenu->set_menu(fileLabels, 8, ui_menu, nullptr);
+    fileLabels[6] = "Quit";
     editLabels[0] = "Undo";
     editLabels[1] = "Redo";
     editLabels[2] = "Cut";
@@ -255,17 +252,24 @@ void Ui::build(void) {
     editLabels[4] = "Paste";
     editLabels[5] = "Indent";
     editLabels[6] = "Unindent";
-    editMenu->set_menu(editLabels, 7, ui_menu, nullptr);
-    docMenu = new MenuButton("Documents");
-    bar->pack_start((Widget *)fileMenu);
-    bar->pack_start((Widget *)editMenu);
-    bar->pack_start((Widget *)docMenu);
+    menuBar->add_menu("File", fileLabels, 7, ui_menu, nullptr);
+    menuBar->add_menu("Edit", editLabels, 7, ui_menu, nullptr);
+    menuBar->add_menu("Search", nullptr, 0, ui_menu, nullptr);
+    viewLabels[0] = "Settings";
+    menuBar->add_menu("View", viewLabels, 1, ui_menu, nullptr);
+    documentsMenu = menuBar->add_menu(
+            "Documents",
+            nullptr,
+            0,
+            ui_doc,
+            nullptr);
     outer = new Box(GTK_VERTICAL, 0);
-    outer->append((Widget *)bar);
+    outer->append((Widget *)menuBar);
     book = new Notebook();
-    book->add_css(
-            "tab { border: 1px solid #666666; margin: 1px; }");
-    book->add_css("tab { padding: 1px 6px; }");
+    book->add_css("tab { border: 1px solid #222222; }");
+    book->add_css("tab { margin: 2px; padding: 2px 6px; }");
+    book->add_css("tab { background-color: #f4f4f4; }");
+    book->add_css("tab:checked { background-color: #ffffff; }");
     book->on_switch_page(ui_switched, nullptr);
     book->set_v_expand(true);
     status = new Label("editor");
@@ -1031,6 +1035,95 @@ void ui_font_button(void *data) {
     editorUi->open_font();
 }
 
+void Ui::use_config(EditorConfig *item) {
+    if (item == nullptr)
+        return;
+    if (item->brackets == 0)
+        state->use_brackets(0);
+    else
+        state->use_brackets(1);
+    if (item->indent == 0)
+        state->use_indent(0);
+    else
+        state->use_indent(1);
+    if (item->spaces == 0)
+        state->use_spaces(0);
+    else
+        state->use_spaces(1);
+    state->set_tab_width(item->tabWidth);
+    set_line_shown(item->showLine);
+    set_margin_shown(item->showMargin);
+    set_close_shown(item->showClose);
+    set_margin_count(item->marginCols);
+    set_line_color(item->lineColor);
+    set_margin_color(item->marginColor);
+    if (item->font[0] != 0)
+        choose_font(item->font);
+}
+
+void Ui::load_settings(void) {
+    EditorConfig item;
+    char path[EDITOR_PATH];
+
+    config_defaults(&item);
+    if (config_path(path, EDITOR_PATH) == 0)
+        return;
+    if (config_read(path, &item) == 0)
+        return;
+    use_config(&item);
+}
+
+void Ui::apply_settings(void) {
+    EditorConfig item;
+    char path[EDITOR_PATH];
+
+    config_defaults(&item);
+    item.brackets = state->uses_brackets();
+    item.indent = state->uses_indent();
+    item.spaces = state->uses_spaces();
+    item.tabWidth = state->tab_width();
+    item.showLine = showLine;
+    item.showMargin = showMargin;
+    item.showClose = showClose;
+    item.marginCols = marginCols;
+    text_copy(item.lineColor, 32, lineColor);
+    text_copy(item.marginColor, 32, marginColor);
+    text_copy(item.font, 128, fontDesc);
+    if (bracketCheck != nullptr) {
+        if (bracketCheck->active() == true)
+            item.brackets = 1;
+        else
+            item.brackets = 0;
+        if (indentCheck->active() == true)
+            item.indent = 1;
+        else
+            item.indent = 0;
+        if (spacesCheck->active() == true)
+            item.spaces = 1;
+        else
+            item.spaces = 0;
+        if (lineCheck->active() == true)
+            item.showLine = 1;
+        else
+            item.showLine = 0;
+        if (marginCheck->active() == true)
+            item.showMargin = 1;
+        else
+            item.showMargin = 0;
+        if (closeCheck->active() == true)
+            item.showClose = 1;
+        else
+            item.showClose = 0;
+        item.tabWidth = (int)tabSpin->value();
+        item.marginCols = (int)marginSpin->value();
+        text_copy(item.lineColor, 32, lineEntry->text());
+        text_copy(item.marginColor, 32, marginEntry->text());
+    }
+    use_config(&item);
+    if (config_path(path, EDITOR_PATH) == 1)
+        config_write(path, &item);
+}
+
 void Ui::show_settings(void) {
     Box *box;
     Button *fontButton;
@@ -1094,6 +1187,7 @@ void Ui::show_settings(void) {
         box->append((Widget *)closeCheck);
         box->append((Widget *)fontButton);
         settingsDialog->set_content((Widget *)box);
+        settingsDialog->add_button("Apply", 2);
         settingsDialog->add_button("Close", 1);
         settingsDialog->on_response(
                 ui_settings_response,
@@ -1208,6 +1302,8 @@ void Ui::mount_tab(long index, const char *title) {
     if (index < 0 || index >= pageCount)
         return;
     row = new Box(GTK_HORIZONTAL, 4);
+    row->add_css("box { border: 1px solid #222222; }");
+    row->add_css("box { padding: 1px 4px; }");
     label = new Label(title);
     tabTitle[index] = label;
     row->append((Widget *)label);
@@ -1254,7 +1350,7 @@ void Ui::fill_documents(void) {
     long j;
     int clash;
 
-    if (docMenu == nullptr)
+    if (menuBar == nullptr)
         return;
     n = state->count();
     if (n > EDITOR_PAGES)
@@ -1289,10 +1385,7 @@ void Ui::fill_documents(void) {
         labels[i] = docName[i];
         i = i + 1;
     }
-    if (n == 0)
-        docMenu->set_menu(nullptr, 0, ui_doc, nullptr);
-    else
-        docMenu->set_menu(labels, n, ui_doc, nullptr);
+    menuBar->set_menu(documentsMenu, labels, n);
 }
 
 void Ui::select_named(const char *title) {
@@ -1476,6 +1569,8 @@ void Ui::set_close_shown(int value) {
     if (next == showClose)
         return;
     showClose = next;
+    if (book == nullptr)
+        return;
     rebuild();
     fill_documents();
 }
