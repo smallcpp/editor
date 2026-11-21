@@ -88,6 +88,12 @@ int main(void) {
     expect(text_same(doc->path(), path) == 1, "dir keeps path");
     expect(text_same(doc->title(), "next.py") == 1, "dir keeps title");
     unlink(path);
+    path_join(path, EDITOR_PATH, dir, "widget.shpp");
+    expect(write_file(path, "class A;\n", &io) == 1, "shpp seed");
+    doc = new Document();
+    expect(doc->load_path(path) == 1, "load shpp");
+    expect(text_same(doc->language(), "scpp") == 1, "shpp language");
+    unlink(path);
     path_join(path, EDITOR_PATH, dir, "note.scpp");
     unlink(path);
     rmdir(dir);

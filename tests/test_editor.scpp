@@ -178,6 +178,52 @@ int main(void) {
     expect(editor->answer(EDITOR_DISCARD) == EDITOR_OK,
             "discard quit");
     expect(editor->quit_ready() == 1, "quit ready");
+    {
+        Editor *many;
+        char *body;
+        long bytes;
+        const char *err;
+
+        many = new Editor();
+        expect(many->open_file(pathA) == EDITOR_OK,
+                "list open a");
+        expect(many->open_file(pathB) == EDITOR_OK,
+                "list open b");
+        many->set_index(0);
+        many->active()->buffer()->set_text("alpha\n");
+        many->active()->buffer()->mark_dirty();
+        many->set_index(1);
+        many->active()->buffer()->set_text("beta\n");
+        many->active()->buffer()->mark_dirty();
+        expect(many->close_all() == EDITOR_NEEDS_CHOICE,
+                "list choice");
+        expect(many->save_at(0) == EDITOR_NEEDS_CHOICE,
+                "one remains");
+        expect(many->at(0)->buffer()->dirty() == false,
+                "first saved");
+        expect(many->discard_at(1) == EDITOR_OK,
+                "discard rest");
+        expect(many->pending() == PEND_NONE,
+                "close all done");
+        expect(many->count() == 1, "close all left one");
+        err = "";
+        bytes = 0;
+        body = read_file(pathA, &bytes, &err);
+        expect(body != nullptr
+                && text_same(body, "alpha\n") == 1,
+                "saved alpha");
+        many = new Editor();
+        many->new_file();
+        many->active()->buffer()->insert_text("U");
+        expect(many->quit() == EDITOR_NEEDS_CHOICE,
+                "untitled choice");
+        expect(many->save_at(0) == EDITOR_NEEDS_PATH,
+                "untitled asks");
+        expect(many->discard_at(0) == EDITOR_OK,
+                "discard untitled");
+        expect(many->quit_ready() == 1,
+                "quit after discard");
+    }
     editor->use_brackets(0);
     editor->new_file();
     editor->active()->buffer()->insert_text("(");
@@ -264,6 +310,8 @@ int main(void) {
         expect(item.showSpace == 0, "default whitespace");
         expect(item.recentCount == 10, "default recent");
         expect(item.rememberFiles == 0, "default remember");
+        expect(item.saveOnTab == 0, "default save tab");
+        expect(item.saveOnWindow == 0, "default save window");
         expect(item.windowWidth == 0, "default width");
         item.searchWrap = 0;
         item.showSpace = 1;
@@ -280,6 +328,8 @@ int main(void) {
         text_copy(item.font, 128, "Monospace 12");
         item.recentCount = 4;
         item.rememberFiles = 1;
+        item.saveOnTab = 1;
+        item.saveOnWindow = 1;
         item.windowWidth = 700;
         item.windowHeight = 500;
         item.recentUsed = 1;
@@ -326,6 +376,8 @@ int main(void) {
         expect(back.showStops == 1, "saved indent stops");
         expect(back.recentCount == 4, "saved recent count");
         expect(back.rememberFiles == 1, "saved remember");
+        expect(back.saveOnTab == 1, "saved save tab");
+        expect(back.saveOnWindow == 1, "saved save window");
         expect(back.windowWidth == 700, "saved width");
         expect(back.windowHeight == 500, "saved height");
         expect(back.recentUsed == 1, "saved recent");

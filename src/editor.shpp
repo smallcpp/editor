@@ -61,6 +61,10 @@ public:
     int save_active(void);
     int save_as(const char *path);
     int save_all(void);
+    int save_at(long index);
+    int discard_at(long index);
+    int save_every(void);
+    int discard_every(void);
     void allow_overwrite(int value);
     int close_active(void);
     int close_all(void);
@@ -93,6 +97,7 @@ private:
     int pend;
     int quitReady;
     int allowOverwrite;
+    int closeIndex;
     int typeBrackets;
     int typeIndent;
     int tabWidth;
@@ -104,6 +109,7 @@ private:
     void ensure_document(void);
     int next_dirty(void);
     int advance(void);
+    int settle(void);
 };
 
 #endif

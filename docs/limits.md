@@ -5,9 +5,11 @@ desktop editor does. The editor still does the closest real job,
 and the unit tests cover that job.
 
 The wrapper has no GtkSourceView and no language-spec directory.
-The scanner highlights scpp, and the same scanner also colors C,
+The scanner highlights scpp. A header ending in .shpp uses
+that same coloring. The same scanner also colors C,
 C++, cw, Python, shell, and toml. Preprocessor lines, extra
-keywords, types, and call names are colored for scpp only. Other
+keywords, types, and call names are colored for scpp and
+for a .shpp file. Other
 files, including Markdown, stay plain. Keyword, type, call,
 preprocessor, string, comment, and number tags are foreground
 colors. The current line is drawn under the cursor line, one
@@ -31,9 +33,11 @@ FileDialog open can return several paths. Save still picks
 one path. It has no folder mode. The first dialog starts in the
 process current directory, and later dialogs start in the
 directory last chosen
-during this session. Tab titles are the file name. The dirty
-star is on the status line. A tab can show a close mark. The
-window shows at most 32 documents.
+during this session. Tab titles are the file name. A modified
+tab draws a dot before that name. The dirty star is on the
+status line. A tab can show a close mark. The save dialog
+lists every modified file. The window shows at most
+32 documents.
 
 `TextView::set_font` sets the family and the size from the font
 chooser. Wrapping stays off. The menu bar is the first child

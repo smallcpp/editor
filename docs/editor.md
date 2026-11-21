@@ -60,9 +60,13 @@ and it asks before replacing a file that already exists.
 A failed Save As leaves the previous path and title in place. Save
 All writes modified named documents and skips untitled ones. Only
 Quit and the window close button leave the program. A dirty
-document asks Save, Discard, or Cancel. Cancel leaves it open.
-Discard drops it. The last document, when closed, is replaced by
-a fresh untitled buffer.
+document asks what to do with every modified file. Each row
+can save or discard that file. Save all and Discard all cover
+the list. Cancel leaves them open. Saving an untitled file
+asks for a path. Discard drops the file that was being closed.
+The last document, when closed, is replaced by
+a fresh untitled buffer. A modified tab draws a dot before
+the file name. The dot is removed when the buffer is clean.
 
 Edit covers Undo, Redo, Cut, Copy, Paste, Indent, and Unindent.
 Search has Search, Replace, Reverse, Whole word, Match
@@ -80,9 +84,14 @@ leading indent. Settings has General, Search, View, and
 Keyboard pages, and the tabs sit on the left. Search holds
 Wrap, Reverse, Whole word, and Match case. View holds
 Whitespace, Line ends, Indent stops, and Remember files.
-Remember files is off until it is turned on. General
-also holds how many recent files to keep. The count
-starts at 10. Keyboard is a
+Remember files is off until it is turned on. Search and
+View say that the choices on those pages are the defaults.
+Each field has its label on the same line, and the field
+is 12 characters wide. General also holds how many recent
+files to keep. The count starts at 10. It can save a named
+file when its tab loses focus, and when the window loses
+focus. Both are off until they are turned on. An untitled
+buffer is left unsaved. Keyboard is a
 grid of the command and its accelerator. Click a shortcut,
 press the new keys, and Escape cancels. A shortcut that
 another command already uses is refused, and the page names
@@ -115,7 +124,7 @@ can turn that highlight off and can set its color. A right
 column marker is off by default and is two pixels wide. Settings
 turns it on, sets its color, and sets the character count,
 which starts at 80. Font and size are chosen with a font
-chooser dialog. Tags color scpp keywords, types, calls,
+chooser dialog. Tags color scpp and shpp keywords, types, calls,
 preprocessor lines, strings, comments, and numbers. A span
 is painted at its character column, so a multibyte character does
 not shift a later color. Undo and redo put the caret back on the

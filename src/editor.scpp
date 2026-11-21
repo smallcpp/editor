@@ -103,6 +103,7 @@ Editor::Editor() {
     pend = PEND_NONE;
     quitReady = 0;
     allowOverwrite = 0;
+    closeIndex = -1;
     typeBrackets = 1;
     typeIndent = 1;
     tabWidth = EDITOR_TAB;
@@ -392,8 +393,6 @@ int Editor::next_dirty(void) {
     while (i < docs->size()) {
         if (docs->at(i)->buffer()->dirty() == true) {
             activeIndex = i;
-            if (docs->at(i)->untitled() == 1)
-                return EDITOR_NEEDS_PATH;
             return EDITOR_NEEDS_CHOICE;
         }
         i = i + 1;
@@ -413,8 +412,7 @@ int Editor::close_active(void) {
         return EDITOR_OK;
     }
     pend = PEND_CLOSE;
-    if (doc->untitled() == 1)
-        return EDITOR_NEEDS_PATH;
+    closeIndex = activeIndex;
     return EDITOR_NEEDS_CHOICE;
 }
 
@@ -422,6 +420,7 @@ int Editor::close_all(void) {
     int rc;
 
     pend = PEND_CLOSE_ALL;
+    closeIndex = -1;
     rc = next_dirty();
     if (rc != EDITOR_OK)
         return rc;
@@ -490,12 +489,102 @@ int Editor::provide_path(const char *path) {
         return rc;
     if (pend == PEND_NONE)
         return EDITOR_OK;
-    return advance();
+    return settle();
 }
 
 int Editor::quit(void) {
     pend = PEND_QUIT;
+    closeIndex = -1;
     return advance();
+}
+
+int Editor::settle(void) {
+    if (pend == PEND_NONE)
+        return EDITOR_OK;
+    if (pend == PEND_CLOSE) {
+        if (closeIndex < 0 || closeIndex >= docs->size())
+            return advance();
+        if (docs->at(closeIndex)->buffer()->dirty()
+                == true)
+            return EDITOR_NEEDS_CHOICE;
+        activeIndex = closeIndex;
+        return advance();
+    }
+    return advance();
+}
+
+int Editor::save_at(long index) {
+    Document *doc;
+    int rc;
+
+    if (index < 0 || index >= docs->size())
+        return EDITOR_FAILED;
+    activeIndex = index;
+    doc = docs->at(index);
+    if (doc->buffer()->dirty() == false)
+        return settle();
+    if (doc->untitled() == 1)
+        return EDITOR_NEEDS_PATH;
+    rc = save_named(doc);
+    if (rc != EDITOR_OK)
+        return rc;
+    return settle();
+}
+
+int Editor::discard_at(long index) {
+    Document *doc;
+
+    if (index < 0 || index >= docs->size())
+        return EDITOR_FAILED;
+    activeIndex = index;
+    doc = docs->at(index);
+    doc->buffer()->mark_clean();
+    return settle();
+}
+
+int Editor::save_every(void) {
+    long i;
+    int rc;
+
+    i = 0;
+    while (i < docs->size()) {
+        Document *doc;
+
+        doc = docs->at(i);
+        if (doc->untitled() == 0
+                && doc->buffer()->dirty() == true) {
+            rc = save_named(doc);
+            if (rc != EDITOR_OK) {
+                activeIndex = i;
+                return rc;
+            }
+        }
+        i = i + 1;
+    }
+    i = 0;
+    while (i < docs->size()) {
+        Document *doc;
+
+        doc = docs->at(i);
+        if (doc->untitled() == 1
+                && doc->buffer()->dirty() == true) {
+            activeIndex = i;
+            return EDITOR_NEEDS_PATH;
+        }
+        i = i + 1;
+    }
+    return settle();
+}
+
+int Editor::discard_every(void) {
+    long i;
+
+    i = 0;
+    while (i < docs->size()) {
+        docs->at(i)->buffer()->mark_clean();
+        i = i + 1;
+    }
+    return settle();
 }
 
 int Editor::clipboard_copy(void) {

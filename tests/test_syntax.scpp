@@ -84,6 +84,14 @@ int main(void) {
         expect(kind_at(light, at) == SPAN_CALL, "call");
         light->scan("static value;\n", "scpp");
         expect(kind_at(light, 0) == SPAN_KEYWORD, "static");
+        expect(text_same(
+                    language_of("widget.shpp"),
+                    "scpp") == 1,
+                "shpp language");
+        light->scan(
+                "#define X\n",
+                language_of("widget.shpp"));
+        expect(kind_at(light, 0) == SPAN_PREPROC, "shpp color");
         light->scan("# head\n", "c");
         expect(kind_at(light, 0) == 0, "plain hash");
     }
