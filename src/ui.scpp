@@ -36,6 +36,21 @@ void ui_saved(void *data, const char *path) {
     editorUi->save_path(path);
 }
 
+static int keySlots[EDITOR_KEY_COUNT];
+static int keySlotsReady;
+
+void ui_key_click(void *data) {
+    int *slot;
+
+    slot = (int *)data;
+    editorUi->arm_key(*slot);
+}
+
+int ui_key_press(void *data, const char *accel, int escape) {
+    (void)data;
+    return editorUi->take_key(accel, escape);
+}
+
 void ui_choice_response(void *data, int response) {
     (void)data;
     editorUi->choice(response);
@@ -246,6 +261,11 @@ Ui::Ui(Editor *editor) {
     searchEntry = nullptr;
     replaceFind = nullptr;
     replaceWith = nullptr;
+    keyHelp = nullptr;
+    keyState = nullptr;
+    keyCapture = -1;
+    keyWarn[0] = 0;
+    keyPrompt[0] = 0;
     searchText[0] = 0;
     replaceText[0] = 0;
     withText[0] = 0;
@@ -266,7 +286,7 @@ Ui::Ui(Editor *editor) {
         const char *config;
         const char *accel;
 
-        keyEntry[i] = nullptr;
+        keyButton[i] = nullptr;
         key_info(
                 (int)i,
                 &label,
@@ -1155,34 +1175,264 @@ void Ui::bind_keys(void) {
             (void *)"Unindent");
 }
 
-void Ui::read_keys(void) {
-    int n;
+static void fill_span(
+        char *buf,
+        long cap,
+        const char *left,
+        const char *mid,
+        const char *right) {
+    long n;
+    long i;
+    const char *part;
+    int which;
 
+    n = 0;
+    which = 0;
+    while (which < 3) {
+        part = left;
+        if (which == 1)
+            part = mid;
+        if (which == 2)
+            part = right;
+        if (part != nullptr) {
+            i = 0;
+            while (part[i] != 0 && n + 1 < cap) {
+                buf[n] = part[i];
+                n = n + 1;
+                i = i + 1;
+            }
+        }
+        which = which + 1;
+    }
+    buf[n] = 0;
+}
+
+static void add_dot(char *buf, long cap) {
+    long n;
+
+    n = 0;
+    while (buf[n] != 0)
+        n = n + 1;
+    if (n + 1 < cap) {
+        buf[n] = '.';
+        n = n + 1;
+        buf[n] = 0;
+    }
+}
+
+static void button_text(const char *accel, char *buf, long cap) {
+    if (accel == nullptr || accel[0] == 0)
+        text_copy(buf, cap, "none");
+    else
+        text_copy(buf, cap, accel);
+}
+
+void Ui::show_key_note(void) {
+    if (keyState == nullptr)
+        return;
+    if (keyCapture >= 0)
+        keyState->set_text(keyPrompt);
+    else
+        keyState->set_text(keyWarn);
+}
+
+const char *Ui::key_help(void) {
+    return "Click a shortcut, press the new keys. Escape cancels.";
+}
+
+const char *Ui::key_warning(void) {
+    return keyWarn;
+}
+
+const char *Ui::key_text(int index) {
+    if (index < 0 || index >= EDITOR_KEY_COUNT)
+        return "";
+    return keyAccel[index];
+}
+
+void Ui::arm_key(int index) {
+    const char *label;
+    const char *command;
+    const char *config;
+    const char *accel;
+
+    if (index < 0 || index >= EDITOR_KEY_COUNT)
+        return;
+    key_info(index, &label, &command, &config, &accel);
+    keyCapture = index;
+    fill_span(
+            keyPrompt,
+            160,
+            "Press the new keys for ",
+            label,
+            ". Escape cancels.");
+    show_key_note();
+}
+
+int Ui::take_key(const char *accel, int escape) {
+    int index;
+
+    if (keyCapture < 0)
+        return 0;
+    index = keyCapture;
+    keyCapture = -1;
+    keyPrompt[0] = 0;
+    if (escape != 0) {
+        show_key_note();
+        return 1;
+    }
+    if (accel == nullptr)
+        accel = "";
+    assign_key(index, accel);
+    return 1;
+}
+
+int Ui::assign_key(int index, const char *accel) {
+    char next[64];
+    char other[64];
+    int i;
+
+    if (index < 0 || index >= EDITOR_KEY_COUNT)
+        return 0;
+    if (mainWindow == nullptr)
+        return 0;
+    if (accel == nullptr)
+        accel = "";
+    if (mainWindow->normalize_accel(accel, next, 64) == 0) {
+        text_copy(keyWarn, 160, "That shortcut is not valid.");
+        show_key_note();
+        return 0;
+    }
+    i = 0;
+    while (i < EDITOR_KEY_COUNT) {
+        if (i != index && next[0] != 0) {
+            int same;
+
+            same = mainWindow->normalize_accel(
+                    keyAccel[i],
+                    other,
+                    64);
+            if (same == 1 && text_same(next, other) == 1) {
+                const char *label;
+                const char *command;
+                const char *config;
+                const char *saved;
+
+                key_info(
+                        i,
+                        &label,
+                        &command,
+                        &config,
+                        &saved);
+                fill_span(
+                        keyWarn,
+                        160,
+                        label,
+                        " already uses ",
+                        other);
+                add_dot(keyWarn, 160);
+                show_key_note();
+                return 0;
+            }
+        }
+        i = i + 1;
+    }
+    text_copy(keyAccel[index], 64, next);
+    if (keyButton[index] != nullptr) {
+        button_text(next, other, 64);
+        keyButton[index]->set_label(other);
+    }
+    keyWarn[0] = 0;
+    show_key_note();
+    return 1;
+}
+
+void Ui::read_keys(void) {
+    char next[EDITOR_KEY_COUNT][64];
+    char shown[64];
+    int n;
+    int i;
+
+    keyCapture = -1;
+    keyPrompt[0] = 0;
+    keyWarn[0] = 0;
     n = 0;
     while (n < EDITOR_KEY_COUNT) {
         const char *text;
 
-        if (keyEntry[n] == nullptr) {
-            n = n + 1;
-            continue;
-        }
-        text = keyEntry[n]->text();
-        if (text == nullptr)
+        text = keyAccel[n];
+        if (keyButton[n] != nullptr)
+            text = keyButton[n]->label();
+        if (text_same(text, "none") == 1)
             text = "";
-        if (text[0] == 0) {
-            keyAccel[n][0] = 0;
-            n = n + 1;
-            continue;
-        }
-        if (mainWindow != nullptr
-                && mainWindow->shortcut_ok(text) == 0) {
-            keyEntry[n]->set_text(keyAccel[n]);
-            n = n + 1;
-            continue;
-        }
-        text_copy(keyAccel[n], 64, text);
+        if (mainWindow == nullptr
+                || mainWindow->normalize_accel(
+                        text,
+                        next[n],
+                        64) == 0)
+            text_copy(next[n], 64, keyAccel[n]);
         n = n + 1;
     }
+    n = 0;
+    while (n < EDITOR_KEY_COUNT) {
+        int clash;
+
+        clash = -1;
+        i = 0;
+        while (i < n) {
+            if (next[n][0] != 0
+                    && text_same(next[n], next[i]) == 1)
+                clash = i;
+            i = i + 1;
+        }
+        if (clash >= 0) {
+            const char *label;
+            const char *command;
+            const char *config;
+            const char *accel;
+            int kept;
+
+            key_info(
+                    clash,
+                    &label,
+                    &command,
+                    &config,
+                    &accel);
+            fill_span(
+                    keyWarn,
+                    160,
+                    label,
+                    " already uses ",
+                    next[clash]);
+            add_dot(keyWarn, 160);
+            kept = 0;
+            if (mainWindow != nullptr)
+                kept = mainWindow->normalize_accel(
+                        keyAccel[n],
+                        next[n],
+                        64);
+            if (kept == 0)
+                next[n][0] = 0;
+            i = 0;
+            while (i < n) {
+                if (next[n][0] != 0
+                        && text_same(next[n], next[i]) == 1)
+                    next[n][0] = 0;
+                i = i + 1;
+            }
+        }
+        n = n + 1;
+    }
+    n = 0;
+    while (n < EDITOR_KEY_COUNT) {
+        text_copy(keyAccel[n], 64, next[n]);
+        if (keyButton[n] != nullptr) {
+            button_text(keyAccel[n], shown, 64);
+            keyButton[n]->set_label(shown);
+        }
+        n = n + 1;
+    }
+    show_key_note();
 }
 
 static void search_flags(
@@ -1557,8 +1807,12 @@ void Ui::use_config(EditorConfig *item) {
         n = 0;
         while (n < EDITOR_KEY_COUNT) {
             text_copy(keyAccel[n], 64, item->accel[n]);
-            if (keyEntry[n] != nullptr)
-                keyEntry[n]->set_text(keyAccel[n]);
+            if (keyButton[n] != nullptr) {
+                char shown[64];
+
+                button_text(keyAccel[n], shown, 64);
+                keyButton[n]->set_label(shown);
+            }
             n = n + 1;
         }
     }
@@ -1796,20 +2050,34 @@ void Ui::show_settings(void) {
         side->append((Widget *)endCheck);
         side->append((Widget *)stopCheck);
         row = new Box(GTK_HORIZONTAL, 16);
+        row->set_h_expand(true);
+        row->set_v_expand(true);
         row->append((Widget *)box);
         row->append((Widget *)side);
+        keyHelp = new Label(key_help());
+        keyState = new Label("");
+        keys->attach((Widget *)keyHelp, 0, 0, 2, 1);
+        keys->attach((Widget *)keyState, 0, 1, 2, 1);
         keys->attach(
                 (Widget *)new Label("Command"),
                 0,
-                0,
+                2,
                 1,
                 1);
         keys->attach(
                 (Widget *)new Label("Shortcut"),
                 1,
-                0,
+                2,
                 1,
                 1);
+        if (keySlotsReady == 0) {
+            n = 0;
+            while (n < EDITOR_KEY_COUNT) {
+                keySlots[n] = n;
+                n = n + 1;
+            }
+            keySlotsReady = 1;
+        }
         n = 0;
         while (n < EDITOR_KEY_COUNT) {
             const char *label;
@@ -1817,7 +2085,8 @@ void Ui::show_settings(void) {
             const char *config;
             const char *accel;
             Label *name;
-            Entry *entry;
+            Button *entry;
+            char shown[64];
 
             key_info(
                     n,
@@ -1826,24 +2095,34 @@ void Ui::show_settings(void) {
                     &config,
                     &accel);
             name = new Label(label);
-            entry = new Entry(keyAccel[n]);
-            keyEntry[n] = entry;
-            keys->attach((Widget *)name, 0, n + 1, 1, 1);
-            keys->attach((Widget *)entry, 1, n + 1, 1, 1);
+            button_text(keyAccel[n], shown, 64);
+            entry = new Button(shown);
+            entry->set_h_expand(true);
+            entry->on_clicked(
+                    ui_key_click,
+                    (void *)&keySlots[n]);
+            keyButton[n] = entry;
+            keys->attach((Widget *)name, 0, n + 3, 1, 1);
+            keys->attach((Widget *)entry, 1, n + 3, 1, 1);
             n = n + 1;
         }
+        pages->set_h_expand(true);
+        pages->set_v_expand(true);
+        keys->set_h_expand(true);
+        keys->set_v_expand(true);
         pages->append_page((Widget *)row, "General");
         pages->append_page((Widget *)keys, "Keyboard");
         scroll = new ScrolledWindow();
+        scroll->set_h_expand(true);
+        scroll->set_v_expand(true);
+        scroll->set_min_content(320, 160);
         scroll->set_policy(
-                GTK_POLICY_NEVER,
+                GTK_POLICY_AUTOMATIC,
                 GTK_POLICY_AUTOMATIC);
-        scroll->add_css(
-                "scrolledwindow { min-height: 320px; }");
-        scroll->add_css(
-                "scrolledwindow { max-height: 460px; }");
         scroll->set_child((Widget *)pages);
+        settingsDialog->set_default_size(760, 560);
         settingsDialog->set_content((Widget *)scroll);
+        settingsDialog->on_key(ui_key_press, nullptr);
         settingsDialog->add_button("Apply", 2);
         settingsDialog->add_button("Close", 1);
         settingsDialog->on_response(
@@ -1878,8 +2157,12 @@ void Ui::show_settings(void) {
     marginSpin->set_value((double)marginCols);
     n = 0;
     while (n < EDITOR_KEY_COUNT) {
-        if (keyEntry[n] != nullptr)
-            keyEntry[n]->set_text(keyAccel[n]);
+        char shown[64];
+
+        if (keyButton[n] != nullptr) {
+            button_text(keyAccel[n], shown, 64);
+            keyButton[n]->set_label(shown);
+        }
         n = n + 1;
     }
     push_options();
