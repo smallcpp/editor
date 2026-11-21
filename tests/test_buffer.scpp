@@ -169,6 +169,14 @@ int main(void) {
     buffer->set_text("");
     buffer->insert_text("'");
     expect(text_same(buffer->text(), "''") == 1, "tick pair");
+    buffer->set_bracket_pairs("<>");
+    buffer->set_text("");
+    buffer->insert_text("<");
+    expect(text_same(buffer->text(), "<>") == 1, "custom pair");
+    buffer->set_text("");
+    buffer->insert_text("(");
+    expect(text_same(buffer->text(), "(") == 1, "dropped pair");
+    buffer->set_bracket_pairs(bracket_list());
     buffer->set_text("()");
     buffer->set_cursor_offset(1);
     expect(buffer->cursor_offset() == 1, "pair cursor");

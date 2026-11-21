@@ -107,6 +107,7 @@ EditBuffer::EditBuffer() {
     matchStart = 0;
     matchEnd = 0;
     brackets = true;
+    copy_bracket_pairs(pairText, 64, bracket_list());
     indentOn = true;
     multi = true;
     undoStack = new MarkVec();
@@ -444,44 +445,67 @@ bool EditBuffer::spans_lines(void) {
 }
 
 const char *bracket_list(void) {
-    return "()\n[]\n{}\n\"\"\n''";
+    return "()[]{}\"\"''";
 }
 
-static int bracket_close(int open) {
-    const char *list;
+void copy_bracket_pairs(
+        char *dest,
+        long cap,
+        const char *value) {
+    char temp[128];
+    long n;
+    long i;
+    long limit;
+
+    if (dest == nullptr || cap < 2)
+        return;
+    if (value == nullptr)
+        value = "";
+    limit = cap;
+    if (limit > 128)
+        limit = 128;
+    n = 0;
+    i = 0;
+    while (value[i] != 0 && n + 1 < limit) {
+        if (value[i] != '\n' && value[i] != '\r') {
+            temp[n] = value[i];
+            n = n + 1;
+        }
+        i = i + 1;
+    }
+    temp[n] = 0;
+    i = 0;
+    while (i <= n && i + 1 < cap) {
+        dest[i] = temp[i];
+        i = i + 1;
+    }
+    dest[i] = 0;
+}
+
+static int bracket_close(const char *list, int open) {
     long i;
 
-    list = bracket_list();
+    if (list == nullptr)
+        return 0;
     i = 0;
-    while (list[i] != 0) {
-        if (list[i] == (char)open
-                && list[i + 1] != 0
-                && list[i + 1] != '\n')
+    while (list[i] != 0 && list[i + 1] != 0) {
+        if (list[i] == (char)open)
             return (int)(unsigned char)list[i + 1];
-        while (list[i] != 0 && list[i] != '\n')
-            i = i + 1;
-        if (list[i] == '\n')
-            i = i + 1;
+        i = i + 2;
     }
     return 0;
 }
 
-static int is_closer(int ch) {
-    const char *list;
+static int is_closer(const char *list, int ch) {
     long i;
 
-    list = bracket_list();
+    if (list == nullptr)
+        return 0;
     i = 0;
-    while (list[i] != 0) {
-        if (list[i] != '\n'
-                && list[i + 1] != 0
-                && list[i + 1] != '\n'
-                && list[i + 1] == (char)ch)
+    while (list[i] != 0 && list[i + 1] != 0) {
+        if (list[i + 1] == (char)ch)
             return 1;
-        while (list[i] != 0 && list[i] != '\n')
-            i = i + 1;
-        if (list[i] == '\n')
-            i = i + 1;
+        i = i + 2;
     }
     return 0;
 }
@@ -508,13 +532,13 @@ void EditBuffer::finish_brackets(
         ch = byte_at(raw, prefix);
         if (prefix + 1 < body->size()
                 && byte_at(raw, prefix + 1) == ch
-                && is_closer(ch) == 1) {
+                && is_closer(pairText, ch) == 1) {
             splice(prefix, prefix + 1, "");
             cursor = prefix + 1;
             anchor = cursor;
             return;
         }
-        close = bracket_close(ch);
+        close = bracket_close(pairText, ch);
         if (close != 0) {
             pair[0] = (char)close;
             pair[1] = 0;
@@ -526,7 +550,7 @@ void EditBuffer::finish_brackets(
     }
     if (insLen == 1 && delLen > 0 && brackets == true) {
         ch = byte_at(body->c_str(), prefix);
-        close = bracket_close(ch);
+        close = bracket_close(pairText, ch);
         if (close != 0 && oldText != nullptr) {
             wrapped = new String();
             extra[0] = (char)ch;
@@ -545,7 +569,7 @@ void EditBuffer::finish_brackets(
     if (insLen == 0 && delLen == 1 && brackets == true) {
         if (oldText != nullptr && oldFrom < oldTo) {
             ch = byte_at(oldText, oldFrom);
-            close = bracket_close(ch);
+            close = bracket_close(pairText, ch);
             if (close != 0
                     && cursor < body->size()
                     && byte_at(body->c_str(), cursor) == close) {
@@ -1596,6 +1620,14 @@ bool EditBuffer::scope_active(void) {
 
 void EditBuffer::set_auto_brackets(bool value) {
     brackets = value;
+}
+
+void EditBuffer::set_bracket_pairs(const char *value) {
+    copy_bracket_pairs(pairText, 64, value);
+}
+
+const char *EditBuffer::bracket_pairs(void) {
+    return pairText;
 }
 
 void EditBuffer::set_auto_indent(bool value) {

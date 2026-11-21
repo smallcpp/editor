@@ -81,6 +81,8 @@ public:
     int clipboard_cut(void);
     int clipboard_paste(void);
     void use_brackets(int value);
+    void set_bracket_pairs(const char *value);
+    const char *bracket_pairs(void);
     void use_indent(int value);
     int uses_brackets(void);
     int uses_indent(void);
@@ -103,6 +105,7 @@ private:
     int allowOverwrite;
     int closeIndex;
     int typeBrackets;
+    char bracketPairs[64];
     int typeIndent;
     int tabWidth;
     int indentStyle;

@@ -71,6 +71,9 @@ public:
     int margin_columns(void);
     int is_leaving(void);
     void choose_font(const char *description);
+    void open_line_color(void);
+    void open_margin_color(void);
+    void take_color(const char *color);
     void leave(void);
     void close_at(long index);
     void set_line_shown(int value);
@@ -134,6 +137,7 @@ private:
     int showLine;
     int showMargin;
     int showClose;
+    int colorKind;
     int marginCols;
     int hasLastDir;
     int leaving;
@@ -157,8 +161,12 @@ private:
     SpinButton *marginSpin;
     Entry *lineEntry;
     Entry *marginEntry;
+    Entry *bracketEntry;
+    Button *lineColorButton;
+    Button *marginColorButton;
     FileDialog *files;
     FontDialog *fonts;
+    ColorDialog *colors;
     int searchBack;
     int searchWhole;
     int searchCase;

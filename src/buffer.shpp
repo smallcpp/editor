@@ -32,6 +32,10 @@ public:
 };
 
 const char *bracket_list(void);
+void copy_bracket_pairs(
+        char *dest,
+        long cap,
+        const char *value);
 
 class EditBuffer {
 public:
@@ -105,6 +109,8 @@ public:
     bool scope_active(void);
     void set_auto_brackets(bool value);
     void set_auto_indent(bool value);
+    void set_bracket_pairs(const char *value);
+    const char *bracket_pairs(void);
     bool auto_brackets(void);
     bool auto_indent(void);
     int note_external(const char *value);
@@ -121,6 +127,7 @@ private:
     long matchStart;
     long matchEnd;
     bool brackets;
+    char pairText[64];
     bool indentOn;
     bool multi;
     MarkVec *undoStack;

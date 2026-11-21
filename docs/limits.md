@@ -53,8 +53,11 @@ whole words only, and exact word case. Appearance holds
 Whitespace, Line ends, Indent stops, and Font. General
 holds the recent-file count, which starts at 10, Remember
 files, which is off until turned on, and trim trailing
-spaces, which is off. Autoclose uses `()`, `[]`, `{}`,
-`""`, and `''`. Indent width is a character count. Keyboard
+spaces, which is off. Autoclose pairs are an edit box.
+The default is `()[]{}""''`, saved as `bracket-pairs`.
+The close-button switch is at the bottom of the dialog.
+A Color button sets the current-line color and another
+sets the column-marker color. Indent width is a character count. Keyboard
 is a grid of command and shortcut. Click a shortcut, press
 the new keys, and Escape cancels. Apply refuses a shortcut
 that another command already uses. The notebook fills the

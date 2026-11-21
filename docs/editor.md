@@ -153,12 +153,17 @@ after the key handler returns, so the save dialog is not opened
 inside that handler. Quit
 destroys the window and leaves the process, including when a
 save dialog is open. Settings toggles autoclose brackets.
-The pairs are `()`, `[]`, `{}`, `""`, and `''`. It also
+The pairs sit in an edit box. The default is `()[]{}""''`,
+and the editor closes whatever pairs that box holds. It also
 toggles indenting a new line and indenting with spaces,
 tabs, or both. It sets how many character places one
 indent shows. Those apply to every open
 document and to the next one. Apply writes those choices to
 `$HOME/.config/smallcpp/editor.ini` and leaves the dialog
-open. Close only hides it. A missing file, or a missing
+open. Close only hides it. The close-button switch sits
+at the bottom of the dialog. Current line color and the
+column marker color each have a Color button that opens
+the color chooser and stores the chosen `#rrggbb`.
+A missing file, or a missing
 `HOME`, keeps the defaults. The dialog is transient for the
 editor window.

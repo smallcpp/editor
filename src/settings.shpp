@@ -16,6 +16,7 @@ enum {
 class EditorConfig {
 public:
     int brackets;
+    char bracketPairs[64];
     int indent;
     int spaces;
     int tabWidth;
