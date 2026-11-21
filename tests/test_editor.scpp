@@ -266,6 +266,41 @@ int main(void) {
                 "line") == 1,
             "unindent removes a tab");
     editor->use_spaces(1);
+    editor->set_indent_style(2);
+    expect(editor->indent_style() == 2, "both indent");
+    expect(editor->uses_spaces() == 0, "both is not spaces");
+    editor->active()->buffer()->set_text("");
+    expect(editor->run("indent") == EDITOR_OK, "both indent");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "\t") == 1,
+            "both inserts a tab");
+    editor->active()->buffer()->set_text("  x");
+    editor->active()->buffer()->select_all();
+    expect(editor->run("indent") == EDITOR_OK,
+            "both widens");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "\t  x") == 1,
+            "both uses a tab and spaces");
+    editor->set_indent_style(1);
+    expect(editor->trims() == 0, "trim default");
+    editor->set_trim(1);
+    editor->active()->buffer()->set_text("keep  \n");
+    path_join(pathC, EDITOR_PATH, dir, "trim.scpp");
+    expect(editor->save_as(pathC) == EDITOR_OK, "trim save");
+    raw = read_file(pathC, &n, &io);
+    expect(raw != nullptr
+            && text_same(raw, "keep\n") == 1,
+            "trimmed spaces");
+    editor->set_trim(0);
+    editor->active()->buffer()->set_text("keep  \n");
+    expect(editor->save_active() == EDITOR_OK,
+            "plain save");
+    raw = read_file(pathC, &n, &io);
+    expect(raw != nullptr
+            && text_same(raw, "keep  \n") == 1,
+            "kept spaces");
     {
         char folder[EDITOR_PATH];
 
@@ -312,6 +347,7 @@ int main(void) {
         expect(item.rememberFiles == 0, "default remember");
         expect(item.saveOnTab == 0, "default save tab");
         expect(item.saveOnWindow == 0, "default save window");
+        expect(item.trimTrailing == 0, "default trim");
         expect(item.windowWidth == 0, "default width");
         item.searchWrap = 0;
         item.showSpace = 1;
@@ -319,7 +355,8 @@ int main(void) {
         item.showStops = 1;
         text_copy(item.accel[which], 64, "<Control>g");
         item.brackets = 0;
-        item.spaces = 0;
+        item.spaces = 2;
+        item.trimTrailing = 1;
         item.tabWidth = 2;
         item.showMargin = 1;
         item.marginCols = 90;
@@ -354,7 +391,8 @@ int main(void) {
         expect(config_read(path, &back) == 1,
                 "config read");
         expect(back.brackets == 0, "saved brackets");
-        expect(back.spaces == 0, "saved spaces");
+        expect(back.spaces == 2, "saved both");
+        expect(back.trimTrailing == 1, "saved trim");
         expect(back.tabWidth == 2, "saved tab");
         expect(back.showMargin == 1, "saved margin");
         expect(back.marginCols == 90, "saved columns");

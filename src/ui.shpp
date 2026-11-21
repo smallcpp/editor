@@ -148,7 +148,8 @@ private:
     Dialog *settingsDialog;
     CheckButton *bracketCheck;
     CheckButton *indentCheck;
-    CheckButton *spacesCheck;
+    DropDown *indentDrop;
+    CheckButton *trimCheck;
     CheckButton *lineCheck;
     CheckButton *marginCheck;
     CheckButton *closeCheck;
@@ -202,6 +203,7 @@ private:
     int rememberFiles;
     int saveOnTab;
     int saveOnWindow;
+    int trimOn;
     int listedCount;
     int dirtyOpen;
     long dirtySlot[EDITOR_PAGES];

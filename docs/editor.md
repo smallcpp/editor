@@ -68,24 +68,30 @@ The last document, when closed, is replaced by
 a fresh untitled buffer. A modified tab draws a dot before
 the file name. The dot is removed when the buffer is clean.
 
-Edit covers Undo, Redo, Cut, Copy, Paste, Indent, and Unindent.
+Edit covers Undo, Redo, Cut, Copy, Paste, Indent,
+Unindent, and Settings.
 Search has Search, Replace, Reverse, Whole word, Match
 case, and Wrap. The last four are check items. Wrap is on
 by default. Search and Replace open
 dialogs and stay open while finding. A selection that spans
 lines is the only range that is searched. File includes Close
 All, which closes every document and leaves one untitled
-buffer. Each command shows its accelerator. View opens
-Settings and then offers Whitespace, Line ends,
-and Indent stops. Whitespace draws a dot for each space and
-a line for each tab. Line ends draws a mark after each line.
-Indent stops draws a line at each tab stop inside the
-leading indent. Settings has General, Search, View, and
-Keyboard pages, and the tabs sit on the left. Search holds
-Wrap, Reverse, Whole word, and Match case. View holds
-Whitespace, Line ends, Indent stops, and Remember files.
-Remember files is off until it is turned on. Search and
-View say that the choices on those pages are the defaults.
+buffer. Each command shows its accelerator. View offers
+Whitespace, Line ends, and Indent stops. Whitespace draws
+a dot for each space and a line for each tab. Line ends
+draws a mark after each line. Indent stops draws a line
+at each tab stop inside the leading indent. Settings has
+General, Search, Appearance, and Keyboard pages, and the
+tabs sit on the left. Search holds Wrap, Reverse, Whole
+word, and Match case. Appearance holds Whitespace, Line
+ends, Indent stops, Remember files, and Font. Remember
+files is off until it is turned on. Search and Appearance
+say that the choices on those pages are the defaults.
+Similar controls sit in a bordered group. Indenting is
+one group: Autoindent, tabs or spaces or both, and the
+indent width. The width is how many character places one
+indent shows. General can trim trailing spaces when a
+file is saved. That switch is off until it is turned on.
 Each field has its label on the same line, and the field
 is 12 characters wide. General also holds how many recent
 files to keep. The count starts at 10. It can save a named

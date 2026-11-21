@@ -88,6 +88,10 @@ public:
     int tab_width(void);
     void use_spaces(int value);
     int uses_spaces(void);
+    void set_indent_style(int value);
+    int indent_style(void);
+    void set_trim(int value);
+    int trims(void);
 private:
     DocVec *docs;
     long activeIndex;
@@ -101,7 +105,8 @@ private:
     int typeBrackets;
     int typeIndent;
     int tabWidth;
-    int indentSpaces;
+    int indentStyle;
+    int trimOn;
     void set_error(const char *msg);
     void apply_typing(Document *doc);
     int save_named(Document *doc);

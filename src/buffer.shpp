@@ -72,8 +72,8 @@ public:
     void strip_trailing(void);
     void toggle_line_comment(const char *leader);
     void toggle_block_comment(void);
-    void indent_lines(long width, bool spaces);
-    void outdent_lines(long width, bool spaces);
+    void indent_lines(long width, int style);
+    void outdent_lines(long width, int style);
     void insert_column(const char *value);
     void delete_column(void);
     int find_next(

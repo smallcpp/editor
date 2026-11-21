@@ -5,17 +5,17 @@
 The top of the window is a menu bar. File, Edit, Search, View,
 and Documents are submenus. File has New, Open, Save, Save As,
 Save All, Close, and Quit. Edit has Undo, Redo, Cut, Copy,
-Paste, Indent, and Unindent. Search has Search, Replace,
+Paste, Indent, Unindent, and Settings. Search has Search, Replace,
 Reverse, Whole word, Match case, and Wrap. The last four are
 check items. A selection that covers more than one line
 limits the search to those lines. Wrap is on unless it is
-turned off. View has Settings, then Whitespace, Line ends,
-and Indent stops. Those three draw in the text. Documents
+turned off. View has Whitespace, Line ends, and Indent
+stops. Those three draw in the text. Documents
 lists the open files. Menus place a separator between
 groups: File separates new and open, the saves, the closes,
 and Quit. Edit separates undo, the clipboard, and indent.
-Search separates the commands from the options. View
-separates Settings from the checks. File also has
+Search separates the commands from the options. Edit
+separates Settings from the other commands. File also has
 Close All. Open can select
 several files. Each one is opened, and the last one is the
 active tab. A new line shows its gutter number when Enter
@@ -85,8 +85,15 @@ clean. General can save a named file when its tab loses
 focus, or when the window loses focus. Both are off until
 turned on. An untitled buffer is not written on focus loss.
 Each settings field sits beside its label, and the field is
-12 characters wide. Search and View say that those choices
-are the defaults. The save dialog lists every modified file.
+12 characters wide. Search and Appearance say that those
+choices are the defaults. Indenting, the current line, the
+column marker, saving, and the text marks each sit in a
+bordered group. Indent can use tabs, spaces, or both, and
+the width is how many character places one indent shows.
+Autoindent is the name of the new-line indent. Trim
+trailing spaces on save is off until it is turned on.
+Font is on Appearance. The save dialog lists every
+modified file.
 Each one can be saved or discarded, and Save all and Discard
 all do the whole list. Saving an untitled file still asks
 for a path.

@@ -107,7 +107,8 @@ Editor::Editor() {
     typeBrackets = 1;
     typeIndent = 1;
     tabWidth = EDITOR_TAB;
-    indentSpaces = 1;
+    indentStyle = 1;
+    trimOn = 0;
 }
 
 void Editor::apply_typing(Document *doc) {
@@ -173,13 +174,36 @@ int Editor::tab_width(void) {
 
 void Editor::use_spaces(int value) {
     if (value == 0)
-        indentSpaces = 0;
+        indentStyle = 0;
     else
-        indentSpaces = 1;
+        indentStyle = 1;
 }
 
 int Editor::uses_spaces(void) {
-    return indentSpaces;
+    if (indentStyle == 1)
+        return 1;
+    return 0;
+}
+
+void Editor::set_indent_style(int value) {
+    if (value < 0 || value > 2)
+        value = 1;
+    indentStyle = value;
+}
+
+int Editor::indent_style(void) {
+    return indentStyle;
+}
+
+void Editor::set_trim(int value) {
+    if (value == 0)
+        trimOn = 0;
+    else
+        trimOn = 1;
+}
+
+int Editor::trims(void) {
+    return trimOn;
 }
 
 void Editor::set_error(const char *msg) {
@@ -290,7 +314,13 @@ int Editor::open_argument(const char *path) {
 int Editor::save_named(Document *doc) {
     if (doc == nullptr)
         return EDITOR_FAILED;
-    if (doc->save_file(false) == 0) {
+    if (trimOn != 0) {
+        if (doc->save_file(true) == 0) {
+            set_error(doc->error());
+            return EDITOR_FAILED;
+        }
+    }
+    else if (doc->save_file(false) == 0) {
         set_error(doc->error());
         return EDITOR_FAILED;
     }
@@ -339,7 +369,13 @@ int Editor::save_as(const char *path) {
         return EDITOR_FAILED;
     }
     allowOverwrite = 0;
-    if (doc->save_as(path, false) == 0) {
+    if (trimOn != 0) {
+        if (doc->save_as(path, true) == 0) {
+            set_error(doc->error());
+            return EDITOR_FAILED;
+        }
+    }
+    else if (doc->save_as(path, false) == 0) {
         set_error(doc->error());
         return EDITOR_FAILED;
     }
@@ -647,14 +683,14 @@ int Editor::run(const char *command) {
         if (active() != nullptr)
             active()->buffer()->indent_lines(
                     tabWidth,
-                    indentSpaces != 0);
+                    indentStyle);
         return EDITOR_OK;
     }
     if (text_same(command, "unindent") == 1) {
         if (active() != nullptr)
             active()->buffer()->outdent_lines(
                     tabWidth,
-                    indentSpaces != 0);
+                    indentStyle);
         return EDITOR_OK;
     }
     set_error("unknown command");
