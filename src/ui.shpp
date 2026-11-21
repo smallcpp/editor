@@ -99,6 +99,11 @@ public:
     long window_height(void);
     void set_recent_count(int value);
     void note_size(long width, long height);
+    void note_active(int active);
+    void save_listed(long index);
+    void discard_listed(long index);
+    int listed_count(void);
+    long listed_at(int index);
     void find_query(const char *query);
     void find_again(void);
     void replace_query(
@@ -139,6 +144,7 @@ private:
     char docName[EDITOR_PAGES][80];
     String *pendingPath;
     Dialog *choiceDialog;
+    Dialog *dirtyDialog;
     Dialog *settingsDialog;
     CheckButton *bracketCheck;
     CheckButton *indentCheck;
@@ -170,6 +176,8 @@ private:
     CheckButton *endCheck;
     CheckButton *stopCheck;
     CheckButton *rememberCheck;
+    CheckButton *saveTabCheck;
+    CheckButton *saveWinCheck;
     SpinButton *recentSpin;
     Dialog *searchDialog;
     Dialog *replaceDialog;
@@ -192,6 +200,11 @@ private:
     int seenWidth;
     int seenHeight;
     int rememberFiles;
+    int saveOnTab;
+    int saveOnWindow;
+    int listedCount;
+    int dirtyOpen;
+    long dirtySlot[EDITOR_PAGES];
     int recentCount;
     int recentUsed;
     int openCount;
@@ -228,6 +241,9 @@ private:
     void arm_dialog(void);
     void note_folder(const char *path);
     void show_choice(const char *title, int mode);
+    void show_dirty(void);
+    void save_quiet(long index);
+    void finish_choice(int code);
 };
 
 #endif

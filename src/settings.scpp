@@ -23,6 +23,8 @@ void config_defaults(EditorConfig *item) {
     item->windowWidth = 0;
     item->windowHeight = 0;
     item->rememberFiles = 0;
+    item->saveOnTab = 0;
+    item->saveOnWindow = 0;
     item->recentCount = 10;
     item->openCount = 0;
     item->recentUsed = 0;
@@ -167,6 +169,14 @@ static void take_line(EditorConfig *item, const char *line) {
         item->rememberFiles = read_int(
                 value,
                 item->rememberFiles);
+    if (key_is(line, "save-on-tab") == 1)
+        item->saveOnTab = read_int(
+                value,
+                item->saveOnTab);
+    if (key_is(line, "save-on-window") == 1)
+        item->saveOnWindow = read_int(
+                value,
+                item->saveOnWindow);
     if (key_is(line, "recent-count") == 1)
         item->recentCount = read_int(value, item->recentCount);
     if (key_is(line, "active-path") == 1)
@@ -318,6 +328,8 @@ int config_write(
     add_flag(text, "show-line-ends", item->showEnds);
     add_flag(text, "show-indent-stops", item->showStops);
     add_flag(text, "remember-files", item->rememberFiles);
+    add_flag(text, "save-on-tab", item->saveOnTab);
+    add_flag(text, "save-on-window", item->saveOnWindow);
     add_num(text, "recent-count", item->recentCount);
     if (item->windowWidth >= 100
             && item->windowHeight >= 100) {

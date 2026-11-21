@@ -717,6 +717,8 @@ const char *language_of(const char *path) {
     n = text_length(base);
     if (n >= 5 && text_same(base + n - 5, ".scpp") == 1)
         return "scpp";
+    if (n >= 5 && text_same(base + n - 5, ".shpp") == 1)
+        return "scpp";
     if (n >= 3 && text_same(base + n - 3, ".cw") == 1)
         return "cw";
     if (n >= 2 && text_same(base + n - 2, ".c") == 1)

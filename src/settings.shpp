@@ -37,6 +37,8 @@ public:
     int windowWidth;
     int windowHeight;
     int rememberFiles;
+    int saveOnTab;
+    int saveOnWindow;
     int recentCount;
     int openCount;
     int recentUsed;

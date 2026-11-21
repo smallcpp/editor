@@ -76,7 +76,20 @@ toggle, a color, and a character count. Font and size come from
 a font chooser dialog.
 
 scpp coloring also marks preprocessor lines, extra keywords,
-types, and names used as calls. Other languages are unchanged.
+types, and names used as calls. A `.shpp` file uses that same
+coloring. Other languages are unchanged. Opening a file paints
+those colors in one pass. It no longer walks from the start of
+the file for every colored span. A modified tab shows a dot
+before the name, and the dot goes away when the buffer is
+clean. General can save a named file when its tab loses
+focus, or when the window loses focus. Both are off until
+turned on. An untitled buffer is not written on focus loss.
+Each settings field sits beside its label, and the field is
+12 characters wide. Search and View say that those choices
+are the defaults. The save dialog lists every modified file.
+Each one can be saved or discarded, and Save all and Discard
+all do the whole list. Saving an untitled file still asks
+for a path.
 
 Quit destroys the window and leaves the process, including after
 a save dialog. Ctrl+S runs the save command after the key handler

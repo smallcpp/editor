@@ -56,6 +56,25 @@ void ui_resized(void *data, long width, long height) {
     editorUi->note_size(width, height);
 }
 
+void ui_window_active(void *data, int active) {
+    (void)data;
+    editorUi->note_active(active);
+}
+
+void ui_dirty_save(void *data) {
+    long *slot;
+
+    slot = (long *)data;
+    editorUi->save_listed(*slot);
+}
+
+void ui_dirty_drop(void *data) {
+    long *slot;
+
+    slot = (long *)data;
+    editorUi->discard_listed(*slot);
+}
+
 int ui_key_press(void *data, const char *accel, int escape) {
     (void)data;
     return editorUi->take_key(accel, escape);
@@ -237,6 +256,7 @@ Ui::Ui(Editor *editor) {
     book = nullptr;
     status = nullptr;
     choiceDialog = nullptr;
+    dirtyDialog = nullptr;
     settingsDialog = nullptr;
     bracketCheck = nullptr;
     indentCheck = nullptr;
@@ -261,6 +281,8 @@ Ui::Ui(Editor *editor) {
     searchMenu = 0;
     viewMenu = 0;
     rememberCheck = nullptr;
+    saveTabCheck = nullptr;
+    saveWinCheck = nullptr;
     recentSpin = nullptr;
     windowWidth = 0;
     windowHeight = 0;
@@ -268,6 +290,10 @@ Ui::Ui(Editor *editor) {
     seenWidth = 0;
     seenHeight = 0;
     rememberFiles = 0;
+    saveOnTab = 0;
+    saveOnWindow = 0;
+    listedCount = 0;
+    dirtyOpen = 0;
     recentCount = 10;
     recentUsed = 0;
     openCount = 0;
@@ -360,6 +386,7 @@ void Ui::build(void) {
     else
         mainWindow->set_default_size(880, 640);
     mainWindow->on_resize(ui_resized, nullptr);
+    mainWindow->on_active(ui_window_active, nullptr);
     mainWindow->on_close_request(ui_close, nullptr);
     menuBar = new MenuBar();
     fileLabels[0] = "New";
@@ -451,6 +478,12 @@ void Ui::build(void) {
     choiceDialog->add_button("Discard", EDITOR_DISCARD);
     choiceDialog->add_button("Cancel", EDITOR_CANCEL);
     choiceDialog->on_response(ui_choice_response, nullptr);
+    dirtyDialog = new Dialog("Save changes?");
+    dirtyDialog->set_transient(mainWindow);
+    dirtyDialog->add_button("Save all", EDITOR_SAVE);
+    dirtyDialog->add_button("Discard all", EDITOR_DISCARD);
+    dirtyDialog->add_button("Cancel", EDITOR_CANCEL);
+    dirtyDialog->on_response(ui_choice_response, nullptr);
     show_recent();
 }
 
@@ -668,11 +701,47 @@ void Ui::take_selection(void) {
             end->offset() + 1);
 }
 
+static void seek_offset(
+        const char *text,
+        long n,
+        long target,
+        long *at,
+        long *line,
+        long *column) {
+    int value;
+    int step;
+
+    if (target < *at) {
+        *at = 0;
+        *line = 0;
+        *column = 0;
+    }
+    if (target > n)
+        target = n;
+    while (*at < target) {
+        value = byte_at(text, *at);
+        if (value == '\n') {
+            *line = *line + 1;
+            *column = 0;
+            *at = *at + 1;
+            continue;
+        }
+        step = utf8_len(value);
+        if (*at + step > target) {
+            *at = target;
+            return;
+        }
+        *column = *column + 1;
+        *at = *at + step;
+    }
+}
+
 void Ui::highlight(long index) {
     Highlighter *scan;
     Document *doc;
     const char *text;
     long i;
+    long byte;
     long line;
     long col;
     long line2;
@@ -753,13 +822,18 @@ void Ui::highlight(long index) {
     }
     scan = new Highlighter();
     scan->scan(text, doc->language());
+    byte = 0;
+    line = 0;
+    col = 0;
     i = 0;
     while (i < scan->count()) {
         span = scan->at(i);
-        text_position(text, span->start, &line, &col);
-        text_position(text, span->end, &line2, &col2);
-        start = new TextIter(line, col);
-        end = new TextIter(line2, col2);
+        seek_offset(text, n, span->start, &byte, &line, &col);
+        line2 = line;
+        col2 = col;
+        seek_offset(text, n, span->end, &byte, &line, &col);
+        start = new TextIter(line2, col2);
+        end = new TextIter(line, col);
         name = "keyword";
         if (span->kind == SPAN_STRING)
             name = "string";
@@ -819,7 +893,7 @@ void Ui::show_choice(const char *title, int mode) {
 
 void Ui::handle(int code) {
     if (code == EDITOR_NEEDS_CHOICE) {
-        show_choice("Save changes?", 0);
+        show_dirty();
         return;
     }
     if (code == EDITOR_NEEDS_PATH
@@ -867,7 +941,7 @@ void Ui::save_path(const char *path) {
     if (leaving == 1)
         return;
     if (path == nullptr || path[0] == 0) {
-        handle(state->answer(EDITOR_CANCEL));
+        finish_choice(state->answer(EDITOR_CANCEL));
         return;
     }
     note_folder(path);
@@ -876,7 +950,18 @@ void Ui::save_path(const char *path) {
     code = state->provide_path(path);
     if (code == EDITOR_OK)
         note_recent(path);
+    finish_choice(code);
+}
+
+void Ui::finish_choice(int code) {
+    if (code != EDITOR_NEEDS_CHOICE
+            && dirtyDialog != nullptr) {
+        dirtyOpen = 0;
+        dirtyDialog->set_visible(false);
+    }
     handle(code);
+    if (state->quit_ready() == 1)
+        leave();
 }
 
 void Ui::choice(int response) {
@@ -891,9 +976,21 @@ void Ui::choice(int response) {
         handle(state->answer(EDITOR_CANCEL));
         return;
     }
-    handle(state->answer(response));
-    if (state->quit_ready() == 1)
-        leave();
+    if (response == EDITOR_CANCEL) {
+        if (dirtyDialog != nullptr)
+            dirtyDialog->set_visible(false);
+        finish_choice(state->answer(EDITOR_CANCEL));
+        return;
+    }
+    if (response == EDITOR_SAVE) {
+        finish_choice(state->save_every());
+        return;
+    }
+    if (response == EDITOR_DISCARD) {
+        finish_choice(state->discard_every());
+        return;
+    }
+    finish_choice(state->answer(response));
 }
 
 void Ui::user_begin(long index) {
@@ -1018,6 +1115,7 @@ void Ui::changed(long index) {
         }
     } else
         highlight(index);
+    retitle(index);
     paint_status();
 }
 
@@ -1037,8 +1135,13 @@ void Ui::moved(long index, long line, long offset) {
 }
 
 void Ui::switched(long index) {
+    long previous;
+
     if (building == 1)
         return;
+    previous = state->index();
+    if (saveOnTab == 1 && previous != index)
+        save_quiet(previous);
     state->set_index(index);
     paint_status();
 }
@@ -1120,6 +1223,8 @@ void Ui::sync_boxes(void) {
     set_box(endCheck, showEnds);
     set_box(stopCheck, showStops);
     set_box(rememberCheck, rememberFiles);
+    set_box(saveTabCheck, saveOnTab);
+    set_box(saveWinCheck, saveOnWindow);
     if (recentSpin != nullptr)
         recentSpin->set_value((double)recentCount);
     applying = 0;
@@ -1172,6 +1277,12 @@ void Ui::set_option(const char *label, int on) {
         showStops = value;
     if (text_same(label, "Remember files") == 1)
         rememberFiles = value;
+    if (text_same(label, "Save when a tab loses focus") == 1)
+        saveOnTab = value;
+    if (text_same(
+                label,
+                "Save when the window loses focus") == 1)
+        saveOnWindow = value;
     push_options();
 }
 
@@ -1872,6 +1983,8 @@ void Ui::use_config(EditorConfig *item) {
     windowWidth = item->windowWidth;
     windowHeight = item->windowHeight;
     rememberFiles = item->rememberFiles;
+    saveOnTab = item->saveOnTab;
+    saveOnWindow = item->saveOnWindow;
     recentCount = item->recentCount;
     recentUsed = item->recentUsed;
     openCount = item->openCount;
@@ -2045,14 +2158,30 @@ void Ui::apply_settings(void) {
         else
             item.rememberFiles = 0;
     }
+    if (saveTabCheck != nullptr) {
+        if (saveTabCheck->active() == true)
+            item.saveOnTab = 1;
+        else
+            item.saveOnTab = 0;
+    }
+    if (saveWinCheck != nullptr) {
+        if (saveWinCheck->active() == true)
+            item.saveOnWindow = 1;
+        else
+            item.saveOnWindow = 0;
+    }
     recentCount = item.recentCount;
     rememberFiles = item.rememberFiles;
+    saveOnTab = item.saveOnTab;
+    saveOnWindow = item.saveOnWindow;
     if (recentCount < 1)
         recentCount = 1;
     if (recentCount > EDITOR_RECENT_MAX)
         recentCount = EDITOR_RECENT_MAX;
     item.recentCount = recentCount;
     item.rememberFiles = rememberFiles;
+    item.saveOnTab = saveOnTab;
+    item.saveOnWindow = saveOnWindow;
     item.recentUsed = recentUsed;
     if (item.recentUsed > item.recentCount)
         item.recentUsed = item.recentCount;
@@ -2077,6 +2206,17 @@ void Ui::apply_settings(void) {
         config_write(path, &item);
 }
 
+static Box *labeled_field(
+        const char *label,
+        Widget *field) {
+    Box *row;
+
+    row = new Box(GTK_HORIZONTAL, 8);
+    row->append((Widget *)new Label(label));
+    row->append(field);
+    return row;
+}
+
 void Ui::show_settings(void) {
     Box *box;
     Box *search;
@@ -2085,9 +2225,6 @@ void Ui::show_settings(void) {
     Notebook *pages;
     ScrolledWindow *scroll;
     Button *fontButton;
-    Label *tabLabel;
-    Label *lineLabel;
-    Label *marginLabel;
     int n;
 
     if (settingsDialog == nullptr) {
@@ -2104,9 +2241,6 @@ void Ui::show_settings(void) {
         lineCheck = new CheckButton("Highlight the current line");
         marginCheck = new CheckButton("Right column marker");
         closeCheck = new CheckButton("Tab close marks");
-        tabLabel = new Label("Spaces per indent");
-        lineLabel = new Label("Current line color");
-        marginLabel = new Label("Column marker color");
         tabSpin = new SpinButton(1, 32, 4);
         marginSpin = new SpinButton(1, 400, 80);
         lineEntry = new Entry(lineColor);
@@ -2135,31 +2269,56 @@ void Ui::show_settings(void) {
                 ui_margin_entry,
                 (void *)marginEntry);
         fontButton->on_clicked(ui_font_button, nullptr);
+        tabSpin->set_width_chars(12);
+        marginSpin->set_width_chars(12);
+        lineEntry->set_width_chars(12);
+        marginEntry->set_width_chars(12);
         box->append((Widget *)bracketCheck);
         box->append((Widget *)indentCheck);
         box->append((Widget *)spacesCheck);
-        box->append((Widget *)tabLabel);
-        box->append((Widget *)tabSpin);
+        box->append((Widget *)labeled_field(
+                "Spaces per indent",
+                (Widget *)tabSpin));
         box->append((Widget *)lineCheck);
-        box->append((Widget *)lineLabel);
-        box->append((Widget *)lineEntry);
+        box->append((Widget *)labeled_field(
+                "Current line color",
+                (Widget *)lineEntry));
         box->append((Widget *)marginCheck);
-        box->append((Widget *)marginSpin);
-        box->append((Widget *)marginLabel);
-        box->append((Widget *)marginEntry);
+        box->append((Widget *)labeled_field(
+                "Columns",
+                (Widget *)marginSpin));
+        box->append((Widget *)labeled_field(
+                "Column marker color",
+                (Widget *)marginEntry));
         box->append((Widget *)closeCheck);
-        box->append((Widget *)new Label("Recent files"));
         recentSpin = new SpinButton(1, 32, 10);
+        recentSpin->set_width_chars(12);
         recentSpin->on_changed(
                 ui_recent_spin,
                 (void *)recentSpin);
-        box->append((Widget *)recentSpin);
+        box->append((Widget *)labeled_field(
+                "Recent files",
+                (Widget *)recentSpin));
+        saveTabCheck = new CheckButton(
+                "Save when a tab loses focus");
+        saveWinCheck = new CheckButton(
+                "Save when the window loses focus");
+        saveTabCheck->on_toggled(
+                ui_option,
+                (void *)"Save when a tab loses focus");
+        saveWinCheck->on_toggled(
+                ui_option,
+                (void *)"Save when the window loses focus");
+        box->append((Widget *)saveTabCheck);
+        box->append((Widget *)saveWinCheck);
         box->append((Widget *)fontButton);
         box->set_h_expand(true);
         box->set_v_expand(true);
         search = new Box(GTK_VERTICAL, 8);
         search->set_h_expand(true);
         search->set_v_expand(true);
+        search->append((Widget *)new Label(
+                "These are the default settings."));
         wrapCheck = new CheckButton("Wrap");
         backCheck = new CheckButton("Reverse");
         wholeCheck = new CheckButton("Whole word");
@@ -2179,6 +2338,8 @@ void Ui::show_settings(void) {
         view = new Box(GTK_VERTICAL, 8);
         view->set_h_expand(true);
         view->set_v_expand(true);
+        view->append((Widget *)new Label(
+                "These are the default settings."));
         spaceCheck = new CheckButton("Whitespace");
         endCheck = new CheckButton("Line ends");
         stopCheck = new CheckButton("Indent stops");
@@ -2470,6 +2631,8 @@ void Ui::mount_tab(long index, const char *title) {
 void Ui::retitle(long index) {
     Document *doc;
     char title[256];
+    char shown[260];
+    long n;
 
     if (index < 0 || index >= pageCount)
         return;
@@ -2477,10 +2640,23 @@ void Ui::retitle(long index) {
     if (doc == nullptr)
         return;
     text_copy(title, 256, doc->title());
+    shown[0] = 0;
+    if (doc->buffer() != nullptr
+            && doc->buffer()->dirty() == true) {
+        shown[0] = (char)226;
+        shown[1] = (char)128;
+        shown[2] = (char)162;
+        shown[3] = ' ';
+        shown[4] = 0;
+    }
+    n = 0;
+    while (shown[n] != 0)
+        n = n + 1;
+    text_copy(shown + n, 260 - n, title);
     if (tabTitle[index] != nullptr)
-        tabTitle[index]->set_text(title);
+        tabTitle[index]->set_text(shown);
     else
-        book->set_tab_label(index, title);
+        book->set_tab_label(index, shown);
 }
 
 const char *Ui::tab_text(long index) {
@@ -2693,6 +2869,8 @@ void Ui::store_session(void) {
     item.windowWidth = windowWidth;
     item.windowHeight = windowHeight;
     item.rememberFiles = rememberFiles;
+    item.saveOnTab = saveOnTab;
+    item.saveOnWindow = saveOnWindow;
     item.recentCount = recentCount;
     if (item.recentCount < 1)
         item.recentCount = 1;
@@ -2856,6 +3034,109 @@ void Ui::note_loaded(void) {
     }
 }
 
+void Ui::show_dirty(void) {
+    Box *rows;
+    long i;
+    long n;
+    Document *doc;
+    Box *row;
+    Button *save;
+    Button *drop;
+
+    choiceMode = 0;
+    dirtyOpen = 1;
+    if (dirtyDialog == nullptr)
+        return;
+    rows = new Box(GTK_VERTICAL, 6);
+    n = 0;
+    i = 0;
+    while (i < state->count() && n < EDITOR_PAGES) {
+        doc = state->at(i);
+        if (doc != nullptr
+                && doc->buffer()->dirty() == true) {
+            dirtySlot[n] = i;
+            row = new Box(GTK_HORIZONTAL, 8);
+            row->append((Widget *)new Label(doc->title()));
+            save = new Button("Save");
+            drop = new Button("Discard");
+            save->on_clicked(
+                    ui_dirty_save,
+                    (void *)&dirtySlot[n]);
+            drop->on_clicked(
+                    ui_dirty_drop,
+                    (void *)&dirtySlot[n]);
+            row->append((Widget *)save);
+            row->append((Widget *)drop);
+            rows->append((Widget *)row);
+            n = n + 1;
+        }
+        i = i + 1;
+    }
+    listedCount = (int)n;
+    dirtyDialog->set_content((Widget *)rows);
+    dirtyDialog->present();
+}
+
+void Ui::save_listed(long index) {
+    int code;
+
+    code = state->save_at(index);
+    retitle(index);
+    paint_status();
+    finish_choice(code);
+}
+
+void Ui::discard_listed(long index) {
+    int code;
+
+    code = state->discard_at(index);
+    retitle(index);
+    paint_status();
+    finish_choice(code);
+}
+
+int Ui::listed_count(void) {
+    return listedCount;
+}
+
+long Ui::listed_at(int index) {
+    if (index < 0 || index >= listedCount)
+        return -1;
+    return dirtySlot[index];
+}
+
+void Ui::save_quiet(long index) {
+    Document *doc;
+
+    if (leaving == 1)
+        return;
+    if (index < 0 || index >= state->count())
+        return;
+    doc = state->at(index);
+    if (doc == nullptr)
+        return;
+    if (doc->untitled() == 1)
+        return;
+    if (doc->buffer()->dirty() == false)
+        return;
+    if (state->save_at(index) != EDITOR_OK)
+        return;
+    retitle(index);
+    paint_status();
+}
+
+void Ui::note_active(int active) {
+    if (leaving == 1)
+        return;
+    if (active != 0)
+        return;
+    if (dirtyOpen == 1)
+        return;
+    if (saveOnWindow == 0)
+        return;
+    save_quiet(state->index());
+}
+
 void Ui::leave(void) {
     long w;
     long h;
@@ -2876,6 +3157,10 @@ void Ui::leave(void) {
         settingsDialog->set_visible(false);
     if (choiceDialog != nullptr)
         choiceDialog->set_visible(false);
+    if (dirtyDialog != nullptr) {
+        dirtyOpen = 0;
+        dirtyDialog->set_visible(false);
+    }
     if (mainWindow != nullptr)
         mainWindow->destroy();
     if (app != nullptr)
