@@ -110,6 +110,8 @@ const char *span_tag(int kind) {
         return "preprocessor";
     if (kind == SPAN_CALL)
         return "call";
+    if (kind == SPAN_OPERATOR)
+        return "operator";
     return "";
 }
 
@@ -255,6 +257,24 @@ static int scpp_extra(const char *word) {
     return 0;
 }
 
+static int is_operator(int ch) {
+    if (ch == '(' || ch == ')')
+        return 1;
+    if (ch == '[' || ch == ']')
+        return 1;
+    if (ch == '{' || ch == '}')
+        return 1;
+    if (ch == '+' || ch == '-' || ch == '*' || ch == '/')
+        return 1;
+    if (ch == '%' || ch == '=' || ch == '<' || ch == '>')
+        return 1;
+    if (ch == '!' || ch == '&' || ch == '|' || ch == '^')
+        return 1;
+    if (ch == '~' || ch == '?' || ch == ':')
+        return 1;
+    return 0;
+}
+
 static int scpp_type(const char *word) {
     if (same_word(word, "unsigned") == 1)
         return 1;
@@ -390,6 +410,11 @@ void Highlighter::scan(const char *text, const char *language) {
                 if (j < n && text[j] == '(')
                     add_span(start, i, SPAN_CALL);
             }
+            continue;
+        }
+        if (is_operator(ch) == 1) {
+            add_span(i, i + 1, SPAN_OPERATOR);
+            i = i + 1;
             continue;
         }
         i = i + 1;

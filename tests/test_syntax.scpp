@@ -56,6 +56,8 @@ int main(void) {
             "name preprocessor");
     expect(text_same(span_tag(SPAN_CALL), "call") == 1,
             "name call");
+    expect(text_same(span_tag(SPAN_OPERATOR), "operator") == 1,
+            "name operator");
     expect(span_tag(0)[0] == 0, "name none");
     {
         char sample[32];
@@ -140,6 +142,10 @@ int main(void) {
         expect(kind_at(light, at) == SPAN_CALL, "call");
         expect(text_same(tag_at(light, at), "call") == 1,
                 "call tag");
+        while (sample[at] != 0 && sample[at] != '(')
+            at = at + 1;
+        expect(text_same(tag_at(light, at), "operator") == 1,
+                "call paren");
         light->scan("static value;\n", "scpp");
         expect(kind_at(light, 0) == SPAN_KEYWORD, "static");
         expect(text_same(
@@ -156,6 +162,21 @@ int main(void) {
                 "shpp tag");
         light->scan("# head\n", "c");
         expect(kind_at(light, 0) == 0, "plain hash");
+        light->scan("f(x) { }", "c");
+        expect(text_same(tag_at(light, 1), "operator") == 1,
+                "open paren");
+        expect(text_same(tag_at(light, 3), "operator") == 1,
+                "close paren");
+        expect(text_same(tag_at(light, 5), "operator") == 1,
+                "open brace");
+        expect(text_same(tag_at(light, 7), "operator") == 1,
+                "close brace");
+        light->scan("n + 1", "c");
+        expect(text_same(tag_at(light, 2), "operator") == 1,
+                "plus");
+        light->scan("\"()\"", "c");
+        expect(kind_at(light, 1) == SPAN_STRING,
+                "string paren");
     }
     if (failures == 0) {
         print("test-syntax ok\n");

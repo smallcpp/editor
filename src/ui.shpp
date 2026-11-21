@@ -119,6 +119,12 @@ public:
     void replace_all_again(void);
     void hide_search(void);
     void hide_replace(void);
+    void hide_theme(void);
+    void show_theme(void);
+    void fill_theme(void);
+    void take_theme_entry(int slot);
+    void open_theme_color(int slot);
+    void paint_theme(const char *language);
 private:
     Editor *state;
     Application *app;
@@ -134,6 +140,9 @@ private:
     int choiceMode;
     int applying;
     int building;
+    int settingsHold;
+    int themeFill;
+    int themeTag;
     int showLine;
     int showMargin;
     int showClose;
@@ -151,6 +160,10 @@ private:
     Dialog *choiceDialog;
     Dialog *dirtyDialog;
     Dialog *settingsDialog;
+    Dialog *themeDialog;
+    DropDown *themeDrop;
+    Entry *themeEntry[THEME_TAGS];
+    Button *themeColorButton[THEME_TAGS];
     CheckButton *bracketCheck;
     CheckButton *indentCheck;
     DropDown *indentDrop;

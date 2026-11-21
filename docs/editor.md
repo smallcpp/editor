@@ -104,11 +104,10 @@ buffer is left unsaved. Keyboard is a
 grid of the command and its accelerator. Click a shortcut,
 press the new keys, and Escape cancels. A shortcut that
 another command already uses is refused, and the page names
-that command. Apply does not write a duplicate. The notebook
-fills the dialog. The left tabs stay put, and the page
-scrolls. Apply stores
-them in
-`editor.ini` and leaves the dialog open. The same file
+that command. A duplicate shortcut is not written. The
+notebook fills the dialog. The left tabs stay put, and
+the page scrolls. A change stores the choices in
+`editor.ini`. The same file
 stores the window width and height. The next start uses
 that size, and a first run with no saved size uses the
 usual size. Open Recent sits with Open and lists the
@@ -136,7 +135,9 @@ turns it on, sets its color, and sets the character count,
 which starts at 80. Font and size are chosen with a font
 chooser dialog. A span stores a tag name, not a color.
 The tags are keyword, type, string, comment, number,
-preprocessor, and call. The theme in `editor.ini` maps each
+preprocessor, call, and operator. Operator covers
+characters such as `()`, `{}`, `[]`, and `+`. The theme
+in `editor.ini` maps each
 tag to a color. The default theme is the same for every
 language and keeps the colors already used. A language can
 override one tag. A missing tag uses the default color.
@@ -165,12 +166,16 @@ and the editor closes whatever pairs that box holds. It also
 toggles indenting a new line and indenting with spaces,
 tabs, or both. It sets how many character places one
 indent shows. Those apply to every open
-document and to the next one. Apply writes those choices to
-`$HOME/.config/smallcpp/editor.ini` and leaves the dialog
-open. Close only hides it. The close-button switch sits
-at the bottom of the dialog. Current line color and the
+document and to the next one. A control writes those
+choices to `$HOME/.config/smallcpp/editor.ini` when it
+changes. Close only hides the dialog. Close button on
+file tabs sits on General. It is not on the dialog
+frame. Current line color and the
 column marker color each have a Color button that opens
 the color chooser and stores the chosen `#rrggbb`.
+Appearance has Syntax colors. That dialog chooses one
+file type and assigns a color to each tag. The color is
+saved as a theme override, such as `theme-python-keyword`.
 A missing file, or a missing
 `HOME`, keeps the defaults. The dialog is transient for the
 editor window.

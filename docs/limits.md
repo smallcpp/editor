@@ -45,10 +45,10 @@ lists every modified file. The window shows at most
 chooser. Wrapping stays off. The menu bar is the first child
 of the window because the wrapper has no title-bar setter.
 Settings are stored in `$HOME/.config/smallcpp/editor.ini`,
-beside the compiler's `config.ini`. Apply writes that file,
-including one `key-` accelerator for each command, the
-search options, and the view options, and leaves the dialog
-open. Close does not. The setup dialog is a notebook with
+beside the compiler's `config.ini`. A control writes that
+file when it changes, including one `key-` accelerator for
+each command, the search options, and the view options.
+Close only hides the dialog. The setup dialog is a notebook with
 the tabs on the left. General holds the switches. Search
 holds wrap at the end of the buffer, reverse direction,
 whole words only, and exact word case. Appearance holds
@@ -57,12 +57,16 @@ holds the recent-file count, which starts at 10, Remember
 files, which is off until turned on, and trim trailing
 spaces, which is off. Autoclose pairs are an edit box.
 The default is `()[]{}""''`, saved as `bracket-pairs`.
-The close-button switch is at the bottom of the dialog.
+Close button on file tabs is on General. It is not on
+the dialog frame. Appearance opens a dialog that sets
+tag colors for one file type. Those overrides are
+`theme-` lines, such as `theme-python-keyword`. Operator
+is a tag for characters such as `()` and `{}`.
 A Color button sets the current-line color and another
 sets the column-marker color. Indent width is a character count. Keyboard
 is a grid of command and shortcut. Click a shortcut, press
-the new keys, and Escape cancels. Apply refuses a shortcut
-that another command already uses. The notebook fills the
+the new keys, and Escape cancels. A shortcut that
+another command already uses is refused. The notebook fills the
 dialog. The left tabs stay fixed, and the page scrolls.
 
 This editor does not open projects, run builds, talk to a language

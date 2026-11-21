@@ -60,7 +60,7 @@ static int tag_slot(const char *name) {
     if (name == nullptr)
         return -1;
     kind = SPAN_KEYWORD;
-    while (kind <= SPAN_CALL) {
+    while (kind <= SPAN_OPERATOR) {
         if (text_same(name, span_tag(kind)) == 1)
             return kind - 1;
         kind = kind + 1;
@@ -186,6 +186,7 @@ static void theme_defaults(EditorConfig *item) {
     theme_set(item, "", "number", "#804000");
     theme_set(item, "", "preprocessor", "#a04020");
     theme_set(item, "", "call", "#106060");
+    theme_set(item, "", "operator", "#404040");
 }
 
 void config_defaults(EditorConfig *item) {
@@ -578,6 +579,7 @@ static void add_theme(
     order[4] = SPAN_NUMBER;
     order[5] = SPAN_PREPROC;
     order[6] = SPAN_CALL;
+    order[7] = SPAN_OPERATOR;
     i = 0;
     while (i < THEME_TAGS) {
         text->append("theme-");

@@ -382,6 +382,10 @@ int main(void) {
                     theme_color(&item, "c", "string"),
                     "#208020") == 1,
                 "default string");
+        expect(text_same(
+                    theme_color(&item, "c", "operator"),
+                    "#404040") == 1,
+                "default operator");
         expect(theme_set(
                     &item,
                     "python",
@@ -471,6 +475,25 @@ int main(void) {
                     theme_color(&back, "python", "comment"),
                     "#808080") == 1,
                 "saved missing tag");
+        expect(theme_set(
+                    &item,
+                    "c",
+                    "operator",
+                    "#112233") == 1,
+                "set c operator");
+        expect(config_write(path, &item) == 1,
+                "config write operator");
+        config_defaults(&back);
+        expect(config_read(path, &back) == 1,
+                "config read operator");
+        expect(text_same(
+                    theme_color(&back, "c", "operator"),
+                    "#112233") == 1,
+                "saved c operator");
+        expect(text_same(
+                    theme_color(&back, "python", "operator"),
+                    "#404040") == 1,
+                "python operator default");
         expect(text_same(
                     back.marginColor,
                     "#112233") == 1,
