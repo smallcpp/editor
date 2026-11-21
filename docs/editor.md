@@ -42,8 +42,9 @@ the line, the column, and the language. Each tab has a border.
 A close mark is drawn on the tab unless Settings turns that off.
 The mark closes that document, with the same dirty-file question
 as File, Close. Documents lists the loaded files and switches to
-the chosen one. Opening a file sets the tab title, including when
-the open replaces the single untitled buffer.
+the chosen one. A name is shown as written, including an
+underscore. Opening a file selects that tab and sets its title,
+including when the open replaces the single untitled buffer.
 
 File covers New, Open, Save, Save As, Save All, Close, Settings,
 and Quit. The first file dialog starts in the process current
@@ -61,16 +62,20 @@ Discard drops it. The last document, when closed, is replaced by
 a fresh untitled buffer.
 
 Edit covers Undo, Redo, Cut, Copy, Paste, Indent, and Unindent.
-Copy and cut read the selection in the text view. Indent and
-unindent use the tab width. That width defaults to four spaces,
-and Settings can change it. Undo and redo walk the editor
+Copy and cut read the selection in the text view. Indent,
+unindent, and Tab follow the indent settings. The default is
+spaces, and one indent is four spaces. Settings can switch to
+tabs and can change how many spaces one indent moves. Undo and
+redo walk the editor
 buffer, including a change typed in the view.
 
 The text view shows line numbers in the left gutter, one per
 buffer line. The numbers scroll with the text. An empty buffer
-shows line 1. The current line is
-highlighted. Settings can turn that highlight off and can set
-its color. A right column marker is off by default. Settings
+shows line 1. The gutter is wide enough for four digits and
+one space before the text. The current line is highlighted,
+one line at a time, including a blank line at the end. Settings
+can turn that highlight off and can set its color. A right
+column marker is off by default and is two pixels wide. Settings
 turns it on, sets its color, and sets the character count,
 which starts at 80. Font and size are chosen with a font
 chooser dialog. Tags color scpp keywords, types, calls,
@@ -81,11 +86,13 @@ edited spot and scroll that spot into view.
 
 Keys: Ctrl+O opens, Ctrl+S saves, Ctrl+Shift+S saves as,
 Ctrl+Shift+L saves all, Ctrl+Z undoes, Ctrl+Shift+Z and Ctrl+Y
-redo, Ctrl+X cuts, Ctrl+C copies, Ctrl+V pastes, Ctrl+] indents,
-and Ctrl+[ unindents. Ctrl+S runs after the key handler returns,
-so the save dialog is not opened inside that handler. Quit
+redo, Ctrl+X cuts, Ctrl+C copies, Ctrl+V pastes, Tab and
+Ctrl+] indent, and Shift+Tab and Ctrl+[ unindent. Ctrl+S runs
+after the key handler returns, so the save dialog is not opened
+inside that handler. Quit
 destroys the window and leaves the process, including when a
-save dialog is open. Settings toggles closing brackets and
-indenting a new line. Those apply to every open document and to
-the next one. The settings dialog is transient for the editor
-window.
+save dialog is open. Settings toggles closing brackets,
+indenting a new line, and indenting with spaces. It also sets
+how many spaces one indent moves. Those apply to every open
+document and to the next one. The settings dialog is transient
+for the editor window.
