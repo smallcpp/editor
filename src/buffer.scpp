@@ -443,6 +443,49 @@ bool EditBuffer::spans_lines(void) {
     return false;
 }
 
+const char *bracket_list(void) {
+    return "()\n[]\n{}\n\"\"\n''";
+}
+
+static int bracket_close(int open) {
+    const char *list;
+    long i;
+
+    list = bracket_list();
+    i = 0;
+    while (list[i] != 0) {
+        if (list[i] == (char)open
+                && list[i + 1] != 0
+                && list[i + 1] != '\n')
+            return (int)(unsigned char)list[i + 1];
+        while (list[i] != 0 && list[i] != '\n')
+            i = i + 1;
+        if (list[i] == '\n')
+            i = i + 1;
+    }
+    return 0;
+}
+
+static int is_closer(int ch) {
+    const char *list;
+    long i;
+
+    list = bracket_list();
+    i = 0;
+    while (list[i] != 0) {
+        if (list[i] != '\n'
+                && list[i + 1] != 0
+                && list[i + 1] != '\n'
+                && list[i + 1] == (char)ch)
+            return 1;
+        while (list[i] != 0 && list[i] != '\n')
+            i = i + 1;
+        if (list[i] == '\n')
+            i = i + 1;
+    }
+    return 0;
+}
+
 void EditBuffer::finish_brackets(
         long prefix,
         long insLen,
@@ -465,24 +508,13 @@ void EditBuffer::finish_brackets(
         ch = byte_at(raw, prefix);
         if (prefix + 1 < body->size()
                 && byte_at(raw, prefix + 1) == ch
-                && (ch == ')' || ch == ']' || ch == '}'
-                    || ch == '"' || ch == '\'')) {
+                && is_closer(ch) == 1) {
             splice(prefix, prefix + 1, "");
             cursor = prefix + 1;
             anchor = cursor;
             return;
         }
-        close = 0;
-        if (ch == '(')
-            close = ')';
-        if (ch == '[')
-            close = ']';
-        if (ch == '{')
-            close = '}';
-        if (ch == '"')
-            close = '"';
-        if (ch == '\'')
-            close = '\'';
+        close = bracket_close(ch);
         if (close != 0) {
             pair[0] = (char)close;
             pair[1] = 0;
@@ -494,17 +526,7 @@ void EditBuffer::finish_brackets(
     }
     if (insLen == 1 && delLen > 0 && brackets == true) {
         ch = byte_at(body->c_str(), prefix);
-        close = 0;
-        if (ch == '(')
-            close = ')';
-        if (ch == '[')
-            close = ']';
-        if (ch == '{')
-            close = '}';
-        if (ch == '"')
-            close = '"';
-        if (ch == '\'')
-            close = '\'';
+        close = bracket_close(ch);
         if (close != 0 && oldText != nullptr) {
             wrapped = new String();
             extra[0] = (char)ch;
@@ -523,17 +545,7 @@ void EditBuffer::finish_brackets(
     if (insLen == 0 && delLen == 1 && brackets == true) {
         if (oldText != nullptr && oldFrom < oldTo) {
             ch = byte_at(oldText, oldFrom);
-            close = 0;
-            if (ch == '(')
-                close = ')';
-            if (ch == '[')
-                close = ']';
-            if (ch == '{')
-                close = '}';
-            if (ch == '"')
-                close = '"';
-            if (ch == '\'')
-                close = '\'';
+            close = bracket_close(ch);
             if (close != 0
                     && cursor < body->size()
                     && byte_at(body->c_str(), cursor) == close) {

@@ -2225,6 +2225,45 @@ void Ui::apply_settings(void) {
         config_write(path, &item);
 }
 
+static ScrolledWindow *page_scroll(Widget *child) {
+    ScrolledWindow *scroll;
+
+    scroll = new ScrolledWindow();
+    scroll->set_h_expand(true);
+    scroll->set_v_expand(true);
+    scroll->set_min_content(320, 160);
+    scroll->set_policy(
+            GTK_POLICY_AUTOMATIC,
+            GTK_POLICY_AUTOMATIC);
+    scroll->set_child(child);
+    return scroll;
+}
+
+static void append_pairs(Box *box) {
+    const char *list;
+    char line[8];
+    long i;
+    long n;
+
+    list = bracket_list();
+    i = 0;
+    while (list[i] != 0) {
+        n = 0;
+        while (list[i] != 0
+                && list[i] != '\n'
+                && n + 1 < 8) {
+            line[n] = list[i];
+            n = n + 1;
+            i = i + 1;
+        }
+        line[n] = 0;
+        if (n > 0)
+            box->append((Widget *)new Label(line));
+        if (list[i] == '\n')
+            i = i + 1;
+    }
+}
+
 static Box *group_box(const char *title) {
     Box *box;
 
@@ -2252,7 +2291,6 @@ void Ui::show_settings(void) {
     Box *view;
     Grid *keys;
     Notebook *pages;
-    ScrolledWindow *scroll;
     Button *fontButton;
     Box *indentGroup;
     Box *lineGroup;
@@ -2270,12 +2308,13 @@ void Ui::show_settings(void) {
         box = new Box(GTK_VERTICAL, 8);
         keys = new Grid();
         keys->set_spacing(12, 4);
-        bracketCheck = new CheckButton("Close brackets");
+        bracketCheck = new CheckButton("Autoclose brackets");
         indentCheck = new CheckButton("Autoindent");
         lineCheck = new CheckButton(
                 "Highlight the current line");
         marginCheck = new CheckButton("Right column marker");
-        closeCheck = new CheckButton("Tab close marks");
+        closeCheck = new CheckButton(
+                "Close button on file tabs");
         trimCheck = new CheckButton(
                 "Trim trailing spaces on save");
         tabSpin = new SpinButton(1, 32, 4);
@@ -2321,7 +2360,14 @@ void Ui::show_settings(void) {
         marginSpin->set_width_chars(12);
         lineEntry->set_width_chars(12);
         marginEntry->set_width_chars(12);
-        box->append((Widget *)bracketCheck);
+        {
+            Box *pairGroup;
+
+            pairGroup = group_box("Brackets");
+            pairGroup->append((Widget *)bracketCheck);
+            append_pairs(pairGroup);
+            box->append((Widget *)pairGroup);
+        }
         indentGroup = group_box("Indenting");
         indentGroup->append((Widget *)indentCheck);
         indentGroup->append((Widget *)labeled_field(
@@ -2352,9 +2398,20 @@ void Ui::show_settings(void) {
         recentSpin->on_changed(
                 ui_recent_spin,
                 (void *)recentSpin);
-        box->append((Widget *)labeled_field(
-                "Recent files",
-                (Widget *)recentSpin));
+        rememberCheck = new CheckButton("Remember files");
+        rememberCheck->on_toggled(
+                ui_option,
+                (void *)"Remember files");
+        {
+            Box *fileGroup;
+
+            fileGroup = group_box("Files");
+            fileGroup->append((Widget *)labeled_field(
+                    "Recent files",
+                    (Widget *)recentSpin));
+            fileGroup->append((Widget *)rememberCheck);
+            box->append((Widget *)fileGroup);
+        }
         saveTabCheck = new CheckButton(
                 "Save when a tab loses focus");
         saveWinCheck = new CheckButton(
@@ -2371,16 +2428,18 @@ void Ui::show_settings(void) {
         saveGroup->append((Widget *)saveWinCheck);
         box->append((Widget *)saveGroup);
         box->set_h_expand(true);
-        box->set_v_expand(true);
         search = new Box(GTK_VERTICAL, 8);
         search->set_h_expand(true);
-        search->set_v_expand(true);
         search->append((Widget *)new Label(
                 "These are the default settings."));
-        wrapCheck = new CheckButton("Wrap");
-        backCheck = new CheckButton("Reverse");
-        wholeCheck = new CheckButton("Whole word");
-        caseCheck = new CheckButton("Match case");
+        wrapCheck = new CheckButton(
+                "Wrap search at end of buffer");
+        backCheck = new CheckButton(
+                "Reverse search direction");
+        wholeCheck = new CheckButton(
+                "Match whole words only");
+        caseCheck = new CheckButton(
+                "Match word case exactly");
         wrapCheck->on_toggled(ui_option, (void *)"Wrap");
         backCheck->on_toggled(ui_option, (void *)"Reverse");
         wholeCheck->on_toggled(
@@ -2395,7 +2454,6 @@ void Ui::show_settings(void) {
         search->append((Widget *)caseCheck);
         view = new Box(GTK_VERTICAL, 8);
         view->set_h_expand(true);
-        view->set_v_expand(true);
         view->append((Widget *)new Label(
                 "These are the default settings."));
         spaceCheck = new CheckButton("Whitespace");
@@ -2422,11 +2480,6 @@ void Ui::show_settings(void) {
             fontGroup->append((Widget *)fontButton);
             view->append((Widget *)fontGroup);
         }
-        rememberCheck = new CheckButton("Remember files");
-        rememberCheck->on_toggled(
-                ui_option,
-                (void *)"Remember files");
-        view->append((Widget *)rememberCheck);
         keyHelp = new Label(key_help());
         keyState = new Label("");
         keys->attach((Widget *)keyHelp, 0, 0, 2, 1);
@@ -2482,21 +2535,20 @@ void Ui::show_settings(void) {
         pages->set_h_expand(true);
         pages->set_v_expand(true);
         keys->set_h_expand(true);
-        keys->set_v_expand(true);
-        pages->append_page((Widget *)box, "General");
-        pages->append_page((Widget *)search, "Search");
-        pages->append_page((Widget *)view, "Appearance");
-        pages->append_page((Widget *)keys, "Keyboard");
-        scroll = new ScrolledWindow();
-        scroll->set_h_expand(true);
-        scroll->set_v_expand(true);
-        scroll->set_min_content(320, 160);
-        scroll->set_policy(
-                GTK_POLICY_AUTOMATIC,
-                GTK_POLICY_AUTOMATIC);
-        scroll->set_child((Widget *)pages);
+        pages->append_page(
+                (Widget *)page_scroll((Widget *)box),
+                "General");
+        pages->append_page(
+                (Widget *)page_scroll((Widget *)search),
+                "Search");
+        pages->append_page(
+                (Widget *)page_scroll((Widget *)view),
+                "Appearance");
+        pages->append_page(
+                (Widget *)page_scroll((Widget *)keys),
+                "Keyboard");
         settingsDialog->set_default_size(760, 560);
-        settingsDialog->set_content((Widget *)scroll);
+        settingsDialog->set_content((Widget *)pages);
         settingsDialog->on_key(ui_key_press, nullptr);
         settingsDialog->add_button("Apply", 2);
         settingsDialog->add_button("Close", 1);
