@@ -120,8 +120,10 @@ C keyword. A tag with no override uses the default. The
 file text never contains a tag. One scanner still covers
 every language, and language_of is still the suffix map.
 Appearance opens Syntax colors. That dialog picks one
-file type and sets a color for each tag. The color is
-stored as an override, such as `theme-python-keyword`.
+file type and sets a color for each tag. The tag name
+and the color control sit in two columns of a grid.
+The color is stored as an override, such as
+`theme-python-keyword`.
 The save dialog lists every modified file.
 Each one can be saved or discarded, and Save all and Discard
 all do the whole list. Saving an untitled file still asks

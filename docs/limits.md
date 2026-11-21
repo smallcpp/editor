@@ -59,7 +59,8 @@ spaces, which is off. Autoclose pairs are an edit box.
 The default is `()[]{}""''`, saved as `bracket-pairs`.
 Close button on file tabs is on General. It is not on
 the dialog frame. Appearance opens a dialog that sets
-tag colors for one file type. Those overrides are
+tag colors for one file type. The tag name and the
+color control are two columns of a grid. Those overrides are
 `theme-` lines, such as `theme-python-keyword`. Operator
 is a tag for characters such as `()` and `{}`.
 A Color button sets the current-line color and another

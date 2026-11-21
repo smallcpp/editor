@@ -2272,7 +2272,7 @@ void Ui::hide_theme(void) {
 }
 
 void Ui::show_theme(void) {
-    Box *box;
+    Grid *grid;
     int i;
     int pick;
     const char *labels[7];
@@ -2281,7 +2281,8 @@ void Ui::show_theme(void) {
     if (themeDialog == nullptr) {
         themeDialog = new Dialog("Syntax colors");
         themeDialog->set_transient(mainWindow);
-        box = new Box(GTK_VERTICAL, 8);
+        grid = new Grid();
+        grid->set_spacing(12, 4);
         themeDrop = new DropDown();
         i = 0;
         while (i < theme_type_count()) {
@@ -2290,9 +2291,18 @@ void Ui::show_theme(void) {
         }
         themeDrop->set_items(labels, theme_type_count());
         themeDrop->on_changed(ui_theme_type, nullptr);
-        box->append((Widget *)labeled_field(
-                "File type",
-                (Widget *)themeDrop));
+        grid->attach(
+                (Widget *)new Label("File type"),
+                0,
+                0,
+                1,
+                1);
+        grid->attach(
+                (Widget *)themeDrop,
+                1,
+                0,
+                1,
+                1);
         if (themeSlotsReady == 0) {
             i = 0;
             while (i < THEME_TAGS) {
@@ -2317,14 +2327,21 @@ void Ui::show_theme(void) {
                     (void *)&themeSlots[i]);
             themeEntry[i] = entry;
             themeColorButton[i] = button;
-            box->append((Widget *)labeled_field(
-                    span_tag(i + 1),
-                    (Widget *)color_field(
-                            entry,
-                            button)));
+            grid->attach(
+                    (Widget *)new Label(span_tag(i + 1)),
+                    0,
+                    i + 1,
+                    1,
+                    1);
+            grid->attach(
+                    (Widget *)color_field(entry, button),
+                    1,
+                    i + 1,
+                    1,
+                    1);
             i = i + 1;
         }
-        themeDialog->set_content((Widget *)box);
+        themeDialog->set_content((Widget *)grid);
         themeDialog->add_button("Close", 1);
         themeDialog->on_response(
                 ui_theme_response,
