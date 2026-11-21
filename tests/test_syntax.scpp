@@ -22,20 +22,70 @@ int kind_at(Highlighter *light, long offset) {
     return 0;
 }
 
+const char *tag_at(Highlighter *light, long offset) {
+    long i;
+
+    i = 0;
+    while (i < light->count()) {
+        if (offset >= light->at(i)->start
+                && offset < light->at(i)->end)
+            return light->at(i)->tag;
+        i = i + 1;
+    }
+    return "";
+}
+
 int main(void) {
     Highlighter *light;
 
     failures = 0;
     light = new Highlighter();
+    expect(text_same(span_tag(SPAN_KEYWORD), "keyword") == 1,
+            "name keyword");
+    expect(text_same(span_tag(SPAN_TYPE), "type") == 1,
+            "name type");
+    expect(text_same(span_tag(SPAN_STRING), "string") == 1,
+            "name string");
+    expect(text_same(span_tag(SPAN_COMMENT), "comment") == 1,
+            "name comment");
+    expect(text_same(span_tag(SPAN_NUMBER), "number") == 1,
+            "name number");
+    expect(text_same(
+                span_tag(SPAN_PREPROC),
+                "preprocessor") == 1,
+            "name preprocessor");
+    expect(text_same(span_tag(SPAN_CALL), "call") == 1,
+            "name call");
+    expect(span_tag(0)[0] == 0, "name none");
+    {
+        char sample[32];
+
+        text_copy(sample, 32, "int value; // note\n");
+        light->scan(sample, "scpp");
+        expect(text_same(sample, "int value; // note\n") == 1,
+                "file text stays plain");
+    }
     light->scan("int value; // note\n", "scpp");
     expect(kind_at(light, 0) == SPAN_KEYWORD, "keyword");
+    expect(text_same(tag_at(light, 0), "keyword") == 1,
+            "keyword tag");
     expect(kind_at(light, 4) == 0, "name");
+    expect(text_same(tag_at(light, 4), "") == 1,
+            "name has no tag");
     expect(kind_at(light, 13) == SPAN_COMMENT, "comment");
+    expect(text_same(tag_at(light, 13), "comment") == 1,
+            "comment tag");
     light->scan("\"hi\" 12", "c");
     expect(kind_at(light, 0) == SPAN_STRING, "string");
+    expect(text_same(tag_at(light, 0), "string") == 1,
+            "string tag");
     expect(kind_at(light, 5) == SPAN_NUMBER, "number");
+    expect(text_same(tag_at(light, 5), "number") == 1,
+            "number tag");
     light->scan("# head\n", "python");
     expect(kind_at(light, 0) == SPAN_COMMENT, "hash");
+    expect(text_same(tag_at(light, 0), "comment") == 1,
+            "hash tag");
     light->scan("just text", "plain");
     expect(light->count() == 0, "plain");
     {
@@ -73,15 +123,23 @@ int main(void) {
         sample = "#define X\nunsigned n;\nmain()\n";
         light->scan(sample, "scpp");
         expect(kind_at(light, 0) == SPAN_PREPROC, "preproc");
+        expect(text_same(
+                    tag_at(light, 0),
+                    "preprocessor") == 1,
+                "preprocessor tag");
         at = 0;
         while (sample[at] != 0 && sample[at] != '\n')
             at = at + 1;
         if (sample[at] == '\n')
             at = at + 1;
         expect(kind_at(light, at) == SPAN_TYPE, "type");
+        expect(text_same(tag_at(light, at), "type") == 1,
+                "type tag");
         while (sample[at] != 0 && sample[at] != 'm')
             at = at + 1;
         expect(kind_at(light, at) == SPAN_CALL, "call");
+        expect(text_same(tag_at(light, at), "call") == 1,
+                "call tag");
         light->scan("static value;\n", "scpp");
         expect(kind_at(light, 0) == SPAN_KEYWORD, "static");
         expect(text_same(
@@ -92,6 +150,10 @@ int main(void) {
                 "#define X\n",
                 language_of("widget.shpp"));
         expect(kind_at(light, 0) == SPAN_PREPROC, "shpp color");
+        expect(text_same(
+                    tag_at(light, 0),
+                    "preprocessor") == 1,
+                "shpp tag");
         light->scan("# head\n", "c");
         expect(kind_at(light, 0) == 0, "plain hash");
     }

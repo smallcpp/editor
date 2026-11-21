@@ -1,7 +1,192 @@
 #include "settings.shpp"
+#include "syntax.shpp"
 #include "buffer.shpp"
 
 extern char *getenv(const char *name);
+
+static int color_ok(const char *text) {
+    long n;
+    char c;
+    int letter;
+
+    if (text == nullptr)
+        return 0;
+    n = 0;
+    while (text[n] != 0) {
+        c = text[n];
+        letter = 0;
+        if (c >= 'a' && c <= 'z')
+            letter = 1;
+        if (c >= 'A' && c <= 'Z')
+            letter = 1;
+        if (c >= '0' && c <= '9')
+            letter = 1;
+        if (c == '#')
+            letter = 1;
+        if (letter == 0)
+            return 0;
+        n = n + 1;
+        if (n > 30)
+            return 0;
+    }
+    if (n == 0)
+        return 0;
+    return 1;
+}
+
+static int lang_ok(const char *text) {
+    long n;
+    char c;
+
+    if (text == nullptr)
+        return 0;
+    n = 0;
+    while (text[n] != 0) {
+        c = text[n];
+        if (c < 'a' || c > 'z')
+            return 0;
+        n = n + 1;
+        if (n >= 16)
+            return 0;
+    }
+    if (n == 0)
+        return 0;
+    return 1;
+}
+
+static int tag_slot(const char *name) {
+    int kind;
+
+    if (name == nullptr)
+        return -1;
+    kind = SPAN_KEYWORD;
+    while (kind <= SPAN_CALL) {
+        if (text_same(name, span_tag(kind)) == 1)
+            return kind - 1;
+        kind = kind + 1;
+    }
+    return -1;
+}
+
+int theme_set(
+        EditorConfig *item,
+        const char *language,
+        const char *tag,
+        const char *color) {
+    int slot;
+    int i;
+
+    if (item == nullptr)
+        return 0;
+    if (color_ok(color) == 0)
+        return 0;
+    slot = tag_slot(tag);
+    if (slot < 0)
+        return 0;
+    if (language == nullptr || language[0] == 0) {
+        text_copy(item->themeColor[slot], 32, color);
+        return 1;
+    }
+    if (lang_ok(language) == 0)
+        return 0;
+    i = 0;
+    while (i < item->themeUsed) {
+        if (item->themeSlot[i] == slot
+                && text_same(
+                        item->themeLang[i],
+                        language) == 1) {
+            text_copy(item->themeOver[i], 32, color);
+            return 1;
+        }
+        i = i + 1;
+    }
+    if (item->themeUsed >= THEME_MAX)
+        return 0;
+    text_copy(
+            item->themeLang[item->themeUsed],
+            16,
+            language);
+    item->themeSlot[item->themeUsed] = slot;
+    text_copy(
+            item->themeOver[item->themeUsed],
+            32,
+            color);
+    item->themeUsed = item->themeUsed + 1;
+    return 1;
+}
+
+const char *theme_color(
+        const EditorConfig *item,
+        const char *language,
+        const char *tag) {
+    int slot;
+    int i;
+
+    if (item == nullptr || tag == nullptr)
+        return "";
+    slot = tag_slot(tag);
+    if (slot < 0)
+        return "";
+    if (language != nullptr && language[0] != 0) {
+        i = 0;
+        while (i < item->themeUsed) {
+            if (item->themeSlot[i] == slot
+                    && text_same(
+                            item->themeLang[i],
+                            language) == 1)
+                return item->themeOver[i];
+            i = i + 1;
+        }
+    }
+    return item->themeColor[slot];
+}
+
+void theme_copy(
+        EditorConfig *dest,
+        const EditorConfig *src) {
+    int i;
+    int slot;
+
+    if (dest == nullptr || src == nullptr)
+        return;
+    slot = 0;
+    while (slot < THEME_TAGS) {
+        text_copy(
+                dest->themeColor[slot],
+                32,
+                src->themeColor[slot]);
+        slot = slot + 1;
+    }
+    dest->themeUsed = src->themeUsed;
+    if (dest->themeUsed > THEME_MAX)
+        dest->themeUsed = THEME_MAX;
+    if (dest->themeUsed < 0)
+        dest->themeUsed = 0;
+    i = 0;
+    while (i < dest->themeUsed) {
+        text_copy(
+                dest->themeLang[i],
+                16,
+                src->themeLang[i]);
+        dest->themeSlot[i] = src->themeSlot[i];
+        text_copy(
+                dest->themeOver[i],
+                32,
+                src->themeOver[i]);
+        i = i + 1;
+    }
+}
+
+static void theme_defaults(EditorConfig *item) {
+    item->themeUsed = 0;
+    theme_set(item, "", "keyword", "#2040c0");
+    theme_set(item, "", "type", "#6030a0");
+    theme_set(item, "", "string", "#208020");
+    theme_set(item, "", "comment", "#808080");
+    theme_set(item, "", "number", "#804000");
+    theme_set(item, "", "preprocessor", "#a04020");
+    theme_set(item, "", "call", "#106060");
+}
 
 void config_defaults(EditorConfig *item) {
     if (item == nullptr)
@@ -58,6 +243,7 @@ void config_defaults(EditorConfig *item) {
             i = i + 1;
         }
     }
+    theme_defaults(item);
 }
 
 int config_path(char *dest, long cap) {
@@ -127,9 +313,69 @@ static int read_int(const char *text, int fallback) {
     return value;
 }
 
+static int has_prefix(
+        const char *line,
+        const char *prefix) {
+    long i;
+
+    i = 0;
+    while (prefix[i] != 0) {
+        if (line[i] != prefix[i])
+            return 0;
+        i = i + 1;
+    }
+    return 1;
+}
+
+static void take_theme(
+        EditorConfig *item,
+        const char *line) {
+    char name[48];
+    char lang[16];
+    const char *value;
+    long i;
+    long n;
+    long cut;
+
+    if (has_prefix(line, "theme-") == 0)
+        return;
+    value = after_eq(line);
+    i = 6;
+    n = 0;
+    while (line[i] != 0 && line[i] != '=' && n < 47) {
+        name[n] = line[i];
+        n = n + 1;
+        i = i + 1;
+    }
+    name[n] = 0;
+    if (line[i] != '=')
+        return;
+    if (tag_slot(name) >= 0) {
+        theme_set(item, "", name, value);
+        return;
+    }
+    cut = -1;
+    i = 0;
+    while (name[i] != 0) {
+        if (name[i] == '-')
+            cut = i;
+        i = i + 1;
+    }
+    if (cut <= 0 || cut >= 16)
+        return;
+    i = 0;
+    while (i < cut) {
+        lang[i] = name[i];
+        i = i + 1;
+    }
+    lang[i] = 0;
+    theme_set(item, lang, name + cut + 1, value);
+}
+
 static void take_line(EditorConfig *item, const char *line) {
     const char *value;
 
+    take_theme(item, line);
     value = after_eq(line);
     if (key_is(line, "brackets") == 1)
         item->brackets = read_int(value, item->brackets);
@@ -319,6 +565,42 @@ static void add_num(
     text->append("\n");
 }
 
+static void add_theme(
+        String *text,
+        const EditorConfig *item) {
+    int order[THEME_TAGS];
+    int i;
+
+    order[0] = SPAN_KEYWORD;
+    order[1] = SPAN_TYPE;
+    order[2] = SPAN_STRING;
+    order[3] = SPAN_COMMENT;
+    order[4] = SPAN_NUMBER;
+    order[5] = SPAN_PREPROC;
+    order[6] = SPAN_CALL;
+    i = 0;
+    while (i < THEME_TAGS) {
+        text->append("theme-");
+        text->append(span_tag(order[i]));
+        text->append("=");
+        text->append(item->themeColor[order[i] - 1]);
+        text->append("\n");
+        i = i + 1;
+    }
+    i = 0;
+    while (i < item->themeUsed) {
+        text->append("theme-");
+        text->append(item->themeLang[i]);
+        text->append("-");
+        text->append(span_tag(
+                item->themeSlot[i] + 1));
+        text->append("=");
+        text->append(item->themeOver[i]);
+        text->append("\n");
+        i = i + 1;
+    }
+}
+
 int config_write(
         const char *path,
         const EditorConfig *item) {
@@ -356,6 +638,7 @@ int config_write(
     text->append("margin-color=");
     text->append(item->marginColor);
     text->append("\n");
+    add_theme(text, item);
     add_flag(text, "close-marks", item->showClose);
     add_flag(text, "search-wrap", item->searchWrap);
     add_flag(text, "search-reverse", item->searchBack);

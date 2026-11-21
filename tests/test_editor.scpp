@@ -366,6 +366,46 @@ int main(void) {
                     item.bracketPairs,
                     "()[]{}\"\"''") == 1,
                 "default pairs");
+        expect(text_same(
+                    theme_color(&item, "c", "keyword"),
+                    "#2040c0") == 1,
+                "default keyword");
+        expect(text_same(
+                    theme_color(&item, "python", "keyword"),
+                    "#2040c0") == 1,
+                "python uses default");
+        expect(text_same(
+                    theme_color(&item, "scpp", "preprocessor"),
+                    "#a04020") == 1,
+                "default preprocessor");
+        expect(text_same(
+                    theme_color(&item, "c", "string"),
+                    "#208020") == 1,
+                "default string");
+        expect(theme_set(
+                    &item,
+                    "python",
+                    "keyword",
+                    "#010203") == 1,
+                "set python keyword");
+        expect(text_same(
+                    theme_color(&item, "python", "keyword"),
+                    "#010203") == 1,
+                "python keyword color");
+        expect(text_same(
+                    theme_color(&item, "c", "keyword"),
+                    "#2040c0") == 1,
+                "c keyword stays");
+        expect(text_same(
+                    theme_color(&item, "python", "string"),
+                    "#208020") == 1,
+                "python string falls back");
+        expect(theme_set(
+                    &item,
+                    "python",
+                    "keyword",
+                    "red!") == 0,
+                "reject bad color");
         expect(item.windowWidth == 0, "default width");
         item.searchWrap = 0;
         item.showSpace = 1;
@@ -419,6 +459,18 @@ int main(void) {
         expect(back.marginCols == 90, "saved columns");
         expect(text_same(back.lineColor, "#aabbcc") == 1,
                 "saved line color");
+        expect(text_same(
+                    theme_color(&back, "python", "keyword"),
+                    "#010203") == 1,
+                "saved python keyword");
+        expect(text_same(
+                    theme_color(&back, "c", "keyword"),
+                    "#2040c0") == 1,
+                "saved default keyword");
+        expect(text_same(
+                    theme_color(&back, "python", "comment"),
+                    "#808080") == 1,
+                "saved missing tag");
         expect(text_same(
                     back.marginColor,
                     "#112233") == 1,

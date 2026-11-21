@@ -143,6 +143,7 @@ private:
     int leaving;
     char lineColor[32];
     char marginColor[32];
+    EditorConfig *themeConfig;
     char fontDesc[128];
     char lastDir[EDITOR_PATH];
     char docName[EDITOR_PAGES][80];

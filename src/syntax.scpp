@@ -95,6 +95,24 @@ Span * SpanVec::next(long *cursor) {
 }
 
 
+const char *span_tag(int kind) {
+    if (kind == SPAN_KEYWORD)
+        return "keyword";
+    if (kind == SPAN_TYPE)
+        return "type";
+    if (kind == SPAN_STRING)
+        return "string";
+    if (kind == SPAN_COMMENT)
+        return "comment";
+    if (kind == SPAN_NUMBER)
+        return "number";
+    if (kind == SPAN_PREPROC)
+        return "preprocessor";
+    if (kind == SPAN_CALL)
+        return "call";
+    return "";
+}
+
 Highlighter::Highlighter() {
     spans = new SpanVec();
 }
@@ -108,6 +126,7 @@ void Highlighter::add_span(long start, long end, int kind) {
     span->start = start;
     span->end = end;
     span->kind = kind;
+    span->tag = span_tag(kind);
     spans->add(span);
 }
 
