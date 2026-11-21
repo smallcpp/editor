@@ -67,7 +67,8 @@ and Settings can change it. Undo and redo walk the editor
 buffer, including a change typed in the view.
 
 The text view shows line numbers in the left gutter, one per
-text line, including an empty buffer. The current line is
+buffer line. The numbers scroll with the text. An empty buffer
+shows line 1. The current line is
 highlighted. Settings can turn that highlight off and can set
 its color. A right column marker is off by default. Settings
 turns it on, sets its color, and sets the character count,

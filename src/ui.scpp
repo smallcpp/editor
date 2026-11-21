@@ -878,6 +878,28 @@ const char *Ui::line_number_text(void) {
     return pages[index].view->line_number_text();
 }
 
+long Ui::gutter_line_y(long line) {
+    long index;
+
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return -1;
+    if (pages[index].view == nullptr)
+        return -1;
+    return pages[index].view->line_number_origin(line);
+}
+
+void Ui::scroll_view(long line) {
+    long index;
+
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].view == nullptr)
+        return;
+    pages[index].view->scroll_to(line, 0);
+}
+
 void Ui::hide_settings(void) {
     if (settingsDialog == nullptr)
         return;

@@ -57,6 +57,8 @@ public:
     TextBuffer *view_buffer(void);
     const char *page_text(long index);
     const char *line_number_text(void);
+    long gutter_line_y(long line);
+    void scroll_view(long line);
     const char *tab_text(long index);
     void select_named(const char *title);
     int tab_marks(void);

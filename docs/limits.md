@@ -11,8 +11,9 @@ keywords, types, and call names are colored for scpp only. Other
 files, including Markdown, stay plain. Keyword, type, call,
 preprocessor, string, comment, and number tags are foreground
 colors. The current line is a paragraph background. Line numbers
-are a gutter of the visible lines, aligned to the top of the
-text. There is no whitespace glyph, newline mark, or indent
+are a gutter of the visible lines. Each number is drawn at its
+buffer line and scrolls with the text. There is no whitespace
+glyph, newline mark, or indent
 guide. The right column marker is an overlay at a character
 column. The status line shows the line and column from the
 editor buffer.

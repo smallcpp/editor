@@ -40,6 +40,7 @@ add_custom_command(
             "${SCPP}" ${SCPP_FLAGS} -o "${window_program}"
             "${window_source}" ${EDITOR_LIB_SOURCES}
             "${CMAKE_SOURCE_DIR}/src/ui.scpp" ${EDITOR_LIBS}
+            -l X11 -l Xtst
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
     DEPENDS "${window_source}" ${EDITOR_LIB_SOURCES}
             "${CMAKE_SOURCE_DIR}/src/ui.scpp" ${EDITOR_HEADERS} "${SCPP}"

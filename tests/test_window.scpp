@@ -8,6 +8,45 @@ extern void gtk_text_buffer_insert_at_cursor(
         void *buffer,
         const char *text,
         int length);
+extern void *gtk_window_get_toplevels(void);
+extern unsigned int g_list_model_get_n_items(void *list);
+extern void *g_list_model_get_item(
+        void *list,
+        unsigned int position);
+extern const char *gtk_window_get_title(void *window);
+extern int gtk_widget_get_mapped(void *widget);
+extern void g_object_unref(void *object);
+
+int mapped_save_dialog(void) {
+    void *list;
+    unsigned int n;
+    unsigned int i;
+
+    list = gtk_window_get_toplevels();
+    if (list == nullptr)
+        return 0;
+    n = g_list_model_get_n_items(list);
+    i = 0;
+    while (i < n) {
+        void *window;
+        const char *title;
+
+        window = g_list_model_get_item(list, i);
+        title = nullptr;
+        if (window != nullptr
+                && gtk_widget_get_mapped(window) != 0)
+            title = gtk_window_get_title(window);
+        if (title != nullptr
+                && text_same(title, "Save") == 1) {
+            g_object_unref(window);
+            return 1;
+        }
+        if (window != nullptr)
+            g_object_unref(window);
+        i = i + 1;
+    }
+    return 0;
+}
 
 void type_text(TextBuffer *view, const char *text) {
     gtk_text_buffer_begin_user_action(view->native);
@@ -23,6 +62,192 @@ void expect(int cond, const char *msg) {
         print("fail {:s}\n", msg);
         failures = failures + 1;
     }
+}
+
+static Ui *open_ui(Editor *editor) {
+    Ui *ui;
+
+    ui = new Ui(editor);
+    ui->prepare();
+    return ui;
+}
+
+static void burn_stack(long depth) {
+    char pad[2048];
+    long i;
+    char *block;
+
+    pad[0] = 1;
+    pad[2047] = 2;
+    if (depth > 0) {
+        burn_stack(depth - 1);
+        return;
+    }
+    i = 0;
+    while (i < 200) {
+        block = new char[512];
+        block[0] = pad[0];
+        i = i + 1;
+    }
+}
+
+static int x_error(void *display, void *event) {
+    (void)display;
+    (void)event;
+    return 0;
+}
+
+extern void *XOpenDisplay(const char *name);
+extern int XCloseDisplay(void *display);
+extern int XSetErrorHandler(void *handler);
+extern int XQueryTree(
+        void *display,
+        unsigned long window,
+        unsigned long *root,
+        unsigned long *parent,
+        unsigned long **children,
+        unsigned int *count);
+extern int XFree(void *data);
+extern int XGetWindowAttributes(
+        void *display,
+        unsigned long window,
+        void *attributes);
+extern int XFetchName(
+        void *display,
+        unsigned long window,
+        char **name);
+extern int XSetInputFocus(
+        void *display,
+        unsigned long window,
+        int revert,
+        unsigned long time);
+extern int XRaiseWindow(
+        void *display,
+        unsigned long window);
+extern int XFlush(void *display);
+extern unsigned int XKeysymToKeycode(
+        void *display,
+        unsigned long keysym);
+extern int XTestFakeKeyEvent(
+        void *display,
+        unsigned int keycode,
+        int is_press,
+        unsigned long delay);
+extern int XTestFakeButtonEvent(
+        void *display,
+        unsigned int button,
+        int is_press,
+        unsigned long delay);
+extern int XTestFakeMotionEvent(
+        void *display,
+        int screen,
+        int x,
+        int y,
+        unsigned long delay);
+extern unsigned long XDefaultRootWindow(void *display);
+extern int usleep(unsigned int usec);
+extern int g_main_context_iteration(
+        void *context,
+        int block);
+
+static void pump(int count) {
+    int i;
+
+    i = 0;
+    while (i < count) {
+        g_main_context_iteration(nullptr, 0);
+        i = i + 1;
+    }
+}
+
+static int send_ctrl_s(void) {
+    void *display;
+    unsigned long root;
+    unsigned long parent;
+    unsigned long *kids;
+    unsigned int count;
+    unsigned long win;
+    unsigned int i;
+    unsigned int ctrl;
+    unsigned int key;
+    int clickX;
+    int clickY;
+
+    display = XOpenDisplay(nullptr);
+    if (display == nullptr)
+        return 0;
+    XSetErrorHandler((void *)x_error);
+    root = XDefaultRootWindow(display);
+    kids = nullptr;
+    count = 0;
+    parent = 0;
+    XQueryTree(
+            display,
+            root,
+            &root,
+            &parent,
+            &kids,
+            &count);
+    win = 0;
+    clickX = 200;
+    clickY = 200;
+    i = 0;
+    while (i < count) {
+        char *name;
+        char attr[160];
+        int *fields;
+
+        name = nullptr;
+        fields = (int *)attr;
+        fields[2] = 0;
+        XGetWindowAttributes(
+                display,
+                kids[i],
+                (void *)attr);
+        if (XFetchName(display, kids[i], &name) != 0
+                && name != nullptr
+                && text_same(name, "editor") == 1
+                && fields[2] > 100) {
+            win = kids[i];
+            clickX = fields[0] + fields[2] / 2;
+            clickY = fields[1] + fields[3] / 2;
+        }
+        if (name != nullptr)
+            XFree((void *)name);
+        i = i + 1;
+    }
+    if (kids != nullptr)
+        XFree((void *)kids);
+    if (win == 0) {
+        XCloseDisplay(display);
+        return 0;
+    }
+    XSetInputFocus(display, win, 2, 0);
+    XRaiseWindow(display, win);
+    XFlush(display);
+    usleep(100000);
+    XTestFakeMotionEvent(display, -1, clickX, clickY, 0);
+    XFlush(display);
+    usleep(20000);
+    XTestFakeButtonEvent(display, 1, 1, 0);
+    XFlush(display);
+    usleep(20000);
+    XTestFakeButtonEvent(display, 1, 0, 0);
+    XFlush(display);
+    usleep(80000);
+    ctrl = XKeysymToKeycode(display, 0xffe3);
+    key = XKeysymToKeycode(display, 0x73);
+    XTestFakeKeyEvent(display, ctrl, 1, 0);
+    XFlush(display);
+    usleep(20000);
+    XTestFakeKeyEvent(display, key, 1, 0);
+    XFlush(display);
+    usleep(40000);
+    XTestFakeKeyEvent(display, key, 0, 0);
+    XTestFakeKeyEvent(display, ctrl, 0, 0);
+    XFlush(display);
+    XCloseDisplay(display);
+    return 1;
 }
 
 int main(void) {
@@ -52,8 +277,8 @@ int main(void) {
         editor = new Editor();
         expect(editor->open_file(pathA) == EDITOR_OK, "open a");
         expect(editor->open_file(pathB) == EDITOR_OK, "open b");
-        ui = new Ui(editor);
-        ui->prepare();
+        ui = open_ui(editor);
+        burn_stack(8);
         expect(text_same(ui->page_text(0), "one\n") == 1,
                 "page a");
         expect(text_same(ui->page_text(1), "two\n") == 1,
@@ -136,6 +361,70 @@ int main(void) {
         ui->on_menu("Save");
         expect(editor->active()->buffer()->dirty() == false,
                 "menu save");
+        expect(mapped_save_dialog() == 0, "named save has no dialog");
+        view->set_text("saved\n");
+        expect(editor->active()->buffer()->dirty() == true,
+                "ctrl save dirty");
+        ui->show_main();
+        pump(40);
+        expect(send_ctrl_s() == 1, "ctrl s sent");
+        pump(40);
+        {
+            char *raw;
+            long n;
+            const char *io2;
+            long y;
+            long yLine;
+            long i;
+            char many[256];
+
+            io2 = "";
+            n = 0;
+            raw = read_file(pathA, &n, &io2);
+            expect(raw != nullptr
+                    && text_same(raw, "saved\n") == 1,
+                    "ctrl s wrote the file");
+            expect(mapped_save_dialog() == 0,
+                    "ctrl s has no dialog");
+            y = ui->gutter_line_y(0);
+            expect(y >= 0 && y < 40,
+                    "line 1 sits on the first text line");
+            i = 0;
+            while (i + 2 < 256) {
+                many[i] = 'x';
+                many[i + 1] = '\n';
+                i = i + 2;
+            }
+            many[i] = 0;
+            view->set_text(many);
+            pump(20);
+            i = 0;
+            y = 0;
+            yLine = -1;
+            while (i < 40) {
+                ui->scroll_view(100);
+                usleep(50000);
+                pump(10);
+                y = ui->gutter_line_y(0);
+                yLine = ui->gutter_line_y(100);
+                if (y < 0 && yLine >= 0 && yLine < 700)
+                    break;
+                i = i + 1;
+            }
+            expect(y < 0, "scrolled line 1 leaves the gutter");
+            expect(yLine >= 0 && yLine < 700,
+                    "scrolled line stays with its text");
+            pump(20);
+            {
+                const char *gutter;
+
+                gutter = ui->line_number_text();
+                expect(gutter[0] != '1'
+                        || gutter[1] != '\n',
+                        "gutter names the buffer line");
+            }
+            editor->active()->buffer()->mark_clean();
+        }
         ui->on_menu("Close");
         expect(editor->count() == 1, "clean close");
         ui->switched(0);
@@ -165,8 +454,10 @@ int main(void) {
                     "two\n") == 1,
                 "documents menu");
         ui->select_named("untitled.scpp");
-        ui->on_menu("Save");
-        expect(ui->is_leaving() == 0, "save returned");
+        expect(editor->run("save") == EDITOR_NEEDS_PATH,
+                "untitled save");
+        expect(mapped_save_dialog() == 0,
+                "untitled save has no dialog");
         ui->on_menu("Quit");
         expect(ui->is_leaving() == 1, "quit left");
         unlink(pathA);
