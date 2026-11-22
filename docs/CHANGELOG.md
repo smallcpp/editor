@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+A narrow column on the right of the current buffer
+shows the shape of the file and a band for the lines
+in view. A click in that column scrolls the buffer.
+The column reads the buffer the editor already has.
 A panel on the left lists files, the project, and
 symbols. The project is a folder. When that folder
 contains `CMakeLists.txt`, the project page lists

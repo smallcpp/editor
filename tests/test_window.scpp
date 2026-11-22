@@ -761,6 +761,70 @@ int main(void) {
                         || gutter[1] != '\n',
                         "gutter names the buffer line");
             }
+            {
+                String *shape;
+                long top;
+                long band;
+                long height;
+                long y;
+                int n;
+
+                shape = new String();
+                shape->append("short\n");
+                shape->append("\n");
+                n = 0;
+                while (n < 40) {
+                    shape->append("x");
+                    n = n + 1;
+                }
+                shape->append("\n");
+                n = 0;
+                while (n < 80) {
+                    shape->append(".\n");
+                    n = n + 1;
+                }
+                view->set_text(shape->c_str());
+                ui->scroll_view(0);
+                n = 0;
+                y = -1;
+                while (n < 40) {
+                    usleep(50000);
+                    pump(10);
+                    y = ui->gutter_line_y(0);
+                    if (y >= 0 && y < 40)
+                        break;
+                    n = n + 1;
+                }
+                expect(y >= 0 && y < 40,
+                        "map test starts at the top");
+                expect(ui->map_ink(0) == 5,
+                        "map short line");
+                expect(ui->map_ink(1) == 0,
+                        "map blank line");
+                expect(ui->map_ink(2) == 40,
+                        "map long line");
+                height = ui->map_height();
+                expect(height > 40, "map has a height");
+                top = ui->map_top();
+                band = ui->map_band();
+                expect(band > 0, "viewport band");
+                expect(band < height,
+                        "viewport is part of the file");
+                ui->map_click(height - 1);
+                n = 0;
+                y = 0;
+                while (n < 40) {
+                    usleep(50000);
+                    pump(10);
+                    y = ui->gutter_line_y(0);
+                    if (y < 0)
+                        break;
+                    n = n + 1;
+                }
+                expect(y < 0, "map click leaves the top");
+                expect(ui->map_top() > top,
+                        "viewport moved down");
+            }
             editor->active()->buffer()->mark_clean();
         }
         ui->on_menu("Close");

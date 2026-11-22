@@ -37,6 +37,10 @@ open focuses that document.
 ## Window
 
 The window has a menu bar, document tabs, and a status line.
+A narrow column on the right of the current buffer shows
+the shape of the file and a band for the visible lines.
+A click in that column scrolls the buffer. The column
+reads the buffer the editor already has.
 A panel on the left lists files, the project, and symbols.
 The project is a folder. Set types a path, and File folder
 uses the directory of the active file. When that folder
