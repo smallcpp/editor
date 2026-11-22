@@ -50,6 +50,13 @@ extern void gtk_column_view_set_single_click_activate(
         void *view,
         int single);
 extern int gtk_column_view_get_single_click_activate(void *view);
+extern int gtk_widget_get_width(void *widget);
+extern void gtk_paned_set_resize_start_child(void *paned, int resize);
+extern void gtk_paned_set_shrink_start_child(void *paned, int shrink);
+extern void gtk_paned_set_resize_end_child(void *paned, int resize);
+extern void gtk_paned_set_shrink_end_child(void *paned, int shrink);
+extern void gtk_paned_set_wide_handle(void *paned, int wide);
+extern void *gtk_gesture_drag_new(void);
 extern unsigned long g_signal_connect_data(
         void *instance,
         const char *signal,
@@ -157,7 +164,77 @@ static void map_pressed(
     column = (MapColumn *)data;
     if (column == nullptr || column->owner == nullptr)
         return;
+    if (column->markDrag != 0)
+        return;
     ((Ui *)column->owner)->map_click((long)y);
+}
+
+static void map_drag_begin(
+        void *gesture,
+        double x,
+        double y,
+        void *data) {
+    MapColumn *column;
+    Ui *ui;
+
+    (void)gesture;
+    (void)x;
+    column = (MapColumn *)data;
+    if (column == nullptr || column->owner == nullptr)
+        return;
+    ui = (Ui *)column->owner;
+    column->grab = (long)y;
+    column->markDrag = 0;
+    if (ui->on_map_mark(column->page, (long)y) == 1)
+        column->markDrag = 1;
+}
+
+static void map_drag_update(
+        void *gesture,
+        double x,
+        double y,
+        void *data) {
+    MapColumn *column;
+
+    (void)gesture;
+    (void)x;
+    column = (MapColumn *)data;
+    if (column == nullptr || column->owner == nullptr)
+        return;
+    if (column->markDrag == 0)
+        return;
+    ((Ui *)column->owner)->drag_map_mark(
+            column->grab + (long)y);
+}
+
+static void map_split_moved(
+        void *paned,
+        void *spec,
+        void *data) {
+    PageRef *ref;
+
+    (void)paned;
+    (void)spec;
+    ref = (PageRef *)data;
+    if (editorUi == nullptr || ref == nullptr)
+        return;
+    editorUi->keep_map_width(ref->index);
+}
+
+static void map_drag_end(
+        void *gesture,
+        double x,
+        double y,
+        void *data) {
+    MapColumn *column;
+
+    (void)gesture;
+    (void)x;
+    (void)y;
+    column = (MapColumn *)data;
+    if (column == nullptr)
+        return;
+    column->markDrag = 0;
 }
 
 static void map_scrolled(void *adjust, void *data) {
@@ -659,6 +736,10 @@ Ui::Ui(Editor *editor) {
     showLeft = 1;
     showMap = 1;
     editorSplit = nullptr;
+    leftWidth = 200;
+    mapWide = MAP_WIDTH;
+    panelHold = 0;
+    mapHold = 0;
     fileMenu = 0;
     searchMenu = 0;
     viewMenu = 0;
@@ -784,6 +865,7 @@ Ui::Ui(Editor *editor) {
         pages[i].view = nullptr;
         pages[i].scroll = nullptr;
         pages[i].map = nullptr;
+        pages[i].mapSplit = nullptr;
         pages[i].tags = 0;
         pages[i].userDepth = 0;
         pages[i].pendingSync = 0;
@@ -1069,8 +1151,9 @@ Widget *Ui::mount_panel(void) {
             "Symbols");
     frame = new Box(GTK_VERTICAL, 0);
     frame->set_v_expand(true);
-    frame->set_width_request(200);
-    gtk_widget_set_halign(frame->native, 1);
+    frame->set_h_expand(true);
+    frame->set_width_request(64);
+    gtk_widget_set_halign(frame->native, 0);
     tabBar = new Box(GTK_HORIZONTAL, 0);
     tabBar->set_h_expand(true);
     panelTabLeft = new Button("<");
@@ -1103,6 +1186,11 @@ Widget *Ui::mount_panel(void) {
     split = new Paned(GTK_HORIZONTAL);
     split->set_start_child(panelFrame);
     split->set_end_child((Widget *)book);
+    gtk_paned_set_resize_start_child(split->native, 0);
+    gtk_paned_set_shrink_start_child(split->native, 1);
+    gtk_paned_set_resize_end_child(split->native, 1);
+    gtk_paned_set_shrink_end_child(split->native, 1);
+    gtk_paned_set_wide_handle(split->native, 1);
     split->set_position(200);
     editorSplit = split;
     split->set_v_expand(true);
@@ -1213,6 +1301,7 @@ void Ui::fill_project_files(void) {
         projectFiles->append_row(cells, 1);
         i = i + 1;
     }
+    g_idle_add((void *)ui_align_idle, nullptr);
 }
 
 void Ui::fill_project(void) {
@@ -1643,9 +1732,11 @@ static int labels_left(void *widget, int *seen) {
 }
 
 void Ui::align_file_names(void) {
-    if (fileView == nullptr || fileView->native == nullptr)
-        return;
-    align_labels(fileView->native);
+    if (fileView != nullptr && fileView->native != nullptr)
+        align_labels(fileView->native);
+    if (projectFiles != nullptr
+            && projectFiles->native != nullptr)
+        align_labels(projectFiles->native);
 }
 
 int Ui::files_left(void) {
@@ -1655,6 +1746,18 @@ int Ui::files_left(void) {
         return 0;
     seen = 0;
     if (labels_left(fileView->native, &seen) == 0)
+        return 0;
+    return seen;
+}
+
+int Ui::project_files_left(void) {
+    int seen;
+
+    if (projectFiles == nullptr
+            || projectFiles->native == nullptr)
+        return 0;
+    seen = 0;
+    if (labels_left(projectFiles->native, &seen) == 0)
         return 0;
     return seen;
 }
@@ -1802,7 +1905,11 @@ MapColumn::MapColumn(void *owner, long index) : Widget() {
     page = index;
     pixels = 0;
     wide = 0;
+    markAt = -1;
+    markSize = 0;
+    grab = 0;
     hooked = 0;
+    markDrag = 0;
     adjust = nullptr;
     native = gtk_drawing_area_new();
     set_width_request(MAP_WIDTH);
@@ -1820,6 +1927,29 @@ MapColumn::MapColumn(void *owner, long index) : Widget() {
             click,
             "pressed",
             (void *)pressed,
+            (void *)this,
+            nullptr,
+            0);
+    gtk_widget_add_controller(native, click);
+    click = gtk_gesture_drag_new();
+    g_signal_connect_data(
+            click,
+            "drag-begin",
+            (void *)map_drag_begin,
+            (void *)this,
+            nullptr,
+            0);
+    g_signal_connect_data(
+            click,
+            "drag-update",
+            (void *)map_drag_update,
+            (void *)this,
+            nullptr,
+            0);
+    g_signal_connect_data(
+            click,
+            "drag-end",
+            (void *)map_drag_end,
             (void *)this,
             nullptr,
             0);
@@ -2046,6 +2176,29 @@ void Ui::paint_map(
             (double)width,
             (double)band);
     cairo_fill(cr);
+    line = doc->buffer()->cursor_line() - 1;
+    if (line < 0)
+        line = 0;
+    if (line >= lines)
+        line = lines - 1;
+    top = map_top_of(lines, (long)height, line);
+    band = map_top_of(lines, (long)height, line + 1) - top;
+    if (band < 4)
+        band = 4;
+    if (top + band > (long)height)
+        top = (long)height - band;
+    if (top < 0)
+        top = 0;
+    column->markAt = top;
+    column->markSize = band;
+    cairo_set_source_rgba(cr, 0.86, 0.42, 0.10, 0.95);
+    cairo_rectangle(
+            cr,
+            0,
+            (double)top,
+            (double)width,
+            (double)band);
+    cairo_fill(cr);
 }
 
 long Ui::map_height(void) {
@@ -2124,6 +2277,172 @@ int Ui::map_ink(long line) {
     if (doc == nullptr || doc->buffer() == nullptr)
         return 0;
     return map_ink_at(doc->buffer()->text(), line);
+}
+
+long Ui::map_mark(void) {
+    long index;
+
+    if (state == nullptr)
+        return (long)-1;
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return (long)-1;
+    if (pages[index].map == nullptr)
+        return (long)-1;
+    return pages[index].map->markAt;
+}
+
+int Ui::on_map_mark(long page, long y) {
+    long at;
+    long size;
+
+    if (page < 0 || page >= pageCount)
+        return 0;
+    if (pages[page].map == nullptr)
+        return 0;
+    at = pages[page].map->markAt;
+    size = pages[page].map->markSize;
+    if (at < 0)
+        return 0;
+    if (size < 4)
+        size = 4;
+    if (y >= at - 3 && y < at + size + 3)
+        return 1;
+    return 0;
+}
+
+void Ui::drag_map_mark(long y) {
+    long index;
+    long lines;
+    long height;
+    long line;
+    Document *doc;
+
+    if (state == nullptr)
+        return;
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr || doc->buffer() == nullptr)
+        return;
+    if (pages[index].map == nullptr)
+        return;
+    lines = doc->buffer()->line_count();
+    height = pages[index].map->drawn_height();
+    if (height < 1)
+        height = 1;
+    line = map_line(lines, height, y);
+    doc->buffer()->move_to(line + 1, 1);
+    place_cursor(index);
+    redraw_map(index);
+}
+
+long Ui::map_width(void) {
+    long index;
+
+    if (state == nullptr)
+        return mapWide;
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return mapWide;
+    if (pages[index].map == nullptr
+            || pages[index].map->native == nullptr)
+        return mapWide;
+    if (gtk_widget_get_width(pages[index].map->native) > 0)
+        return (long)gtk_widget_get_width(
+                pages[index].map->native);
+    if (pages[index].map->drawn_width() > 0)
+        return pages[index].map->drawn_width();
+    return mapWide;
+}
+
+void Ui::place_map(long index) {
+    int wide;
+    long room;
+
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].mapSplit == nullptr)
+        return;
+    if (pages[index].mapSplit->native == nullptr)
+        return;
+    wide = gtk_widget_get_width(
+            pages[index].mapSplit->native);
+    room = (long)wide - mapWide;
+    if (room < 80)
+        return;
+    mapHold = 1;
+    pages[index].mapSplit->set_position(room);
+    mapHold = 0;
+}
+
+void Ui::keep_map_width(long index) {
+    int panedWide;
+    long end;
+
+    if (mapHold != 0)
+        return;
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].map == nullptr
+            || pages[index].mapSplit == nullptr)
+        return;
+    if (pages[index].mapSplit->native == nullptr)
+        return;
+    panedWide = gtk_widget_get_width(
+            pages[index].mapSplit->native);
+    end = (long)panedWide
+            - pages[index].mapSplit->position();
+    if (end < 24 || end > 400)
+        return;
+    if (end == mapWide)
+        return;
+    mapWide = end;
+    mapHold = 1;
+    pages[index].map->set_width_request(mapWide);
+    mapHold = 0;
+}
+
+void Ui::set_map_width(long width) {
+    long i;
+
+    if (width < 24)
+        width = 24;
+    if (width > 240)
+        width = 240;
+    mapWide = width;
+    i = 0;
+    while (i < pageCount) {
+        if (pages[i].map != nullptr)
+            pages[i].map->set_width_request(width);
+        place_map(i);
+        i = i + 1;
+    }
+}
+
+long Ui::panel_width(void) {
+    int box[4];
+
+    if (panelFrame == nullptr || panelFrame->native == nullptr)
+        return (long)0;
+    box[0] = 0;
+    box[1] = 0;
+    box[2] = 0;
+    box[3] = 0;
+    gtk_widget_get_allocation(panelFrame->native, box);
+    return (long)box[2];
+}
+
+void Ui::set_panel_width(long width) {
+    if (editorSplit == nullptr)
+        return;
+    if (width < 64)
+        width = 64;
+    leftWidth = (int)width;
+    panelHold = 1;
+    editorSplit->set_position(width);
+    panelHold = 0;
 }
 
 void Ui::map_click(long y) {
@@ -2216,16 +2535,29 @@ void Ui::add_page(long index) {
             0);
     text_copy(title, 256, doc->title());
     {
-        Box *row;
+        Paned *split;
 
-        row = new Box(GTK_HORIZONTAL, 0);
-        row->set_h_expand(true);
-        row->set_v_expand(true);
-        row->append((Widget *)scroll);
-        row->append((Widget *)pages[index].map);
+        split = new Paned(GTK_HORIZONTAL);
+        split->set_h_expand(true);
+        split->set_v_expand(true);
+        gtk_paned_set_resize_start_child(split->native, 1);
+        gtk_paned_set_shrink_start_child(split->native, 1);
+        gtk_paned_set_resize_end_child(split->native, 0);
+        gtk_paned_set_shrink_end_child(split->native, 1);
+        gtk_paned_set_wide_handle(split->native, 1);
+        split->set_start_child((Widget *)scroll);
+        split->set_end_child((Widget *)pages[index].map);
+        pages[index].mapSplit = split;
+        g_signal_connect_data(
+                split->native,
+                "notify::position",
+                (void *)map_split_moved,
+                (void *)&refs[index],
+                nullptr,
+                0);
         if (showMap == 0)
             pages[index].map->set_visible(false);
-        book->append_page((Widget *)row, title);
+        book->append_page((Widget *)split, title);
     }
     pageCount = pageCount + 1;
     mount_tab(index, title);
@@ -2252,6 +2584,7 @@ void Ui::rebuild(void) {
         pages[i].view = nullptr;
         pages[i].scroll = nullptr;
         pages[i].map = nullptr;
+        pages[i].mapSplit = nullptr;
         pages[i].tags = 0;
         pages[i].userDepth = 0;
         pages[i].pendingSync = 0;
@@ -3860,10 +4193,15 @@ void Ui::apply_panels(void) {
             panelWidget->set_visible(true);
     }
     if (editorSplit != nullptr) {
-        if (showLeft == 0)
+        if (showLeft == 0) {
+            if (editorSplit->position() >= 64)
+                leftWidth = (int)editorSplit->position();
             editorSplit->set_position(0);
-        else if (editorSplit->position() < 40)
-            editorSplit->set_position(200);
+        } else if (editorSplit->position() < 40) {
+            if (leftWidth < 64)
+                leftWidth = 200;
+            editorSplit->set_position((long)leftWidth);
+        }
     }
     i = 0;
     while (i < pageCount) {

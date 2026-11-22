@@ -310,6 +310,49 @@ void check_panel_layout(Ui *ui) {
     expect(ui->panel_edge() >= 0, "panel on the left edge");
     ui->align_file_names();
     expect(ui->files_left() == 1, "files align left");
+    ui->show_panel_page(1);
+    pump(20);
+    ui->align_file_names();
+    expect(ui->project_files_left() == 1,
+            "project files align left");
+    ui->show_panel_page(0);
+    ui->set_panel_width(280);
+    usleep(100000);
+    pump(20);
+    expect(ui->panel_width() > 240, "panel grows");
+    ui->set_panel_width(110);
+    usleep(100000);
+    pump(20);
+    expect(ui->panel_width() < 160, "panel shrinks");
+    expect(ui->panel_edge() >= 0, "panel stays on the edge");
+}
+
+void check_map_mark(Ui *ui, Editor *editor) {
+    long before;
+    long wide;
+    long y;
+
+    editor->active()->buffer()->move_to(1, 1);
+    ui->scroll_view(0);
+    pump(30);
+    expect(ui->map_mark() >= 0, "map marks the line");
+    expect(ui->map_mark() < ui->map_height(),
+            "mark is on the map");
+    before = editor->active()->buffer()->cursor_line();
+    ui->drag_map_mark(ui->map_height() - 1);
+    usleep(80000);
+    pump(20);
+    expect(editor->active()->buffer()->cursor_line()
+                    > before,
+            "drag moves the cursor");
+    y = ui->gutter_line_y(0);
+    expect(y < 0 || ui->map_top() > 0,
+            "drag scrolls the buffer");
+    wide = ui->map_width();
+    ui->set_map_width(wide + 40);
+    usleep(100000);
+    pump(20);
+    expect(ui->map_width() > wide + 15, "map grows");
 }
 
 void check_panels(Ui *ui) {
@@ -1004,6 +1047,7 @@ int main(void) {
                 expect(y < 0, "map click leaves the top");
                 expect(ui->map_top() > top,
                         "viewport moved down");
+                check_map_mark(ui, editor);
             }
             editor->active()->buffer()->mark_clean();
         }

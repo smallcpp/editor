@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+Project lines its file names up on the left, the same way
+Files does. Dragging the marker between the left panel and
+the editor changes the panel width, and that width stays
+when the panel is hidden and shown again. The mini-map has
+its own drag marker. Dragging it makes the column wider or
+narrower. The current line is marked in that column, and
+dragging the mark moves the caret and scrolls the buffer.
+
 The left panel tab row has scroll buttons. The panel
 sits on the left edge of the window. Files lines up its
 names on the left. Project lists the files in the project

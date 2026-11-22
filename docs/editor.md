@@ -38,16 +38,20 @@ open focuses that document.
 
 The window has a menu bar, document tabs, and a status line.
 A narrow column on the right of the current buffer shows
-the shape of the file and a band for the visible lines.
-A click in that column scrolls the buffer. The column
-reads the buffer the editor already has.
+the shape of the file, a band for the visible lines, and
+a mark on the current line. A click in that column scrolls
+the buffer. Dragging the current-line mark moves the caret
+to that line and scrolls the buffer with it. A drag marker
+on the column's left edge makes the column wider or
+narrower. The column reads the buffer the editor already has.
 A panel on the left lists files, the project, and symbols.
-Its left edge is the left edge of the window. The tab
-row has buttons that scroll the Files, Project, and
+Its left edge is the left edge of the window. Dragging the
+marker on the panel's right edge changes the panel width.
+The tab row has buttons that scroll the Files, Project, and
 Symbols labels when they do not fit. Files lists the
 current folder with each name starting at the left.
-Project lists the files under the project folder, and
-one click opens that file. The project is a folder.
+Project lists the files under the project folder, each
+name starting at the left, and one click opens that file. The project is a folder.
 Settings, Projects lists recent project folders, and
 choosing one opens that folder. Path, Set, and File
 folder are on that page. File folder uses the directory
