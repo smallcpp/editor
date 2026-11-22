@@ -79,10 +79,10 @@ static int name_less(const char *left, const char *right) {
     i = 0;
     while (left[i] != 0 && right[i] != 0) {
         if (left[i] != right[i])
-            return left[i] < right[i];
+            return (int)(left[i] < right[i]);
         i = i + 1;
     }
-    return left[i] == 0 && right[i] != 0;
+    return (int)(left[i] == 0 && right[i] != 0);
 }
 
 static int row_before(
@@ -426,10 +426,10 @@ int SidePanel::file_path(int index, char *dest, long cap) {
         return 0;
     if (text_same(fileName[index], "..") == 1) {
         path_dir(dest, cap, listPath);
-        return dest[0] != 0;
+        return (int)(dest[0] != 0);
     }
     path_join(dest, cap, listPath, fileName[index]);
-    return dest[0] != 0;
+    return (int)(dest[0] != 0);
 }
 
 int SidePanel::enter(int index) {
@@ -674,7 +674,7 @@ static int take_intro(
     while (i < end && is_ident(byte_at(text, i)) == 1)
         i = i + 1;
     copy_token(text, start, i, dest, cap);
-    return dest[0] != 0;
+    return (int)(dest[0] != 0);
 }
 
 static int has_brace(
@@ -1009,7 +1009,7 @@ const char *SidePanel::symbol_name(int index) {
 
 long SidePanel::symbol_line(int index) {
     if (index < 0 || index >= symbols)
-        return 0;
+        return (long)0;
     return symbolLine[index];
 }
 

@@ -47,7 +47,7 @@ long map_line(long lines, long height, long y) {
     long line;
 
     if (lines < 1 || height < 1)
-        return 0;
+        return (long)0;
     if (y < 0)
         y = 0;
     if (y >= height)
@@ -70,7 +70,7 @@ long map_top_of(long lines, long height, long line) {
     if (height < 1)
         height = 1;
     if (line <= 0)
-        return 0;
+        return (long)0;
     if (line >= lines)
         return height;
     y = 0;
