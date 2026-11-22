@@ -57,7 +57,6 @@ extern void gtk_paned_set_shrink_start_child(void *paned, int shrink);
 extern void gtk_paned_set_resize_end_child(void *paned, int resize);
 extern void gtk_paned_set_shrink_end_child(void *paned, int shrink);
 extern void gtk_paned_set_wide_handle(void *paned, int wide);
-extern void *gtk_gesture_drag_new(void);
 extern unsigned long g_signal_connect_data(
         void *instance,
         const char *signal,
@@ -113,6 +112,37 @@ extern void cairo_rectangle(
         double width,
         double height);
 extern void cairo_fill(void *cr);
+extern void cairo_save(void *cr);
+extern void cairo_restore(void *cr);
+extern void cairo_clip(void *cr);
+extern void cairo_move_to(void *cr, double x, double y);
+extern void *gtk_event_controller_motion_new(void);
+extern void *gtk_widget_create_pango_layout(
+        void *widget,
+        const char *text);
+extern void *pango_font_description_from_string(
+        const char *description);
+extern void pango_font_description_free(void *desc);
+extern void pango_layout_set_font_description(
+        void *layout,
+        void *desc);
+extern void pango_layout_set_width(void *layout, int width);
+extern void pango_layout_set_ellipsize(void *layout, int mode);
+extern void pango_layout_get_pixel_size(
+        void *layout,
+        int *width,
+        int *height);
+extern void pango_cairo_show_layout(void *cr, void *layout);
+extern int gtk_text_buffer_get_iter_at_line_offset(
+        void *buffer,
+        void *iter,
+        int line,
+        int offset);
+extern void gtk_text_view_get_line_yrange(
+        void *view,
+        void *iter,
+        int *y,
+        int *height);
 
 Ui *editorUi;
 
@@ -158,6 +188,7 @@ static void map_pressed(
         double y,
         void *data) {
     MapColumn *column;
+    Ui *ui;
 
     (void)gesture;
     (void)count;
@@ -165,47 +196,51 @@ static void map_pressed(
     column = (MapColumn *)data;
     if (column == nullptr || column->owner == nullptr)
         return;
+    ui = (Ui *)column->owner;
+    if (ui->on_map_mark(column->page, (long)y) == 1) {
+        column->grab = (long)y;
+        column->markDrag = 1;
+        ui->drag_map_mark((long)y);
+        return;
+    }
     if (column->markDrag != 0)
         return;
-    ((Ui *)column->owner)->map_click((long)y);
+    ui->map_click((long)y);
 }
 
-static void map_drag_begin(
-        void *gesture,
-        double x,
-        double y,
-        void *data) {
-    MapColumn *column;
-    Ui *ui;
-
-    (void)gesture;
-    (void)x;
-    column = (MapColumn *)data;
-    if (column == nullptr || column->owner == nullptr)
-        return;
-    ui = (Ui *)column->owner;
-    column->grab = (long)y;
-    column->markDrag = 0;
-    if (ui->on_map_mark(column->page, (long)y) == 1)
-        column->markDrag = 1;
-}
-
-static void map_drag_update(
-        void *gesture,
+static void map_motion(
+        void *controller,
         double x,
         double y,
         void *data) {
     MapColumn *column;
 
-    (void)gesture;
+    (void)controller;
     (void)x;
     column = (MapColumn *)data;
     if (column == nullptr || column->owner == nullptr)
         return;
     if (column->markDrag == 0)
         return;
-    ((Ui *)column->owner)->drag_map_mark(
-            column->grab + (long)y);
+    ((Ui *)column->owner)->drag_map_mark((long)y);
+}
+
+static void map_released(
+        void *gesture,
+        int count,
+        double x,
+        double y,
+        void *data) {
+    MapColumn *column;
+
+    (void)gesture;
+    (void)count;
+    (void)x;
+    (void)y;
+    column = (MapColumn *)data;
+    if (column == nullptr)
+        return;
+    column->markDrag = 0;
 }
 
 static void map_split_moved(
@@ -220,22 +255,6 @@ static void map_split_moved(
     if (editorUi == nullptr || ref == nullptr)
         return;
     editorUi->keep_map_width(ref->index);
-}
-
-static void map_drag_end(
-        void *gesture,
-        double x,
-        double y,
-        void *data) {
-    MapColumn *column;
-
-    (void)gesture;
-    (void)x;
-    (void)y;
-    column = (MapColumn *)data;
-    if (column == nullptr)
-        return;
-    column->markDrag = 0;
 }
 
 static void map_scrolled(void *adjust, void *data) {
@@ -514,7 +533,7 @@ void ui_tab_close(void *data) {
 
 void ui_font(void *data, const char *description) {
     (void)data;
-    editorUi->choose_font(description);
+    editorUi->finish_font(description);
 }
 
 void ui_color(void *data, const char *color) {
@@ -723,10 +742,12 @@ Ui::Ui(Editor *editor) {
     bracketEntry = nullptr;
     lineColorButton = nullptr;
     marginColorButton = nullptr;
+    mapFontButton = nullptr;
     files = nullptr;
     fonts = nullptr;
     colors = nullptr;
     colorKind = 0;
+    fontKind = 0;
     searchBack = 0;
     searchWhole = 0;
     searchCase = 0;
@@ -842,6 +863,7 @@ Ui::Ui(Editor *editor) {
     themePick = nullptr;
     themeSaveEntry = nullptr;
     fontDesc[0] = 0;
+    text_copy(mapFont, 128, "Monospace 3");
     i = 0;
     while (i < EDITOR_KEY_COUNT) {
         const char *label;
@@ -1932,26 +1954,19 @@ MapColumn::MapColumn(void *owner, long index) : Widget() {
             (void *)this,
             nullptr,
             0);
+    g_signal_connect_data(
+            click,
+            "released",
+            (void *)map_released,
+            (void *)this,
+            nullptr,
+            0);
     gtk_widget_add_controller(native, click);
-    click = gtk_gesture_drag_new();
+    click = gtk_event_controller_motion_new();
     g_signal_connect_data(
             click,
-            "drag-begin",
-            (void *)map_drag_begin,
-            (void *)this,
-            nullptr,
-            0);
-    g_signal_connect_data(
-            click,
-            "drag-update",
-            (void *)map_drag_update,
-            (void *)this,
-            nullptr,
-            0);
-    g_signal_connect_data(
-            click,
-            "drag-end",
-            (void *)map_drag_end,
+            "motion",
+            (void *)map_motion,
             (void *)this,
             nullptr,
             0);
@@ -2079,6 +2094,246 @@ void Ui::view_span(
         *count = endLine - topLine + 1;
 }
 
+static void copy_map_line(
+        char *dest,
+        long cap,
+        const char *text,
+        long line) {
+    long i;
+    long n;
+    long row;
+    long k;
+
+    if (dest == nullptr || cap < 2)
+        return;
+    dest[0] = 0;
+    if (text == nullptr || line < 0)
+        return;
+    n = text_length(text);
+    i = 0;
+    row = 0;
+    while (i < n && row < line) {
+        if (text[i] == '\n')
+            row = row + 1;
+        i = i + 1;
+    }
+    k = 0;
+    while (i < n && text[i] != '\n' && k + 1 < cap) {
+        int value;
+        int step;
+
+        value = byte_at(text, i);
+        step = utf8_len(value);
+        if (step < 1)
+            step = 1;
+        if (i + step > n)
+            break;
+        if (k + step >= cap)
+            break;
+        while (step > 0) {
+            dest[k] = text[i];
+            k = k + 1;
+            i = i + 1;
+            step = step - 1;
+        }
+    }
+    dest[k] = 0;
+}
+
+static void draw_map_line(
+        void *widget,
+        void *cr,
+        void *desc,
+        const char *sample,
+        long x,
+        long y,
+        long width,
+        long clipH) {
+    void *layout;
+
+    if (widget == nullptr || cr == nullptr)
+        return;
+    if (sample == nullptr || sample[0] == 0)
+        return;
+    if (width < 4 || clipH < 1)
+        return;
+    layout = gtk_widget_create_pango_layout(widget, sample);
+    if (layout == nullptr)
+        return;
+    if (desc != nullptr)
+        pango_layout_set_font_description(layout, desc);
+    pango_layout_set_width(layout, (int)((width - 2) * 1024));
+    pango_layout_set_ellipsize(layout, 3);
+    cairo_save(cr);
+    cairo_rectangle(
+            cr,
+            (double)x,
+            (double)y,
+            (double)width,
+            (double)clipH);
+    cairo_clip(cr);
+    cairo_set_source_rgba(cr, 0.16, 0.16, 0.18, 1.0);
+    cairo_move_to(cr, (double)x, (double)y);
+    pango_cairo_show_layout(cr, layout);
+    cairo_restore(cr);
+    g_object_unref(layout);
+}
+
+void Ui::paint_map_lines(
+        void *widget,
+        void *cr,
+        int width,
+        int height,
+        const char *text,
+        long lines) {
+    void *desc;
+    void *sample;
+    const char *face;
+    int pitch;
+    int wide;
+    int tall;
+    long slot;
+    char row[160];
+
+    if (widget == nullptr || cr == nullptr)
+        return;
+    if (width < 4 || height < 1 || lines < 1)
+        return;
+    face = mapFont;
+    if (face[0] == 0)
+        face = "Monospace 3";
+    desc = pango_font_description_from_string(face);
+    pitch = 4;
+    sample = gtk_widget_create_pango_layout(widget, "Mg");
+    if (sample != nullptr) {
+        if (desc != nullptr)
+            pango_layout_set_font_description(sample, desc);
+        wide = 0;
+        tall = 0;
+        pango_layout_get_pixel_size(sample, &wide, &tall);
+        g_object_unref(sample);
+        if (tall > 1)
+            pitch = tall;
+    }
+    if (pitch < 2)
+        pitch = 2;
+    if (pitch > height)
+        pitch = height;
+    slot = (long)height / lines;
+    if (slot < 1)
+        slot = 1;
+    if (slot >= (long)pitch) {
+        long line;
+        long y;
+        long next;
+        long clipH;
+
+        line = 0;
+        while (line < lines) {
+            y = map_top_of(lines, (long)height, line);
+            next = map_top_of(lines, (long)height, line + 1);
+            clipH = next - y;
+            if (clipH < (long)pitch)
+                clipH = (long)pitch;
+            if (y + clipH > (long)height)
+                clipH = (long)height - y;
+            if (clipH > 0) {
+                copy_map_line(row, 160, text, line);
+                draw_map_line(
+                        widget,
+                        cr,
+                        desc,
+                        row,
+                        1,
+                        y,
+                        (long)width - 2,
+                        clipH);
+            }
+            line = line + 1;
+        }
+    } else {
+        long y;
+
+        y = 0;
+        while (y + pitch <= height) {
+            long line;
+
+            line = map_line(lines, (long)height, y);
+            copy_map_line(row, 160, text, line);
+            draw_map_line(
+                    widget,
+                    cr,
+                    desc,
+                    row,
+                    1,
+                    y,
+                    (long)width - 2,
+                    (long)pitch);
+            y = y + pitch;
+        }
+    }
+    if (desc != nullptr)
+        pango_font_description_free(desc);
+}
+
+void Ui::scroll_line(long index, long line) {
+    long words[12];
+    int top;
+    int tall;
+    int i;
+    void *adjust;
+    double value;
+    double upper;
+    double page;
+    double limit;
+
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].view == nullptr)
+        return;
+    if (pages[index].buffer == nullptr)
+        return;
+    if (line < 0)
+        line = 0;
+    i = 0;
+    while (i < 12) {
+        words[i] = 0;
+        i = i + 1;
+    }
+    if (gtk_text_buffer_get_iter_at_line_offset(
+                pages[index].buffer->native,
+                (void *)words,
+                (int)line,
+                0) == 0) {
+        pages[index].view->scroll_to(line, 0);
+        return;
+    }
+    top = 0;
+    tall = 0;
+    gtk_text_view_get_line_yrange(
+            pages[index].view->native,
+            (void *)words,
+            &top,
+            &tall);
+    adjust = gtk_scrollable_get_vadjustment(
+            pages[index].view->native);
+    if (adjust == nullptr) {
+        pages[index].view->scroll_to(line, 0);
+        return;
+    }
+    value = (double)top;
+    upper = gtk_adjustment_get_upper(adjust);
+    page = gtk_adjustment_get_page_size(adjust);
+    limit = upper - page;
+    if (limit < 0)
+        limit = 0;
+    if (value < 0)
+        value = 0;
+    if (value > limit)
+        value = limit;
+    gtk_adjustment_set_value(adjust, value);
+}
+
 void Ui::paint_map(
         MapColumn *column,
         void *cr,
@@ -2086,16 +2341,12 @@ void Ui::paint_map(
         int height) {
     Document *doc;
     const char *text;
-    int *rowInk;
     long lines;
     long first;
     long count;
     long top;
     long band;
     long line;
-    long y;
-    long bar;
-    int ink;
 
     if (column == nullptr || cr == nullptr)
         return;
@@ -2113,61 +2364,14 @@ void Ui::paint_map(
     lines = doc->buffer()->line_count();
     if (lines < 1)
         lines = 1;
-    rowInk = new int[height];
-    y = 0;
-    while (y < height) {
-        long from;
-        long to;
-
-        from = y * lines / (long)height;
-        if (y == (long)height - 1)
-            to = lines;
-        else
-            to = (y + 1) * lines / (long)height;
-        if (to <= from)
-            to = from + 1;
-        if (from < 0)
-            from = 0;
-        if (to > lines)
-            to = lines;
-        ink = 0;
-        line = from;
-        while (line < to) {
-            int got;
-
-            got = map_ink_at(text, line);
-            if (got > ink)
-                ink = got;
-            line = line + 1;
-        }
-        rowInk[y] = ink;
-        y = y + 1;
-    }
-    y = 0;
-    while (y < height) {
-        ink = rowInk[y];
-        if (ink > 0) {
-            bar = 4 + (long)ink * (width - 8) / MAP_INK;
-            if (bar < 2)
-                bar = 2;
-            if (bar > width - 4)
-                bar = width - 4;
-            cairo_set_source_rgba(
-                    cr,
-                    0.35,
-                    0.35,
-                    0.38,
-                    1.0);
-            cairo_rectangle(
-                    cr,
-                    2,
-                    (double)y,
-                    (double)bar,
-                    1);
-            cairo_fill(cr);
-        }
-        y = y + 1;
-    }
+    if (column->native != nullptr)
+        paint_map_lines(
+                column->native,
+                cr,
+                width,
+                height,
+                text,
+                lines);
     view_span(column->page, &first, &count);
     map_place(lines, (long)height, first, count, &top, &band);
     cairo_set_source_rgba(cr, 0.25, 0.45, 0.75, 0.28);
@@ -2193,7 +2397,7 @@ void Ui::paint_map(
         top = 0;
     column->markAt = top;
     column->markSize = band;
-    cairo_set_source_rgba(cr, 0.86, 0.42, 0.10, 0.95);
+    cairo_set_source_rgba(cr, 0.86, 0.42, 0.10, 0.35);
     cairo_rectangle(
             cr,
             0,
@@ -2337,6 +2541,7 @@ void Ui::drag_map_mark(long y) {
     line = map_line(lines, height, y);
     doc->buffer()->move_to(line + 1, 1);
     place_cursor(index);
+    scroll_line(index, line);
     redraw_map(index);
 }
 
@@ -4996,6 +5201,11 @@ void ui_font_button(void *data) {
     editorUi->open_font();
 }
 
+void ui_map_font_button(void *data) {
+    (void)data;
+    editorUi->open_map_font();
+}
+
 void ui_theme_pick(void *data) {
     (void)data;
     if (editorUi != nullptr)
@@ -5039,6 +5249,8 @@ void Ui::use_config(EditorConfig *item) {
     set_margin_count(item->marginCols);
     set_line_color(item->lineColor);
     set_margin_color(item->marginColor);
+    if (item->mapFont[0] != 0)
+        set_map_font(item->mapFont);
     if (item->font[0] != 0)
         choose_font(item->font);
     searchWrap = item->searchWrap;
@@ -5193,6 +5405,7 @@ void Ui::apply_settings(void) {
     text_copy(item.lineColor, 32, lineColor);
     text_copy(item.marginColor, 32, marginColor);
     text_copy(item.font, 128, fontDesc);
+    text_copy(item.mapFont, 128, mapFont);
     read_keys();
     {
         int n;
@@ -6404,6 +6617,8 @@ void Ui::show_settings(void) {
                 ui_margin_color,
                 nullptr);
         fontButton->on_clicked(ui_font_button, nullptr);
+        mapFontButton = new Button(mapFont);
+        mapFontButton->on_clicked(ui_map_font_button, nullptr);
         tabSpin->set_width_chars(12);
         marginSpin->set_width_chars(12);
         lineEntry->set_width_chars(12);
@@ -6567,6 +6782,9 @@ void Ui::show_settings(void) {
 
             fontGroup = group_box("Font");
             fontGroup->append((Widget *)fontButton);
+            fontGroup->append((Widget *)labeled_field(
+                    "Mini-map",
+                    (Widget *)mapFontButton));
             view->append((Widget *)fontGroup);
         }
         {
@@ -8104,6 +8322,37 @@ void Ui::choose_font(const char *description) {
     apply_settings();
 }
 
+void Ui::set_map_font(const char *description) {
+    long i;
+
+    if (description == nullptr || description[0] == 0)
+        description = "Monospace 3";
+    text_copy(mapFont, 128, description);
+    if (mapFontButton != nullptr)
+        mapFontButton->set_label(mapFont);
+    i = 0;
+    while (i < pageCount) {
+        redraw_map(i);
+        i = i + 1;
+    }
+}
+
+const char *Ui::map_font(void) {
+    return mapFont;
+}
+
+void Ui::choose_map_font(const char *description) {
+    set_map_font(description);
+    apply_settings();
+}
+
+void Ui::finish_font(const char *description) {
+    if (fontKind == 1)
+        choose_map_font(description);
+    else
+        choose_font(description);
+}
+
 void Ui::set_line_shown(int value) {
     long i;
 
@@ -8257,6 +8506,18 @@ void Ui::open_font(void) {
         return;
     if (fonts->pending != 0)
         return;
+    fontKind = 0;
+    fonts->choose(mainWindow, ui_font, nullptr);
+}
+
+void Ui::open_map_font(void) {
+    if (leaving == 1)
+        return;
+    if (fonts == nullptr || mainWindow == nullptr)
+        return;
+    if (fonts->pending != 0)
+        return;
+    fontKind = 1;
     fonts->choose(mainWindow, ui_font, nullptr);
 }
 

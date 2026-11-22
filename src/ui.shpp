@@ -215,6 +215,14 @@ public:
             void *cr,
             int width,
             int height);
+    void paint_map_lines(
+            void *widget,
+            void *cr,
+            int width,
+            int height,
+            const char *text,
+            long lines);
+    void scroll_line(long index, long line);
     long map_height(void);
     long map_top(void);
     long map_band(void);
@@ -223,6 +231,11 @@ public:
     long map_mark(void);
     int on_map_mark(long page, long y);
     void drag_map_mark(long y);
+    void set_map_font(const char *description);
+    const char *map_font(void);
+    void open_map_font(void);
+    void choose_map_font(const char *description);
+    void finish_font(const char *description);
     long map_width(void);
     void set_map_width(long width);
     void keep_map_width(long index);
@@ -307,6 +320,7 @@ private:
     int showMargin;
     int showClose;
     int colorKind;
+    int fontKind;
     int marginCols;
     int hasLastDir;
     int leaving;
@@ -317,6 +331,7 @@ private:
     void *themeCss;
     EditorConfig *themeConfig;
     char fontDesc[128];
+    char mapFont[128];
     char lastDir[EDITOR_PATH];
     char docName[EDITOR_PAGES][80];
     String *pendingPath;
@@ -345,6 +360,7 @@ private:
     Entry *bracketEntry;
     Button *lineColorButton;
     Button *marginColorButton;
+    Button *mapFontButton;
     DropDown *themePick;
     Entry *themeSaveEntry;
     FileDialog *files;

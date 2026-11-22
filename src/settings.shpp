@@ -47,6 +47,7 @@ public:
     int themeSlot[THEME_MAX];
     char themeOver[THEME_MAX][32];
     char font[128];
+    char mapFont[128];
     char accel[EDITOR_KEY_COUNT][64];
     int windowWidth;
     int windowHeight;
