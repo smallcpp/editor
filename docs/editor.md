@@ -174,8 +174,10 @@ frame. Current line color and the
 column marker color each have a Color button that opens
 the color chooser and stores the chosen `#rrggbb`.
 Appearance has Syntax colors. That dialog chooses one
-file type and assigns a color to each tag. The color is
-saved as a theme override, such as `theme-python-keyword`.
+file type and assigns a color to each tag. The tag name
+and the color control sit in two columns of a grid.
+The color is saved as a theme override, such as
+`theme-python-keyword`.
 A missing file, or a missing
 `HOME`, keeps the defaults. The dialog is transient for the
 editor window.
