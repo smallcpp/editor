@@ -2,8 +2,11 @@
 #include "../src/minimap.shpp"
 #include "../src/panel.shpp"
 #include "../src/language.shpp"
+#include "../src/project.shpp"
 #include "../src/settings.shpp"
 #include "../src/syntax.shpp"
+
+extern int system(const char *command);
 
 extern int setenv(
         const char *name,
@@ -60,67 +63,162 @@ void expect(int cond, const char *msg) {
     }
 }
 
+static int row_named(EditProject *project, const char *name) {
+    int i;
+
+    i = 0;
+    while (i < project->row_count()) {
+        if (text_same(project->row_name(i), name) == 1)
+            return i;
+        i = i + 1;
+    }
+    return -1;
+}
+
 void check_project(const char *dir, const char *io) {
+    EditProject *project;
     Document *doc;
-    EditorConfig item;
     char folder[EDITOR_PATH];
+    char side[EDITOR_PATH];
     char home[EDITOR_PATH];
-    char cfg[EDITOR_PATH];
+    char fileA[EDITOR_PATH];
+    char fileB[EDITOR_PATH];
+    char sub[EDITOR_PATH];
+    char subFile[EDITOR_PATH];
+    char lists[EDITOR_PATH];
+    char store[EDITOR_PATH];
+    char other[EDITOR_PATH];
     char leaf[128];
     char rec[EDITOR_PATH];
-    char listed[1][EDITOR_PATH];
     char *body;
     long n;
+    int row;
+    int child;
 
     path_join(folder, EDITOR_PATH, dir, "job");
+    path_join(side, EDITOR_PATH, dir, "side");
     expect(mkdir(folder, 448) == 0, "job dir");
-    expect(project_home(home, EDITOR_PATH, folder) == 1,
-            "project home");
-    expect(project_config_path(cfg, EDITOR_PATH, folder) == 1,
-            "project ini path");
-    path_join(rec, EDITOR_PATH, home, "editor.ini");
-    expect(text_same(cfg, rec) == 1, "ini is in .sedit");
-    config_defaults(&item);
-    text_copy(item.font, 128, "Mono 11");
-    text_copy(listed[0], EDITOR_PATH, folder);
-    expect(project_store(folder, &item, listed, 1) == 1,
-            "store project");
+    expect(mkdir(side, 448) == 0, "side dir");
+    path_join(fileA, EDITOR_PATH, folder, "a.scpp");
+    path_join(fileB, EDITOR_PATH, side, "b.scpp");
+    expect(write_file(fileA, "int a;\n", &io) == 1, "job source");
+    expect(write_file(fileB, "int b;\n", &io) == 1, "side source");
+    path_join(sub, EDITOR_PATH, folder, "sub");
+    expect(mkdir(sub, 448) == 0, "sub dir");
+    path_join(subFile, EDITOR_PATH, sub, "c.scpp");
+    expect(write_file(subFile, "int c;\n", &io) == 1, "sub source");
+    project = new EditProject();
+    expect(project->make("job", "directory", folder) == 1,
+            "make job");
+    expect(project->make("also", "directory", folder) == 1,
+            "second project");
+    expect(project->store_path(store, EDITOR_PATH) == 1,
+            "also path");
+    expect(text_has(store, "/.config/smallcpp/projects/") == 1,
+            "catalog directory");
+    expect(text_has(store, "also.project") == 1, "also file");
+    expect(project->load("job") == 1, "load job");
+    expect(text_same(project->name(), "job") == 1, "job name");
+    expect(text_same(project->kind_name(), "directory") == 1,
+            "job kind");
+    row = row_named(project, "a.scpp");
+    expect(row >= 0, "tree has a");
+    expect(project->row_is_dir(row) == 0, "a is a file");
+    expect(text_has(project->row_label(row), "/") == 0,
+            "a has no path");
+    row = row_named(project, "sub");
+    expect(row >= 0, "tree has sub");
+    expect(project->row_is_dir(row) == 1, "sub is a directory");
+    expect(row_named(project, "c.scpp") < 0, "sub starts closed");
+    expect(project->toggle_row(row) == 1, "open sub");
+    child = row_named(project, "c.scpp");
+    expect(child >= 0, "sub shows c");
+    expect(text_has(project->row_label(child), "/") == 0,
+            "c has no path");
+    expect(project->toggle_row(row_named(project, "sub")) == 1,
+            "close sub");
+    expect(row_named(project, "c.scpp") < 0, "sub closes");
+    expect(project->make("picked", "files", fileA) == 1,
+            "explicit files");
+    expect(project->add_file(fileB) == 1, "add another file");
+    row = row_named(project, "job");
+    expect(row >= 0, "picked groups job");
+    expect(project->row_is_dir(row) == 1, "job group is a directory");
+    expect(project->toggle_row(row) == 1, "open picked job");
+    expect(row_named(project, "a.scpp") >= 0, "picked a");
+    row = row_named(project, "side");
+    expect(project->toggle_row(row) == 1, "open picked side");
+    expect(row_named(project, "b.scpp") >= 0, "picked b");
+    expect(text_has(
+                project->row_label(row_named(project, "a.scpp")),
+                "/") == 0,
+            "picked row is not a path");
+    path_join(lists, EDITOR_PATH, folder, "CMakeLists.txt");
+    expect(write_file(
+                lists,
+                "add_executable(demo a.scpp)\n",
+                &io) == 1,
+            "cmake file");
+    expect(project->make("built", "cmake", folder) == 1,
+            "cmake project");
+    expect(row_named(project, "a.scpp") >= 0, "cmake has a");
+    expect(project->store_path(store, EDITOR_PATH) == 1,
+            "cmake path");
     n = 0;
-    body = read_file(cfg, &n, &io);
-    expect(body != nullptr, "project ini");
+    body = read_file(store, &n, &io);
+    expect(body != nullptr, "cmake text");
     if (body != nullptr) {
-        expect(text_has(body, "font=Mono 11") == 1,
-                "copied font");
-        expect(text_has(body, "recovery-dir=") == 1,
-                "recovery dir key");
-        expect(text_has(body, home) == 1,
-                "recovery dir path");
-        expect(text_has(body, "project=") == 1,
-                "project line");
+        expect(text_has(body, "kind=cmake") == 1, "cmake kind");
+        expect(text_has(body, "add_executable") == 0,
+                "cmake stores no targets");
+        free((void *)body);
     }
-    expect(project_lines(cfg, listed, 1) == 1,
-            "one stored project");
-    expect(text_same(listed[0], folder) == 1,
-            "stored folder");
-    path_join(rec, EDITOR_PATH, folder, "note.scpp");
-    expect(write_file(rec, "int n;\n", &io) == 1,
-            "job source");
+    project->clear_opens();
+    expect(project->note_open(fileA) == 1, "note open");
+    project->note_active(fileA, 4);
+    expect(project->save() == 1, "save place");
+    expect(project->load("built") == 1, "load place");
+    expect(project->active_line() == 4, "saved line");
+    expect(project->open_count() == 1, "saved opens");
+    expect(text_same(project->active_path(), fileA) == 1,
+            "saved file");
+    expect(project->save_as("built-copy") == 1, "save as");
+    expect(project->store_path(other, EDITOR_PATH) == 1,
+            "copy path");
+    expect(file_exists(store) == 1, "original remains");
+    expect(file_exists(other) == 1, "copy exists");
+    expect(project->remove_store() == 1, "delete copy");
+    expect(file_exists(other) == 0, "copy is gone");
+    expect(file_exists(store) == 1, "original stays");
+    path_join(home, EDITOR_PATH, dir, "keep");
+    expect(mkdir(home, 448) == 0, "keep dir");
     doc = new Document();
-    expect(doc->load_path(rec) == 1, "load job source");
+    expect(doc->load_path(fileA) == 1, "load for recovery");
     doc->buffer()->set_text("kept work\n");
-    expect(doc->write_recovery(home) == 1,
-            "project recovery");
-    expect(doc->recovery_leaf(leaf, 128) == 1,
-            "project leaf");
+    expect(doc->write_recovery(home) == 1, "write recovery");
+    expect(doc->recovery_leaf(leaf, 128) == 1, "recovery leaf");
     path_join(rec, EDITOR_PATH, home, leaf);
-    expect(file_exists(rec) == 1, "recover in .sedit");
-    expect(file_exists(cfg) == 1, "ini remains");
+    expect(file_exists(rec) == 1, "recovery file");
     unlink(rec);
-    path_join(rec, EDITOR_PATH, folder, "note.scpp");
-    unlink(rec);
-    unlink(cfg);
-    rmdir(home);
-    rmdir(folder);
+    if (system("git --version > /dev/null 2>&1") == 0) {
+        String *cmd;
+
+        cmd = new String();
+        cmd->append("git -C '");
+        cmd->append(folder);
+        cmd->append("' init -q");
+        expect(system(cmd->c_str()) == 0, "git init");
+        cmd = new String();
+        cmd->append("git -C '");
+        cmd->append(folder);
+        cmd->append("' add a.scpp");
+        expect(system(cmd->c_str()) == 0, "git add");
+        expect(project->make("repo", "git", folder) == 1,
+                "git project");
+        expect(row_named(project, "a.scpp") >= 0, "git lists a");
+        expect(text_same(project->kind_name(), "git") == 1,
+                "git kind");
+    }
 }
 
 int main(void) {

@@ -64,13 +64,13 @@ one path. It has no folder mode. The first dialog starts in the
 process current directory, and later dialogs start in the
 directory last chosen
 during this session. The left panel cannot ask for a
-folder, because the dialog has no folder mode. The
-project is the active file's directory or a path typed
-on Settings, Projects. A directory row lists that directory and
-does not leave the project. CMake targets are the names
-in `add_executable` and `add_library`, not a full CMake
-run. A compile line is the `command` string, or the
-`arguments` list when `command` is absent. Symbols are
+folder, because the dialog has no folder mode. A
+project path is typed. For a directory, git, or CMake
+project, a file in that directory selects the
+directory. Files lists the folder the user is browsing.
+That folder is not a project. A CMake project collects
+source names from `CMakeLists.txt`. It does not run
+CMake or list targets and commands. Symbols are
 a scan of the current buffer, not a compiler's view.
 The panel does not keep a second copy of the text.
 Tab titles are the file name. A modified
@@ -136,10 +136,7 @@ removed file is reported once. Write recovery files is
 off. The interval is `recovery-minutes`, from 1 to 1440,
 and the default is 5. `recovery-keep` is how many
 copies to hold, from 0 to 500, and the default is 20.
-Copies are the buffer text. The open project's copies
-are in `<project>/.sedit`, beside `editor.ini`, a copy of
-the current settings. That file's `recovery-dir` is the
-same folder. With no project, copies are in
+Copies are the buffer text. Copies are in
 `$HOME/.config/smallcpp/recovery`. Copies past that
 count are removed, oldest first. Startup asks
 Open or Ignore when that copy is for a file that is
@@ -151,5 +148,6 @@ the new keys, and Escape cancels. A shortcut that
 another command already uses is refused. The notebook fills the
 dialog. The left tabs stay fixed, and the page scrolls.
 
-This editor does not open projects, run builds, talk to a language
+This editor opens a named project as a list of files.
+It does not run builds, talk to a language
 server, load plugins, or show a message pane or a debugger.

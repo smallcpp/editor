@@ -57,20 +57,26 @@ marker on the panel's right edge changes the panel width.
 The tab row has buttons that scroll the Files, Project, and
 Symbols labels when they do not fit. Files lists the
 current folder with each name starting at the left.
-Project lists the files under the project folder, each
-name starting at the left, and one click opens that file. The project is a folder.
-Settings, Projects lists recent project folders, and
-choosing one opens that folder. Path, Set, and File
-folder are on that page. File folder uses the directory
-of the active file. When that folder contains
-`CMakeLists.txt`, the same page lists `add_executable`
-and `add_library` targets, and compile lines from
-`compile_commands.json` when that file is there. The
-panel does not own the buffer. Opening a file uses the
-same path as File, Open. A symbol moves the cursor in
-the current buffer.
-The menus are File, Edit, Search, View, and Documents. The
-status line shows the title, a dirty star, the line, the
+Project lists the files in the open project as a
+collapsible tree. Each row is a directory name or a
+file name, and one click opens a file or folds a
+directory. A project is optional. It is a named list
+of files, not a folder, and more than one project can
+describe the same directory. The files come from an
+explicit list, a directory, a git repository, or the
+sources named in a CMake build. Project has New, Open,
+Close, Save, Save As, and Delete. Open lists the known
+projects. Each one is stored at
+`$HOME/.config/smallcpp/projects/<name>.project`, which
+also keeps the active file, the line, and the other
+open files for that project. Opening the project
+restores that place. Remember files is a separate
+global choice. The editor does not build, run, or
+debug. The panel does not own the buffer. Opening a
+file uses the same path as File, Open. A symbol moves
+the cursor in the current buffer.
+The menus are File, Edit, Search, View, Project, and
+Documents. The status line shows the title, a dirty star, the line, the
 column, and the language. Each tab has a dark border.
 A close button is drawn on the tab unless Settings turns it off.
 The mark closes that document, with the same dirty-file question
@@ -280,10 +286,7 @@ the file changes again. A saved file that is gone from
 disk is reported once. General has Write recovery files,
 off until it is turned on, and a Minutes box that starts
 at 5. Keep starts at 20. A recovery copy is the buffer
-text. The open project's copies are written in
-`<project>/.sedit`, next to `editor.ini`, which is a copy
-of the current settings and records that folder as
-`recovery-dir`. With no project, copies are written under
+text. Copies are written under
 `$HOME/.config/smallcpp/recovery`.
 Copies past that count are removed, oldest first. On
 startup, a recovery copy for a file that is gone asks
