@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+A function that names a return type returns a value of
+that type. `0` and `-1` returned from `long`, and a
+comparison returned from `int`, now use a cast.
+
 Edit can record keystrokes and play them back. Record
 starts a list on the current text view. Stop keeps it.
 Play inserts typing, Enter, Tab, Backspace, Delete, and

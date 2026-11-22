@@ -7,7 +7,7 @@ long text_length(const char *text) {
     long n;
 
     if (text == nullptr)
-        return 0;
+        return (long)0;
     n = 0;
     while (text[n] != 0)
         n = n + 1;
@@ -551,7 +551,7 @@ long file_mtime(const char *path) {
     long *stamp;
 
     if (path == nullptr || stat(path, &info) != 0)
-        return 0;
+        return (long)0;
     /* st_mtim.tv_sec is the third long in the pad. */
     stamp = (long *)info.pad1;
     return stamp[2];
@@ -826,7 +826,7 @@ int glob_match(const char *pat, const char *text) {
     if (pat == nullptr || text == nullptr)
         return 0;
     if (pat[0] == 0)
-        return text[0] == 0;
+        return (int)(text[0] == 0);
     if (pat[0] == '*') {
         if (glob_match(pat + 1, text) == 1)
             return 1;

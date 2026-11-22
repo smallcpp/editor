@@ -1244,7 +1244,7 @@ const char *Ui::panel_symbol(int index) {
 
 long Ui::panel_symbol_line(int index) {
     if (panel == nullptr)
-        return 0;
+        return (long)0;
     return panel->symbol_line(index);
 }
 
@@ -1549,12 +1549,12 @@ long Ui::map_height(void) {
     long index;
 
     if (state == nullptr)
-        return 0;
+        return (long)0;
     index = state->index();
     if (index < 0 || index >= pageCount)
-        return 0;
+        return (long)0;
     if (pages[index].map == nullptr)
-        return 0;
+        return (long)0;
     return pages[index].map->drawn_height();
 }
 
@@ -1568,17 +1568,17 @@ long Ui::map_top(void) {
     long band;
 
     if (state == nullptr)
-        return 0;
+        return (long)0;
     index = state->index();
     if (index < 0 || index >= pageCount)
-        return 0;
+        return (long)0;
     if (state->at(index) == nullptr)
-        return 0;
+        return (long)0;
     if (state->at(index)->buffer() == nullptr)
-        return 0;
+        return (long)0;
     height = map_height();
     if (height < 1)
-        return 0;
+        return (long)0;
     lines = state->at(index)->buffer()->line_count();
     view_span(index, &first, &count);
     map_place(lines, height, first, count, &top, &band);
@@ -1595,17 +1595,17 @@ long Ui::map_band(void) {
     long band;
 
     if (state == nullptr)
-        return 0;
+        return (long)0;
     index = state->index();
     if (index < 0 || index >= pageCount)
-        return 0;
+        return (long)0;
     if (state->at(index) == nullptr)
-        return 0;
+        return (long)0;
     if (state->at(index)->buffer() == nullptr)
-        return 0;
+        return (long)0;
     height = map_height();
     if (height < 1)
-        return 0;
+        return (long)0;
     lines = state->at(index)->buffer()->line_count();
     view_span(index, &first, &count);
     map_place(lines, height, first, count, &top, &band);
@@ -3149,9 +3149,9 @@ long Ui::gutter_line_y(long line) {
 
     index = state->index();
     if (index < 0 || index >= pageCount)
-        return -1;
+        return (long)-1;
     if (pages[index].view == nullptr)
-        return -1;
+        return (long)-1;
     return pages[index].view->line_number_origin(line);
 }
 
@@ -6481,13 +6481,13 @@ int Ui::remember_on(void) {
 
 long Ui::window_width(void) {
     if (mainWindow == nullptr)
-        return 0;
+        return (long)0;
     return mainWindow->width();
 }
 
 long Ui::window_height(void) {
     if (mainWindow == nullptr)
-        return 0;
+        return (long)0;
     return mainWindow->height();
 }
 
@@ -6604,7 +6604,7 @@ int Ui::listed_count(void) {
 
 long Ui::listed_at(int index) {
     if (index < 0 || index >= listedCount)
-        return -1;
+        return (long)-1;
     return dirtySlot[index];
 }
 
