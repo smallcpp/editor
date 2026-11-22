@@ -220,6 +220,30 @@ int main(void) {
     expect(buffer->note_external("())") == 1, "typed closer");
     expect(text_same(buffer->text(), "()") == 1, "skip closer");
     expect(buffer->cursor_offset() == 2, "closer cursor");
+    buffer->set_text("one\ntwo\n");
+    buffer->move_to(1, 1);
+    buffer->add_caret(1, 0);
+    expect(buffer->caret_count() == 1, "one extra caret");
+    buffer->insert_text("X");
+    expect(text_same(buffer->text(), "Xone\nXtwo\n") == 1,
+            "insert both carets");
+    buffer->backspace();
+    expect(text_same(buffer->text(), "one\ntwo\n") == 1,
+            "backspace both carets");
+    buffer->insert_text("X");
+    buffer->delete_forward();
+    expect(text_same(buffer->text(), "Xne\nXwo\n") == 1,
+            "delete both carets");
+    buffer->set_text("// one\ntwo\n");
+    buffer->move_to(1, 1);
+    buffer->add_caret(1, 0);
+    buffer->toggle_line_comment("//");
+    expect(text_same(buffer->text(), "one\n// two\n") == 1,
+            "comment each caret");
+    buffer->undo();
+    expect(text_same(buffer->text(), "// one\ntwo\n") == 1,
+            "undo caret comment");
+    expect(buffer->caret_count() == 1, "undo keeps the caret");
     buffer->set_text("keep");
     expect(buffer->note_external("keep") == 0, "same text");
     expect(buffer->note_external("kept") == 0, "typed");

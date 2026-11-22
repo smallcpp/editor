@@ -665,6 +665,41 @@ int main(void) {
         ui->on_menu("Unindent");
         expect(text_same(ui->page_text(0), "line\n") == 1,
                 "view unindent");
+        view->set_text("one\ntwo\n");
+        pump(4);
+        start = new TextIter(0, 0);
+        view->place_cursor(start);
+        ui->add_caret(1, 0);
+        expect(ui->caret_count() == 2, "two carets");
+        type_text(view, "X");
+        type_text(view, "Y");
+        pump(4);
+        expect(text_same(ui->page_text(0), "XYone\nXYtwo\n") == 1,
+                "typed at both carets");
+        ui->on_menu("Comment");
+        expect(text_same(
+                    ui->page_text(0),
+                    "// XYone\n// XYtwo\n") == 1,
+                "comment at both carets");
+        ui->on_menu("Undo");
+        expect(text_same(ui->page_text(0), "XYone\nXYtwo\n") == 1,
+                "undo caret comment");
+        ui->clear_carets();
+        view = ui->view_buffer();
+        view->set_text("ab\ncd\n");
+        pump(4);
+        start = new TextIter(0, 2);
+        view->place_cursor(start);
+        ui->add_caret(1, 2);
+        start = new TextIter(0, 1);
+        end = new TextIter(0, 2);
+        view->delete_range(start, end);
+        pump(4);
+        expect(text_same(ui->page_text(0), "a\nc\n") == 1,
+                "delete at both carets");
+        ui->clear_carets();
+        expect(ui->caret_count() == 1, "carets cleared");
+        view->set_text("line\n");
         expect(editor->active()->buffer()->dirty() == true,
                 "edited");
         expect(tab_mark(ui->tab_text(0)) == 1, "dirty dot");

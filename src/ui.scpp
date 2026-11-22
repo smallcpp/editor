@@ -737,7 +737,7 @@ Editor *Ui::editor(void) {
 
 void Ui::build(void) {
     const char *fileLabels[9];
-    const char *editLabels[10];
+    const char *editLabels[12];
     const char *searchLabels[6];
     const char *viewLabels[4];
     long fileMenu;
@@ -784,7 +784,9 @@ void Ui::build(void) {
     editLabels[6] = "Unindent";
     editLabels[7] = "Comment";
     editLabels[8] = "Block comment";
-    editLabels[9] = "Settings";
+    editLabels[9] = "Add caret";
+    editLabels[10] = "Clear carets";
+    editLabels[11] = "Settings";
     fileMenu = menuBar->add_menu(
             "File",
             fileLabels,
@@ -794,7 +796,7 @@ void Ui::build(void) {
     editMenu = menuBar->add_menu(
             "Edit",
             editLabels,
-            10,
+            12,
             ui_menu,
             nullptr);
     searchMenu = menuBar->add_menu(
@@ -815,6 +817,7 @@ void Ui::build(void) {
     menuBar->set_separator(editMenu, 2);
     menuBar->set_separator(editMenu, 5);
     menuBar->set_separator(editMenu, 9);
+    menuBar->set_separator(editMenu, 11);
     menuBar->set_separator(searchMenu, 2);
     documentsMenu = menuBar->add_menu(
             "Documents",
@@ -1808,6 +1811,167 @@ void Ui::place_cursor(long index) {
         pages[index].view->scroll_to(line, column);
 }
 
+void Ui::take_carets(long index) {
+    TextView *view;
+    EditBuffer *buf;
+    int n;
+    int i;
+    long line;
+    long column;
+
+    if (index < 0 || index >= pageCount)
+        return;
+    view = pages[index].view;
+    if (view == nullptr || state == nullptr)
+        return;
+    if (state->at(index) == nullptr)
+        return;
+    buf = state->at(index)->buffer();
+    if (buf == nullptr)
+        return;
+    n = view->caret_count();
+    if (n < 1)
+        return;
+    if (view->caret_at(0, &line, &column) != 0)
+        buf->move_to(line + 1, column + 1);
+    buf->clear_carets();
+    i = 1;
+    while (i < n) {
+        if (view->caret_at(i, &line, &column) != 0)
+            buf->add_caret(line, column);
+        i = i + 1;
+    }
+}
+
+void Ui::apply_carets(long index) {
+    TextView *view;
+    EditBuffer *buf;
+    int i;
+    long line;
+    long column;
+
+    if (index < 0 || index >= pageCount)
+        return;
+    view = pages[index].view;
+    if (view == nullptr || state == nullptr)
+        return;
+    if (state->at(index) == nullptr)
+        return;
+    buf = state->at(index)->buffer();
+    if (buf == nullptr)
+        return;
+    view->clear_carets();
+    i = 0;
+    while (i < buf->caret_count()) {
+        if (buf->caret_at(i, &line, &column) != 0)
+            view->add_caret(line, column);
+        i = i + 1;
+    }
+}
+
+void Ui::add_caret(long line, long column) {
+    Document *doc;
+    TextView *view;
+    long index;
+    long byte;
+    long useLine;
+    long useCol;
+    long primaryLine;
+    long primaryCol;
+
+    if (state == nullptr)
+        return;
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr || doc->buffer() == nullptr)
+        return;
+    if (line < 0 || column < 0)
+        return;
+    if (line >= doc->buffer()->line_count())
+        return;
+    view = pages[index].view;
+    if (view != nullptr
+            && view->caret_at(
+                    0,
+                    &primaryLine,
+                    &primaryCol) != 0)
+        doc->buffer()->move_to(
+                primaryLine + 1,
+                primaryCol + 1);
+    byte = doc->buffer()->byte_at_line(line, column);
+    doc->buffer()->line_column_at(byte, &useLine, &useCol);
+    if (view != nullptr) {
+        if (view->add_caret(useLine, useCol) == 0)
+            return;
+    }
+    doc->buffer()->add_caret(useLine, useCol);
+}
+
+void Ui::add_next_caret(void) {
+    Document *doc;
+    long index;
+    long line;
+    long column;
+
+    if (state == nullptr)
+        return;
+    index = state->index();
+    if (index < 0 || index >= state->count())
+        return;
+    doc = state->at(index);
+    if (doc == nullptr || doc->buffer() == nullptr)
+        return;
+    if (pages[index].view != nullptr) {
+        long primaryLine;
+        long primaryCol;
+
+        if (pages[index].view->caret_at(
+                    0,
+                    &primaryLine,
+                    &primaryCol) != 0)
+            doc->buffer()->move_to(
+                    primaryLine + 1,
+                    primaryCol + 1);
+    }
+    doc->buffer()->line_column_at(
+            doc->buffer()->cursor_offset(),
+            &line,
+            &column);
+    if (line + 1 >= doc->buffer()->line_count())
+        return;
+    add_caret(line + 1, column);
+}
+
+void Ui::clear_carets(void) {
+    long index;
+
+    if (state == nullptr)
+        return;
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].view != nullptr)
+        pages[index].view->clear_carets();
+    if (state->at(index) != nullptr
+            && state->at(index)->buffer() != nullptr)
+        state->at(index)->buffer()->clear_carets();
+}
+
+int Ui::caret_count(void) {
+    long index;
+
+    if (state == nullptr)
+        return 0;
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return 0;
+    if (pages[index].view == nullptr)
+        return 1;
+    return pages[index].view->caret_count();
+}
+
 void Ui::push_active(void) {
     long index;
     Document *doc;
@@ -2736,7 +2900,10 @@ void Ui::sync_view(long index) {
     wantRaw = want->c_str();
     haveRaw = have->c_str();
     if (text_same(wantRaw, haveRaw) == 1) {
+        applying = 1;
         place_cursor(index);
+        apply_carets(index);
+        applying = 0;
         return;
     }
     wantN = want->size();
@@ -2755,6 +2922,8 @@ void Ui::sync_view(long index) {
         haveEnd = haveEnd - 1;
     }
     applying = 1;
+    if (pages[index].view != nullptr)
+        pages[index].view->hold_carets(1);
     if (haveEnd > prefix) {
         text_position(haveRaw, prefix, &line, &column);
         text_position(haveRaw, haveEnd, &line2, &column2);
@@ -2768,8 +2937,11 @@ void Ui::sync_view(long index) {
         at = new TextIter(line, column);
         pages[index].buffer->insert(at, bit->c_str());
     }
-    applying = 0;
+    if (pages[index].view != nullptr)
+        pages[index].view->hold_carets(0);
     place_cursor(index);
+    apply_carets(index);
+    applying = 0;
     highlight(index);
     paint_line(index);
 }
@@ -2786,8 +2958,16 @@ void Ui::changed(long index) {
     doc = state->at(index);
     if (doc == nullptr || pages[index].buffer == nullptr)
         return;
+    if (pages[index].view != nullptr
+            && pages[index].view->caret_deferred() != 0)
+        return;
     text = pages[index].buffer->get_text();
     extra = doc->buffer()->note_external(text);
+    if (pages[index].view != nullptr
+            && pages[index].view->caret_count() > 1)
+        take_carets(index);
+    if (pages[index].view != nullptr)
+        pages[index].view->ack_edit();
     if (extra == 1) {
         pages[index].pendingSync = 1;
         if (pages[index].userDepth == 0
@@ -2817,6 +2997,13 @@ void Ui::moved(long index, long line, long offset) {
     doc = state->at(index);
     if (doc == nullptr)
         return;
+    if (index < pageCount
+            && pages[index].view != nullptr
+            && pages[index].view->edit_motion() == 0
+            && pages[index].view->caret_count() > 1) {
+        pages[index].view->clear_carets();
+        doc->buffer()->clear_carets();
+    }
     doc->buffer()->move_to(line + 1, offset + 1);
     paint_brackets(index);
     paint_line(index);
@@ -5668,6 +5855,14 @@ void Ui::on_menu(const char *label) {
         handle(state->run("comment"));
         return;
     }
+    if (text_same(label, "Add caret") == 1) {
+        add_next_caret();
+        return;
+    }
+    if (text_same(label, "Clear carets") == 1) {
+        clear_carets();
+        return;
+    }
     if (text_same(label, "Block comment") == 1) {
         handle(state->run("block-comment"));
         return;
@@ -6369,9 +6564,14 @@ void Ui::show_buffer(long index) {
     if (doc == nullptr)
         return;
     applying = 1;
+    if (pages[index].view != nullptr)
+        pages[index].view->hold_carets(1);
     pages[index].buffer->set_text(doc->buffer()->text());
-    applying = 0;
+    if (pages[index].view != nullptr)
+        pages[index].view->hold_carets(0);
     place_cursor(index);
+    apply_carets(index);
+    applying = 0;
     highlight(index);
     retitle(index);
     paint_status();

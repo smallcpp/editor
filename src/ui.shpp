@@ -194,6 +194,9 @@ public:
     void open_theme_color(int slot);
     void paint_theme(const char *language);
     void paint_paper(long index);
+    void add_caret(long line, long column);
+    void clear_carets(void);
+    int caret_count(void);
     void paint_map(
             MapColumn *column,
             void *cr,
@@ -416,6 +419,9 @@ private:
     void rebuild(void);
     void push_active(void);
     void place_cursor(long index);
+    void take_carets(long index);
+    void apply_carets(long index);
+    void add_next_caret(void);
     void sync_view(long index);
     void mirror_pages(void);
     void take_selection(void);

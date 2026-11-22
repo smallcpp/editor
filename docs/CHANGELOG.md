@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+Edit can keep several carets in one buffer. Add caret
+puts another caret on the next line, in the same column.
+Clear carets removes the extras. Typing, Backspace,
+Delete, and Comment apply at each caret and share one
+undo step. An arrow key or a click clears the extras.
+The text view stores those carets as marks. GtkTextView
+itself still has one cursor.
 A narrow column on the right of the current buffer
 shows the shape of the file and a band for the lines
 in view. A click in that column scrolls the buffer.
@@ -17,7 +24,8 @@ moves the cursor in the current buffer.
 The top of the window is a menu bar. File, Edit, Search, View,
 and Documents are submenus. File has New, Open, Save, Save As,
 Save All, Close, and Quit. Edit has Undo, Redo, Cut, Copy,
-Paste, Indent, Unindent, Comment, and Settings. Search has
+Paste, Indent, Unindent, Comment, Add caret, Clear
+carets, and Settings. Search has
 Search, Replace,
 Reverse, Whole word, Match case, and Wrap. The last four are
 check items. A selection that covers more than one line
