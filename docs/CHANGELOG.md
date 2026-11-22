@@ -8,6 +8,13 @@ project list. Right panel is the mini-map. Clearing a
 check hides that panel, and checking it shows the panel
 again. The choice is saved in `editor.ini`.
 
+Settings has a Projects page. Recent projects is a pull-down
+of project folders, and choosing one opens that project.
+A project is the folder the editor is working in. Opening
+it writes a copy of the current settings to
+`<project>/.sedit/editor.ini`. That file includes
+`recovery-dir` for the same folder. Recovery files for
+the project are written in `<project>/.sedit` as well.
 The installed program is `sedit`. The binary is `bin/sedit`,
 and `install` copies that file into the prefix. Help and the
 version line use that name.
@@ -94,7 +101,9 @@ When a buffer's file changes on disk, a dialog offers
 Reload, Save, or Ignore. A saved file that disappears
 is reported once. General can write recovery copies.
 That checkbox is off. The minutes box starts at 5.
-Copies go in `$HOME/.config/smallcpp/recovery`. Keep
+Copies for the open project go in that project's `.sedit`
+directory. With no project they go in
+`$HOME/.config/smallcpp/recovery`. Keep
 starts at 20 and is `recovery-keep`. Older copies past
 that count are removed. A settings
 control writes `$HOME/.config/smallcpp/editor.ini` when it

@@ -42,7 +42,9 @@ the shape of the file and a band for the visible lines.
 A click in that column scrolls the buffer. The column
 reads the buffer the editor already has.
 A panel on the left lists files, the project, and symbols.
-The project is a folder. Set types a path, and File folder
+The project is a folder. Settings, Projects lists recent
+project folders, and choosing one opens that folder.
+Set types a path, and File folder
 uses the directory of the active file. When that folder
 contains `CMakeLists.txt`, the project page lists
 `add_executable` and `add_library` targets, and compile
@@ -117,7 +119,7 @@ Whitespace draws
 a dot for each space and a line for each tab. Line ends
 draws a mark after each line. Indent stops draws a line
 at each tab stop inside the leading indent. Settings has
-General, Search, Appearance, Languages, and Keyboard
+General, Projects, Search, Appearance, Languages, and Keyboard
 pages, and the tabs sit on the left and stay put while
 the page scrolls. Languages lists each language. It has
 a name, suffixes, special filenames, a shebang, a line
@@ -254,7 +256,11 @@ the file changes again. A saved file that is gone from
 disk is reported once. General has Write recovery files,
 off until it is turned on, and a Minutes box that starts
 at 5. Keep starts at 20. A recovery copy is the buffer
-text, written under `$HOME/.config/smallcpp/recovery`.
+text. The open project's copies are written in
+`<project>/.sedit`, next to `editor.ini`, which is a copy
+of the current settings and records that folder as
+`recovery-dir`. With no project, copies are written under
+`$HOME/.config/smallcpp/recovery`.
 Copies past that count are removed, oldest first. On
 startup, a recovery copy for a file that is gone asks
 Open or Ignore. Open loads that copy and says the file

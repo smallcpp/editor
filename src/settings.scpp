@@ -493,6 +493,169 @@ int recovery_dir(char *dest, long cap) {
     return 1;
 }
 
+int project_home(char *dest, long cap, const char *project) {
+    char dir[EDITOR_PATH];
+    char clean[EDITOR_PATH];
+
+    if (dest == nullptr || cap < 2)
+        return 0;
+    dest[0] = 0;
+    if (project == nullptr || project[0] == 0)
+        return 0;
+    text_copy(dir, EDITOR_PATH, project);
+    if (file_is_reg(project) == 1)
+        path_dir(dir, EDITOR_PATH, project);
+    if (path_normalize(clean, EDITOR_PATH, dir) == 0)
+        return 0;
+    if (file_is_dir(clean) == 0)
+        return 0;
+    path_join(dest, cap, clean, ".sedit");
+    if (dest[0] == 0)
+        return 0;
+    if (ensure_dir(dest) == 0)
+        return 0;
+    return 1;
+}
+
+int project_config_path(
+        char *dest,
+        long cap,
+        const char *project) {
+    char home[EDITOR_PATH];
+
+    if (dest == nullptr || cap < 2)
+        return 0;
+    dest[0] = 0;
+    if (project_home(home, EDITOR_PATH, project) == 0)
+        return 0;
+    path_join(dest, cap, home, "editor.ini");
+    if (dest[0] == 0)
+        return 0;
+    return 1;
+}
+
+int project_lines(
+        const char *path,
+        char dest[][EDITOR_PATH],
+        int cap) {
+    char *raw;
+    long n;
+    long i;
+    long start;
+    const char *err;
+    int count;
+
+    if (dest == nullptr || cap < 1)
+        return 0;
+    if (path == nullptr || file_exists(path) == 0)
+        return 0;
+    err = "";
+    n = 0;
+    raw = read_file(path, &n, &err);
+    if (raw == nullptr)
+        return 0;
+    count = 0;
+    i = 0;
+    start = 0;
+    while (i <= n && count < cap) {
+        if (i == n || raw[i] == '\n' || raw[i] == '\r') {
+            if (i - start > 8
+                    && raw[start] == 'p'
+                    && raw[start + 1] == 'r'
+                    && raw[start + 2] == 'o'
+                    && raw[start + 3] == 'j'
+                    && raw[start + 4] == 'e'
+                    && raw[start + 5] == 'c'
+                    && raw[start + 6] == 't'
+                    && raw[start + 7] == '=') {
+                long k;
+                long len;
+
+                len = i - (start + 8);
+                if (len > EDITOR_PATH - 1)
+                    len = EDITOR_PATH - 1;
+                if (len > 0) {
+                    k = 0;
+                    while (k < len) {
+                        dest[count][k] = raw[start + 8 + k];
+                        k = k + 1;
+                    }
+                    dest[count][k] = 0;
+                    count = count + 1;
+                }
+            }
+            if (i < n && raw[i] == '\r' && raw[i + 1] == '\n')
+                i = i + 1;
+            start = i + 1;
+        }
+        i = i + 1;
+    }
+    return count;
+}
+
+int settings_note(
+        const char *path,
+        const char *recoveryDir,
+        const char projects[][EDITOR_PATH],
+        int count) {
+    char *raw;
+    long n;
+    const char *err;
+    String *text;
+    int i;
+
+    if (path == nullptr || path[0] == 0)
+        return 0;
+    err = "";
+    n = 0;
+    raw = read_file(path, &n, &err);
+    if (raw == nullptr)
+        return 0;
+    text = new String();
+    text->append(raw);
+    if (n == 0 || raw[n - 1] != '\n')
+        text->append("\n");
+    if (recoveryDir != nullptr && recoveryDir[0] != 0) {
+        text->append("recovery-dir=");
+        text->append(recoveryDir);
+        text->append("\n");
+    }
+    if (count < 0)
+        count = 0;
+    if (count > EDITOR_RECENT_MAX)
+        count = EDITOR_RECENT_MAX;
+    i = 0;
+    while (i < count && projects != nullptr) {
+        if (projects[i][0] != 0) {
+            text->append("project=");
+            text->append(projects[i]);
+            text->append("\n");
+        }
+        i = i + 1;
+    }
+    err = "";
+    return write_file(path, text->c_str(), &err);
+}
+
+int project_store(
+        const char *project,
+        const EditorConfig *item,
+        const char projects[][EDITOR_PATH],
+        int count) {
+    char path[EDITOR_PATH];
+    char home[EDITOR_PATH];
+
+    if (item == nullptr)
+        return 0;
+    if (project_home(home, EDITOR_PATH, project) == 0)
+        return 0;
+    if (project_config_path(path, EDITOR_PATH, project) == 0)
+        return 0;
+    if (config_write(path, item) == 0)
+        return 0;
+    return settings_note(path, home, projects, count);
+}
+
 static int key_is(const char *line, const char *key) {
     long i;
 

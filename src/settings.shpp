@@ -89,6 +89,25 @@ void theme_copy(
         const EditorConfig *src);
 int config_path(char *dest, long cap);
 int recovery_dir(char *dest, long cap);
+int project_home(char *dest, long cap, const char *project);
+int project_config_path(
+        char *dest,
+        long cap,
+        const char *project);
+int project_lines(
+        const char *path,
+        char dest[][EDITOR_PATH],
+        int cap);
+int settings_note(
+        const char *path,
+        const char *recoveryDir,
+        const char projects[][EDITOR_PATH],
+        int count);
+int project_store(
+        const char *project,
+        const EditorConfig *item,
+        const char projects[][EDITOR_PATH],
+        int count);
 int theme_load(EditorConfig *item, const char *name);
 int theme_save(const char *name, const EditorConfig *item);
 int theme_list(char names[][THEME_NAME], int cap);

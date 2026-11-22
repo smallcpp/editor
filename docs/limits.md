@@ -129,7 +129,10 @@ removed file is reported once. Write recovery files is
 off. The interval is `recovery-minutes`, from 1 to 1440,
 and the default is 5. `recovery-keep` is how many
 copies to hold, from 0 to 500, and the default is 20.
-Copies are the buffer text in
+Copies are the buffer text. The open project's copies
+are in `<project>/.sedit`, beside `editor.ini`, a copy of
+the current settings. That file's `recovery-dir` is the
+same folder. With no project, copies are in
 `$HOME/.config/smallcpp/recovery`. Copies past that
 count are removed, oldest first. Startup asks
 Open or Ignore when that copy is for a file that is
