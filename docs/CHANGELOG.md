@@ -131,7 +131,14 @@ is dark on gold. An unmatched bracket is white on red.
 A file type can override either color, such as
 `theme-python-brackets-back`. A bracket inside a string
 or a comment matches only inside that span. A bracket
-in code skips those spans.
+in code skips those spans. The dialog also sets the
+buffer background. The default is `#ffffff`. A file
+type can override it, such as
+`theme-python-background`. Each tag has a Bold
+checkbox. The default is off. A file type can turn
+one on, such as `theme-python-keyword-bold`. A line
+separates that grid from Close. Close is centered
+on this dialog and on the setup dialog.
 The save dialog lists every modified file.
 Each one can be saved or discarded, and Save all and Discard
 all do the whole list. Saving an untitled file still asks

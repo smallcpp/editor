@@ -184,6 +184,13 @@ Each of those tags has a foreground and a background.
 The match is dark on gold, and an unmatched bracket is
 white on red. A bracket in a string or a comment stays
 inside that span. A bracket in code skips those spans.
+The dialog sets the buffer background. The default is
+`#ffffff`, and a file type can override it, such as
+`theme-python-background`. Each tag has a Bold
+checkbox. The default is off. A file type stores one
+as `theme-python-keyword-bold`. A line separates the
+grid from Close. Close is centered on this dialog and
+on the setup dialog.
 A missing file, or a missing
 `HOME`, keeps the defaults. The dialog is transient for the
 editor window.
