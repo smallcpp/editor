@@ -1,0 +1,76 @@
+#ifndef EDITOR_LANGUAGE
+#define EDITOR_LANGUAGE
+
+/* Languages the editor can name, comment, and color.
+ * A file that matches nothing stays plain. Built-in
+ * languages can be restored. The working set is saved
+ * beside editor.ini.
+ */
+
+enum {
+    EDITOR_LANG_MAX = 32,
+    EDITOR_LANG_NAME = 32,
+    EDITOR_LANG_LIST = 192,
+    EDITOR_LANG_MARK = 24,
+    EDITOR_LANG_KEYS = 512
+};
+
+class Language {
+public:
+    char name[EDITOR_LANG_NAME];
+    char origin[EDITOR_LANG_NAME];
+    char suffixes[EDITOR_LANG_LIST];
+    char names[EDITOR_LANG_LIST];
+    char shebang[EDITOR_LANG_LIST];
+    char line[EDITOR_LANG_MARK];
+    char block[EDITOR_LANG_MARK];
+    char keywords[EDITOR_LANG_KEYS];
+    int builtin;
+};
+
+class CommentMarks {
+public:
+    const char *leader;
+    char open[EDITOR_LANG_MARK];
+    char close[EDITOR_LANG_MARK];
+    int block;
+};
+
+void languages_load(void);
+int language_count(void);
+Language *language_at(int index);
+int language_find(const char *name);
+int language_store(
+        int index,
+        const char *name,
+        const char *suffixes,
+        const char *names,
+        const char *shebang,
+        const char *line,
+        const char *block,
+        const char *keywords);
+int language_insert(
+        const char *name,
+        const char *suffixes,
+        const char *names,
+        const char *shebang,
+        const char *line,
+        const char *block,
+        const char *keywords);
+int language_remove(int index);
+int language_restore(const char *name);
+int language_keyword(
+        const char *name,
+        const char *word);
+void language_comment(
+        const char *name,
+        const char **line,
+        const char **open,
+        const char **close);
+void comment_style_of(
+        const char *language,
+        const char *path,
+        const char *text,
+        CommentMarks *out);
+
+#endif
