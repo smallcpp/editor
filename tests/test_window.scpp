@@ -892,6 +892,33 @@ int main(void) {
                     "tabs do not widen the window");
         }
         ui->show_settings();
+        expect(text_same(ui->theme_choice(), "default") == 1,
+                "theme starts default");
+        expect(ui->theme_store("night") == 1,
+                "store theme");
+        expect(text_same(ui->theme_choice(), "night") == 1,
+                "theme is night");
+        ui->apply_settings();
+        {
+            char path[EDITOR_PATH];
+            char *raw;
+            long n;
+            const char *err;
+
+            err = "";
+            n = 0;
+            expect(config_path(path, EDITOR_PATH) == 1,
+                    "theme ini path");
+            raw = read_file(path, &n, &err);
+            expect(raw != nullptr, "theme ini");
+            if (raw != nullptr)
+                expect(text_has(raw, "theme=night") == 1,
+                        "saved theme name");
+        }
+        expect(ui->theme_pick("default") == 1,
+                "pick default");
+        expect(text_same(ui->theme_choice(), "default") == 1,
+                "back to default");
         expect(ui->language_total() == 8,
                 "language count");
         expect(text_same(

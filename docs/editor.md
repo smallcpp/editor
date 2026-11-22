@@ -101,7 +101,14 @@ plain. Commenting and coloring use this list.
 Search holds wrap at the end of the buffer, reverse
 direction, whole words only, and exact word case.
 Appearance holds Whitespace, Line ends, Indent stops, and
-Font. Remember files is on General with the recent-file
+Font. It also picks a theme and can save the current
+settings as a new theme. A theme file lives in
+`$HOME/.config/smallcpp/themes` and can be copied in.
+It sets the window background and text, menus, tabs, the
+current line, the column marker, syntax colors, bracket
+colors, and the font. The tag map in `editor.ini` is the
+default theme. A missing color keeps that default.
+Remember files is on General with the recent-file
 count, and it is off until it is turned on. Search and
 Appearance
 say that the choices on those pages are the defaults.

@@ -127,6 +127,11 @@ public:
     int recovery_keep(void);
     void set_recovery_keep(int value);
     void take_recovery_keep(void);
+    const char *theme_choice(void);
+    int theme_pick(const char *name);
+    int theme_store(const char *name);
+    void choose_theme_list(void);
+    void save_theme_entry(void);
     int language_total(void);
     const char *language_choice(void);
     int language_define(
@@ -197,6 +202,9 @@ private:
     int leaving;
     char lineColor[32];
     char marginColor[32];
+    char themeName[THEME_NAME];
+    EditorConfig *themeBase;
+    void *themeCss;
     EditorConfig *themeConfig;
     char fontDesc[128];
     char lastDir[EDITOR_PATH];
@@ -227,6 +235,8 @@ private:
     Entry *bracketEntry;
     Button *lineColorButton;
     Button *marginColorButton;
+    DropDown *themePick;
+    Entry *themeSaveEntry;
     FileDialog *files;
     FontDialog *fonts;
     ColorDialog *colors;
@@ -349,6 +359,10 @@ private:
     void paint_status(void);
     void paint_line(long index);
     void apply_view(long index);
+    void paint_frame(void);
+    void fill_themes(void);
+    void keep_theme_base(const EditorConfig *item);
+    void give_theme_base(EditorConfig *item);
     void fill_languages(void);
     void read_language_fields(
             const char **name,

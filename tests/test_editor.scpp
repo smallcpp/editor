@@ -774,6 +774,16 @@ int main(void) {
                     theme_color(&item, "c", "background"),
                     "#ffffff") == 1,
                 "default background");
+        expect(text_same(
+                    theme_color(&item, "", "text"),
+                    "#1a1a1a") == 1,
+                "default text");
+        expect(text_same(
+                    theme_color(&item, "", "menu"),
+                    "#f4f4f4") == 1,
+                "default menu");
+        expect(text_same(item.themeName, "default") == 1,
+                "default theme");
         expect(theme_bold(&item, "c", "keyword") == 0,
                 "default bold off");
         expect(theme_bold(
@@ -1043,6 +1053,76 @@ int main(void) {
         unlink(neu);
         unlink(note);
         rmdir(rec);
+    }
+    {
+        EditorConfig part;
+        String *body;
+        char listed[THEME_LIST][THEME_NAME];
+        char folder[EDITOR_PATH];
+        char dest[EDITOR_PATH];
+        int n;
+        int seen;
+        int i;
+
+        config_defaults(&part);
+        text_copy(part.font, 128, "Monospace 12");
+        expect(theme_save("night", &part) == 1,
+                "save theme");
+        path_join(
+                folder,
+                EDITOR_PATH,
+                dir,
+                ".config/smallcpp/themes");
+        path_join(dest, EDITOR_PATH, folder, "part.ini");
+        body = new String();
+        body->append("theme-keyword=#010101\n");
+        body->append("line-color=#abcdef\n");
+        expect(write_file(
+                    dest,
+                    body->c_str(),
+                    &io) == 1,
+                "copy theme in");
+        config_defaults(&part);
+        expect(theme_load(&part, "part") == 1,
+                "load partial");
+        expect(text_same(
+                    theme_color(&part, "", "keyword"),
+                    "#010101") == 1,
+                "theme keyword");
+        expect(text_same(
+                    theme_color(&part, "", "comment"),
+                    "#808080") == 1,
+                "missing comment stays");
+        expect(text_same(part.lineColor, "#abcdef") == 1,
+                "theme line color");
+        expect(text_same(
+                    part.marginColor,
+                    "#c8c8c8") == 1,
+                "missing margin stays");
+        expect(text_same(
+                    theme_color(&part, "", "text"),
+                    "#1a1a1a") == 1,
+                "missing text stays");
+        config_defaults(&part);
+        expect(theme_load(&part, "night") == 1,
+                "load saved theme");
+        expect(text_same(part.font, "Monospace 12") == 1,
+                "theme font");
+        n = theme_list(listed, THEME_LIST);
+        seen = 0;
+        i = 0;
+        while (i < n) {
+            if (text_same(listed[i], "part") == 1)
+                seen = seen + 1;
+            if (text_same(listed[i], "night") == 1)
+                seen = seen + 1;
+            i = i + 1;
+        }
+        expect(seen == 2, "lists themes");
+        expect(theme_load(&part, "missing") == 0,
+                "missing theme");
+        expect(theme_save("default", &part) == 0,
+                "default is not a file");
     }
     {
         Highlighter *light;
