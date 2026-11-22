@@ -57,6 +57,16 @@ extern void gtk_paned_set_shrink_start_child(void *paned, int shrink);
 extern void gtk_paned_set_resize_end_child(void *paned, int resize);
 extern void gtk_paned_set_shrink_end_child(void *paned, int shrink);
 extern void gtk_paned_set_wide_handle(void *paned, int wide);
+extern void *gtk_event_controller_legacy_new(void);
+extern void gtk_event_controller_set_propagation_phase(
+        void *controller,
+        int phase);
+extern int gdk_event_get_event_type(void *event);
+extern int gdk_event_get_position(
+        void *event,
+        double *x,
+        double *y);
+extern int gdk_button_event_get_button(void *event);
 extern unsigned long g_signal_connect_data(
         void *instance,
         const char *signal,
@@ -174,6 +184,7 @@ static void map_draw(
     if (column == nullptr || column->owner == nullptr)
         return;
     column->note_size((long)width, (long)height);
+    ((Ui *)column->owner)->pin_map(column->page);
     ((Ui *)column->owner)->paint_map(
             column,
             cr,
@@ -181,66 +192,52 @@ static void map_draw(
             height);
 }
 
-static void map_pressed(
-        void *gesture,
-        int count,
-        double x,
-        double y,
+/* GdkEventType: motion 1, press 2, release 3.
+ * Capture phase is 1. Motion keeps scrolling until release.
+ */
+static int map_event(
+        void *controller,
+        void *event,
         void *data) {
     MapColumn *column;
     Ui *ui;
-
-    (void)gesture;
-    (void)count;
-    (void)x;
-    column = (MapColumn *)data;
-    if (column == nullptr || column->owner == nullptr)
-        return;
-    ui = (Ui *)column->owner;
-    if (ui->on_map_mark(column->page, (long)y) == 1) {
-        column->grab = (long)y;
-        column->markDrag = 1;
-        ui->drag_map_mark((long)y);
-        return;
-    }
-    if (column->markDrag != 0)
-        return;
-    ui->map_click((long)y);
-}
-
-static void map_motion(
-        void *controller,
-        double x,
-        double y,
-        void *data) {
-    MapColumn *column;
+    int kind;
+    int button;
+    double x;
+    double y;
 
     (void)controller;
-    (void)x;
     column = (MapColumn *)data;
     if (column == nullptr || column->owner == nullptr)
-        return;
+        return 0;
+    if (event == nullptr)
+        return 0;
+    ui = (Ui *)column->owner;
+    kind = gdk_event_get_event_type(event);
+    x = 0;
+    y = 0;
+    if (gdk_event_get_position(event, &x, &y) == 0) {
+        if (kind == 3)
+            column->markDrag = 0;
+        return 0;
+    }
+    if (kind == 2) {
+        button = gdk_button_event_get_button(event);
+        if (button != 1)
+            return 0;
+        ui->map_button(column->page, (long)y, 1);
+        return 1;
+    }
+    if (kind == 3) {
+        column->markDrag = 0;
+        return 1;
+    }
+    if (kind != 1)
+        return 0;
     if (column->markDrag == 0)
-        return;
-    ((Ui *)column->owner)->drag_map_mark((long)y);
-}
-
-static void map_released(
-        void *gesture,
-        int count,
-        double x,
-        double y,
-        void *data) {
-    MapColumn *column;
-
-    (void)gesture;
-    (void)count;
-    (void)x;
-    (void)y;
-    column = (MapColumn *)data;
-    if (column == nullptr)
-        return;
-    column->markDrag = 0;
+        return 0;
+    ui->map_drag(column->page, (long)y);
+    return 1;
 }
 
 static void map_split_moved(
@@ -743,6 +740,7 @@ Ui::Ui(Editor *editor) {
     lineColorButton = nullptr;
     marginColorButton = nullptr;
     mapFontButton = nullptr;
+    mapWidthSpin = nullptr;
     files = nullptr;
     fonts = nullptr;
     colors = nullptr;
@@ -1922,7 +1920,6 @@ void Ui::prepare(void) {
 
 MapColumn::MapColumn(void *owner, long index) : Widget() {
     void (*draw)(void *, void *, int, int, void *);
-    void (*pressed)(void *, int, double, double, void *);
     void *click;
 
     this->owner = owner;
@@ -1932,6 +1929,7 @@ MapColumn::MapColumn(void *owner, long index) : Widget() {
     markAt = -1;
     markSize = 0;
     grab = 0;
+    dragAt = 0;
     hooked = 0;
     markDrag = 0;
     adjust = nullptr;
@@ -1945,28 +1943,12 @@ MapColumn::MapColumn(void *owner, long index) : Widget() {
             (void *)draw,
             (void *)this,
             nullptr);
-    click = gtk_gesture_click_new();
-    pressed = map_pressed;
+    click = gtk_event_controller_legacy_new();
+    gtk_event_controller_set_propagation_phase(click, 1);
     g_signal_connect_data(
             click,
-            "pressed",
-            (void *)pressed,
-            (void *)this,
-            nullptr,
-            0);
-    g_signal_connect_data(
-            click,
-            "released",
-            (void *)map_released,
-            (void *)this,
-            nullptr,
-            0);
-    gtk_widget_add_controller(native, click);
-    click = gtk_event_controller_motion_new();
-    g_signal_connect_data(
-            click,
-            "motion",
-            (void *)map_motion,
+            "event",
+            (void *)map_event,
             (void *)this,
             nullptr,
             0);
@@ -2517,8 +2499,7 @@ int Ui::on_map_mark(long page, long y) {
     return 0;
 }
 
-void Ui::drag_map_mark(long y) {
-    long index;
+void Ui::scroll_map_y(long index, long y) {
     long lines;
     long height;
     long line;
@@ -2526,7 +2507,6 @@ void Ui::drag_map_mark(long y) {
 
     if (state == nullptr)
         return;
-    index = state->index();
     if (index < 0 || index >= pageCount)
         return;
     doc = state->at(index);
@@ -2538,11 +2518,110 @@ void Ui::drag_map_mark(long y) {
     height = pages[index].map->drawn_height();
     if (height < 1)
         height = 1;
+    if (y < 0)
+        y = 0;
+    if (y >= height)
+        y = height - 1;
     line = map_line(lines, height, y);
-    doc->buffer()->move_to(line + 1, 1);
-    place_cursor(index);
     scroll_line(index, line);
     redraw_map(index);
+}
+
+void Ui::drag_map_mark(long y) {
+    if (state == nullptr)
+        return;
+    scroll_map_y(state->index(), y);
+}
+
+void Ui::map_button(long page, long y, int down) {
+    int hit;
+
+    if (page < 0 || page >= pageCount)
+        return;
+    if (pages[page].map == nullptr)
+        return;
+    if (down == 0) {
+        pages[page].map->markDrag = 0;
+        return;
+    }
+    hit = on_map_mark(page, y);
+    if (hit == 0)
+        hit = in_map_band(page, y);
+    if (hit == 1) {
+        pages[page].map->markDrag = 1;
+        pages[page].map->grab = y;
+        pages[page].map->dragAt = band_top(page);
+        return;
+    }
+    map_click(y);
+}
+
+void Ui::map_drag(long page, long y) {
+    long desired;
+
+    if (page < 0 || page >= pageCount)
+        return;
+    if (pages[page].map == nullptr)
+        return;
+    if (pages[page].map->markDrag == 0)
+        return;
+    desired = pages[page].map->dragAt
+            + (y - pages[page].map->grab);
+    scroll_map_y(page, desired);
+}
+
+long Ui::band_top(long page) {
+    long lines;
+    long height;
+    long first;
+    long count;
+    long top;
+    long band;
+
+    if (page < 0 || page >= pageCount)
+        return (long)0;
+    if (pages[page].map == nullptr)
+        return (long)0;
+    if (state == nullptr || state->at(page) == nullptr)
+        return (long)0;
+    if (state->at(page)->buffer() == nullptr)
+        return (long)0;
+    height = pages[page].map->drawn_height();
+    if (height < 1)
+        return (long)0;
+    lines = state->at(page)->buffer()->line_count();
+    view_span(page, &first, &count);
+    map_place(lines, height, first, count, &top, &band);
+    return top;
+}
+
+int Ui::in_map_band(long page, long y) {
+    long lines;
+    long height;
+    long first;
+    long count;
+    long top;
+    long band;
+
+    if (page < 0 || page >= pageCount)
+        return 0;
+    if (pages[page].map == nullptr)
+        return 0;
+    if (state == nullptr || state->at(page) == nullptr)
+        return 0;
+    if (state->at(page)->buffer() == nullptr)
+        return 0;
+    height = pages[page].map->drawn_height();
+    if (height < 1)
+        return 0;
+    lines = state->at(page)->buffer()->line_count();
+    view_span(page, &first, &count);
+    map_place(lines, height, first, count, &top, &band);
+    if (band < 8)
+        band = 8;
+    if (y >= top - 3 && y < top + band + 3)
+        return 1;
+    return 0;
 }
 
 long Ui::map_width(void) {
@@ -2566,6 +2645,7 @@ long Ui::map_width(void) {
 
 void Ui::place_map(long index) {
     int wide;
+    int held;
     long room;
 
     if (index < 0 || index >= pageCount)
@@ -2579,36 +2659,51 @@ void Ui::place_map(long index) {
     room = (long)wide - mapWide;
     if (room < 80)
         return;
+    if (pages[index].mapSplit->position() == room)
+        return;
+    held = mapHold;
     mapHold = 1;
     pages[index].mapSplit->set_position(room);
-    mapHold = 0;
+    mapHold = held;
 }
 
 void Ui::keep_map_width(long index) {
-    int panedWide;
-    long end;
+    int held;
+
+    if (mapHold != 0)
+        return;
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].map == nullptr)
+        return;
+    held = mapHold;
+    mapHold = 1;
+    pages[index].map->set_width_request(mapWide);
+    mapHold = held;
+    place_map(index);
+}
+
+void Ui::pin_map(long index) {
+    int got;
+    int held;
 
     if (mapHold != 0)
         return;
     if (index < 0 || index >= pageCount)
         return;
     if (pages[index].map == nullptr
-            || pages[index].mapSplit == nullptr)
+            || pages[index].map->native == nullptr)
         return;
-    if (pages[index].mapSplit->native == nullptr)
+    got = gtk_widget_get_width(pages[index].map->native);
+    if (got < 1)
         return;
-    panedWide = gtk_widget_get_width(
-            pages[index].mapSplit->native);
-    end = (long)panedWide
-            - pages[index].mapSplit->position();
-    if (end < 24 || end > 400)
+    if (got > (int)mapWide - 3 && got < (int)mapWide + 3)
         return;
-    if (end == mapWide)
-        return;
-    mapWide = end;
+    held = mapHold;
     mapHold = 1;
     pages[index].map->set_width_request(mapWide);
-    mapHold = 0;
+    mapHold = held;
+    place_map(index);
 }
 
 void Ui::set_map_width(long width) {
@@ -2621,8 +2716,11 @@ void Ui::set_map_width(long width) {
     mapWide = width;
     i = 0;
     while (i < pageCount) {
-        if (pages[i].map != nullptr)
+        if (pages[i].map != nullptr) {
+            mapHold = 1;
             pages[i].map->set_width_request(width);
+            mapHold = 0;
+        }
         place_map(i);
         i = i + 1;
     }
@@ -2701,6 +2799,7 @@ void Ui::add_page(long index) {
     scroll->set_v_expand(true);
     pages[index].scroll = scroll;
     pages[index].map = new MapColumn((void *)this, index);
+    pages[index].map->set_width_request(mapWide);
     pages[index].map->watch(pages[index].view->native);
     g_signal_connect_data(
             pages[index].view->native,
@@ -2750,8 +2849,8 @@ void Ui::add_page(long index) {
         gtk_paned_set_resize_start_child(split->native, 1);
         gtk_paned_set_shrink_start_child(split->native, 1);
         gtk_paned_set_resize_end_child(split->native, 0);
-        gtk_paned_set_shrink_end_child(split->native, 1);
-        gtk_paned_set_wide_handle(split->native, 1);
+        gtk_paned_set_shrink_end_child(split->native, 0);
+        gtk_paned_set_wide_handle(split->native, 0);
         split->set_start_child((Widget *)scroll);
         split->set_end_child((Widget *)pages[index].map);
         pages[index].mapSplit = split;
@@ -5206,6 +5305,16 @@ void ui_map_font_button(void *data) {
     editorUi->open_map_font();
 }
 
+void ui_map_width_spin(void *data) {
+    SpinButton *spin;
+
+    spin = (SpinButton *)data;
+    if (editorUi == nullptr || spin == nullptr)
+        return;
+    editorUi->set_map_width((long)spin->value());
+    editorUi->apply_settings();
+}
+
 void ui_theme_pick(void *data) {
     (void)data;
     if (editorUi != nullptr)
@@ -5251,6 +5360,7 @@ void Ui::use_config(EditorConfig *item) {
     set_margin_color(item->marginColor);
     if (item->mapFont[0] != 0)
         set_map_font(item->mapFont);
+    set_map_width(item->mapWidth);
     if (item->font[0] != 0)
         choose_font(item->font);
     searchWrap = item->searchWrap;
@@ -5406,6 +5516,7 @@ void Ui::apply_settings(void) {
     text_copy(item.marginColor, 32, marginColor);
     text_copy(item.font, 128, fontDesc);
     text_copy(item.mapFont, 128, mapFont);
+    item.mapWidth = (int)mapWide;
     read_keys();
     {
         int n;
@@ -6619,6 +6730,11 @@ void Ui::show_settings(void) {
         fontButton->on_clicked(ui_font_button, nullptr);
         mapFontButton = new Button(mapFont);
         mapFontButton->on_clicked(ui_map_font_button, nullptr);
+        mapWidthSpin = new SpinButton(24, 240, (double)mapWide);
+        mapWidthSpin->set_width_chars(12);
+        mapWidthSpin->on_changed(
+                ui_map_width_spin,
+                (void *)mapWidthSpin);
         tabSpin->set_width_chars(12);
         marginSpin->set_width_chars(12);
         lineEntry->set_width_chars(12);
@@ -6785,6 +6901,9 @@ void Ui::show_settings(void) {
             fontGroup->append((Widget *)labeled_field(
                     "Mini-map",
                     (Widget *)mapFontButton));
+            fontGroup->append((Widget *)labeled_field(
+                    "Map width",
+                    (Widget *)mapWidthSpin));
             view->append((Widget *)fontGroup);
         }
         {
@@ -7544,10 +7663,19 @@ void Ui::note_folder(const char *path) {
 }
 
 void Ui::note_size(long width, long height) {
+    long i;
+
     if (leaving == 1)
         return;
     if (width < 100 || height < 100)
         return;
+    i = 0;
+    while (i < pageCount) {
+        if (pages[i].map != nullptr)
+            pages[i].map->set_width_request(mapWide);
+        place_map(i);
+        i = i + 1;
+    }
     if (sizeSeen == 0) {
         sizeSeen = 1;
         seenWidth = (int)width;

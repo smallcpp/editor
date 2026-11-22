@@ -402,6 +402,7 @@ void config_defaults(EditorConfig *item) {
     item->showStops = 0;
     item->showLeft = 1;
     item->showMap = 1;
+    item->mapWidth = 48;
     item->windowWidth = 0;
     item->windowHeight = 0;
     item->rememberFiles = 0;
@@ -1032,6 +1033,8 @@ static void take_line(EditorConfig *item, const char *line) {
         text_copy(item->font, 128, value);
     if (key_is(line, "map-font") == 1)
         text_copy(item->mapFont, 128, value);
+    if (key_is(line, "map-width") == 1)
+        item->mapWidth = read_int(value, item->mapWidth);
     if (key_is(line, "theme") == 1) {
         if (theme_is_default(value) == 1
                 || theme_file_ok(value) == 1)
@@ -1337,6 +1340,7 @@ int config_write(
     text->append("map-font=");
     text->append(item->mapFont);
     text->append("\n");
+    add_num(text, "map-width", item->mapWidth);
     text->append("theme=");
     text->append(item->themeName);
     text->append("\n");

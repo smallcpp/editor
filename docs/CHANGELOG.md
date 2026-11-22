@@ -2,11 +2,15 @@
 
 ## Unreleased
 
+The mini-map keeps the width chosen in Settings. Appearance,
+Font, Map width sets that width, and the column does not
+change it on its own. Pressing the highlighted area and
+moving the mouse scrolls the buffer. The caret stays where
+it was. A click outside the highlight still only scrolls.
+
 The mini-map draws each line in a font, so the shape of the
 text is visible across the column. Settings, Appearance, Font
-has a Mini-map control that chooses that font. Dragging the
-current-line mark scrolls the buffer and keeps the mark under
-the pointer. A click elsewhere still only scrolls.
+has a Mini-map control that chooses that font.
 
 Edit, Select All, and Ctrl+A select the current buffer from
 the start through the end. The Edit menu shows that shortcut.
@@ -21,10 +25,8 @@ freed it.
 Project lines its file names up on the left, the same way
 Files does. Dragging the marker between the left panel and
 the editor changes the panel width, and that width stays
-when the panel is hidden and shown again. The mini-map has
-its own drag marker. Dragging it makes the column wider or
-narrower. The current line is marked in that column, and
-dragging the mark moves the caret and scrolls the buffer.
+when the panel is hidden and shown again. The current line
+is marked in the mini-map.
 
 The left panel tab row has scroll buttons. The panel
 sits on the left edge of the window. Files lines up its

@@ -41,12 +41,12 @@ A narrow column on the right of the current buffer shows
 the shape of the file, a band for the visible lines, and
 a mark on the current line. Each line is drawn in the
 mini-map font, far enough across the column that the text
-keeps its shape. A click in that column scrolls the buffer.
-Dragging the current-line mark moves the caret to the line
-under the pointer and scrolls that line to the top, so the
-mark stays with the pointer. A drag marker
-on the column's left edge makes the column wider or
-narrower. The column reads the buffer the editor already has.
+keeps its shape. A click outside the highlighted band
+scrolls the buffer. Pressing the highlighted area and
+moving the mouse scrolls the buffer with the pointer.
+The caret stays where it was. The column width is the
+Map width from Settings and does not change on its own.
+The column reads the buffer the editor already has.
 A panel on the left lists files, the project, and symbols.
 Its left edge is the left edge of the window. Dragging the
 marker on the panel's right edge changes the panel width.
@@ -146,7 +146,8 @@ Search holds wrap at the end of the buffer, reverse
 direction, whole words only, and exact word case.
 Appearance holds Whitespace, Line ends, Indent stops, and
 Font. Font opens the editor font. Mini-map, in that same
-group, opens the font used to draw the mini-map. Appearance
+group, opens the font used to draw the mini-map. Map width,
+in that group, sets the column width. Appearance
 also picks a theme and can save the current
 settings as a new theme. A theme file lives in
 `$HOME/.config/smallcpp/themes` and can be copied in.

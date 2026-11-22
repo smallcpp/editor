@@ -328,11 +328,13 @@ void check_panel_layout(Ui *ui) {
 }
 
 void check_map_mark(Ui *ui, Editor *editor) {
-    long before;
+    long caret;
     long wide;
     long y;
     long height;
-    long mark;
+    long top;
+    long page;
+    long moved;
 
     ui->set_map_font("Monospace 4");
     expect(text_same(ui->map_font(), "Monospace 4") == 1,
@@ -343,23 +345,44 @@ void check_map_mark(Ui *ui, Editor *editor) {
     expect(ui->map_mark() >= 0, "map marks the line");
     expect(ui->map_mark() < ui->map_height(),
             "mark is on the map");
-    before = editor->active()->buffer()->cursor_line();
+    caret = editor->active()->buffer()->cursor_line();
     height = ui->map_height();
+    top = ui->map_top();
     ui->drag_map_mark(height - 1);
     usleep(80000);
     pump(20);
     expect(editor->active()->buffer()->cursor_line()
-                    > before,
-            "drag moves the cursor");
+                    == caret,
+            "drag leaves the caret");
     y = ui->gutter_line_y(0);
     expect(y < 0, "drag scrolls the buffer");
-    mark = ui->map_mark();
-    expect(mark > height / 2, "mark follows the drag");
+    expect(ui->map_top() > top, "viewport follows the drag");
+    ui->drag_map_mark(0);
+    usleep(80000);
+    pump(20);
+    top = ui->map_top();
+    expect(ui->gutter_line_y(0) >= 0, "drag can return to the top");
+    page = editor->index();
+    ui->map_button(page, top + 2, 1);
+    moved = top + 2 + height / 3;
+    ui->map_drag(page, moved);
+    usleep(80000);
+    pump(20);
+    expect(editor->active()->buffer()->cursor_line()
+                    == caret,
+            "gesture leaves the caret");
+    expect(ui->map_top() > top, "gesture scrolls the buffer");
+    ui->map_button(page, moved, 0);
     wide = ui->map_width();
     ui->set_map_width(wide + 40);
     usleep(100000);
     pump(20);
     expect(ui->map_width() > wide + 15, "map grows");
+    wide = ui->map_width();
+    usleep(100000);
+    pump(20);
+    expect(ui->map_width() > wide - 3, "map keeps its width");
+    expect(ui->map_width() < wide + 3, "map width stays");
 }
 
 void check_panels(Ui *ui) {
