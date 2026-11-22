@@ -57,6 +57,7 @@ public:
     void set_index(long index);
     int new_file(void);
     int open_file(const char *path);
+    int open_recovery(const char *path, const char *text);
     int open_argument(const char *path);
     int save_active(void);
     int save_as(const char *path);

@@ -316,6 +316,43 @@ int Editor::open_file(const char *path) {
     return EDITOR_OK;
 }
 
+int Editor::open_recovery(
+        const char *path,
+        const char *text) {
+    Document *doc;
+    long i;
+
+    if (path == nullptr || path[0] == 0 || text == nullptr) {
+        set_error("missing path");
+        return EDITOR_FAILED;
+    }
+    i = 0;
+    while (i < docs->size()) {
+        if (docs->at(i)->untitled() == 0
+                && text_same(docs->at(i)->path(), path) == 1) {
+            activeIndex = i;
+            set_error("");
+            return EDITOR_OK;
+        }
+        i = i + 1;
+    }
+    doc = new Document();
+    if (doc->load_recovery(path, text) == 0) {
+        set_error(doc->error());
+        return EDITOR_FAILED;
+    }
+    if (docs->size() == 1
+            && docs->at(0)->untitled() == 1
+            && docs->at(0)->buffer()->dirty() == false
+            && docs->at(0)->buffer()->size() == 0)
+        docs->remove(0);
+    apply_typing(doc);
+    docs->add(doc);
+    activeIndex = docs->size() - 1;
+    set_error("");
+    return EDITOR_OK;
+}
+
 int Editor::open_argument(const char *path) {
     if (path == nullptr || path[0] == 0) {
         set_error("missing path");

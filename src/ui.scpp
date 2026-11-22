@@ -68,6 +68,23 @@ void ui_recent(void *data, const char *path) {
     editorUi->open_recent(path);
 }
 
+void ui_recover_response(void *data, int response) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->answer_recovery(response);
+}
+
+void ui_restored_response(
+        void *dialog,
+        int response,
+        void *data) {
+    (void)dialog;
+    (void)response;
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->answer_restored(0);
+}
+
 void ui_message_response(
         void *dialog,
         int response,
@@ -433,6 +450,15 @@ Ui::Ui(Editor *editor) {
     goneLabel = nullptr;
     missingNote[0] = 0;
     missingOpen = 0;
+    recoverDialog = nullptr;
+    recoverLabel = nullptr;
+    restoredNative = nullptr;
+    recoverNote[0] = 0;
+    restoredNote[0] = 0;
+    recoverOpen = 0;
+    restoredOpen = 0;
+    recoverCount = 0;
+    recoverAt = 0;
     recoverCheck = nullptr;
     recoverEntry = nullptr;
     listedCount = 0;
@@ -1170,6 +1196,7 @@ void Ui::show_main(void) {
     refresh();
     mainWindow->present();
     arm_tick();
+    offer_recovery();
 }
 
 void Ui::show_choice(const char *title, int mode) {
@@ -1211,14 +1238,15 @@ void Ui::handle(int code) {
 static void missing_line(
         char *dest,
         long cap,
-        const char *name) {
+        const char *name,
+        const char *suffix) {
     const char *prefix;
-    const char *suffix;
     long n;
     long i;
 
     prefix = "File \"";
-    suffix = "\" not found.";
+    if (suffix == nullptr)
+        suffix = "";
     n = 0;
     i = 0;
     if (name == nullptr)
@@ -1265,7 +1293,11 @@ void Ui::show_missing(const char *path) {
     base = path_base(path);
     if (base == nullptr || base[0] == 0)
         base = path;
-    missing_line(missingNote, EDITOR_PATH, base);
+    missing_line(
+            missingNote,
+            EDITOR_PATH,
+            base,
+            "\" not found.");
     parent = nullptr;
     if (mainWindow != nullptr)
         parent = mainWindow->native;
@@ -1307,6 +1339,216 @@ int Ui::missing_prompt(void) {
 
 const char *Ui::missing_text(void) {
     return missingNote;
+}
+
+void Ui::queue_recover(const char *path) {
+    char dir[EDITOR_PATH];
+    char leaf[128];
+    char full[EDITOR_PATH];
+    long i;
+    Document *doc;
+
+    if (path == nullptr || path[0] == 0)
+        return;
+    if (recoverCount >= EDITOR_RECENT_MAX)
+        return;
+    if (file_exists(path) == 1)
+        return;
+    i = 0;
+    while (i < state->count()) {
+        doc = state->at(i);
+        if (doc != nullptr
+                && doc->untitled() == 0
+                && text_same(doc->path(), path) == 1)
+            return;
+        i = i + 1;
+    }
+    i = 0;
+    while (i < recoverCount) {
+        if (text_same(recoverPath[i], path) == 1)
+            return;
+        i = i + 1;
+    }
+    if (recovery_leaf_for(path, leaf, 128) == 0)
+        return;
+    if (recovery_dir(dir, EDITOR_PATH) == 0)
+        return;
+    path_join(full, EDITOR_PATH, dir, leaf);
+    if (full[0] == 0 || file_exists(full) == 0)
+        return;
+    text_copy(
+            recoverPath[recoverCount],
+            EDITOR_PATH,
+            path);
+    recoverCount = recoverCount + 1;
+}
+
+void Ui::show_next_recover(void) {
+    const char *base;
+    const char *path;
+
+    if (recoverAt < 0 || recoverAt >= recoverCount) {
+        recoverOpen = 0;
+        return;
+    }
+    path = recoverPath[recoverAt];
+    base = path_base(path);
+    if (base == nullptr || base[0] == 0)
+        base = path;
+    missing_line(
+            recoverNote,
+            EDITOR_PATH,
+            base,
+            "\" is gone.");
+    if (recoverDialog == nullptr) {
+        recoverDialog = new Dialog("Recover file");
+        recoverDialog->set_transient(mainWindow);
+        recoverLabel = new Label("");
+        recoverDialog->set_content((Widget *)recoverLabel);
+        recoverDialog->add_button("Open", 1);
+        recoverDialog->add_button("Ignore", 2);
+        recoverDialog->on_response(
+                ui_recover_response,
+                nullptr);
+    }
+    recoverLabel->set_text(recoverNote);
+    recoverOpen = 1;
+    recoverDialog->present();
+}
+
+void Ui::show_restored(const char *path) {
+    void *parent;
+    void (*typed)(void *, int, void *);
+    const char *base;
+
+    base = path_base(path);
+    if (base == nullptr || base[0] == 0)
+        base = path;
+    missing_line(
+            restoredNote,
+            EDITOR_PATH,
+            base,
+            "\" was restored.");
+    parent = nullptr;
+    if (mainWindow != nullptr)
+        parent = mainWindow->native;
+    restoredNative = gtk_message_dialog_new(
+            parent,
+            3,
+            3,
+            2,
+            "%s",
+            restoredNote);
+    restoredOpen = 1;
+    if (restoredNative == nullptr)
+        return;
+    typed = ui_restored_response;
+    g_signal_connect_data(
+            restoredNative,
+            "response",
+            (void *)typed,
+            nullptr,
+            nullptr,
+            0);
+    gtk_window_present(restoredNative);
+}
+
+void Ui::offer_recovery(void) {
+    int i;
+
+    if (leaving == 1 || state == nullptr)
+        return;
+    if (recoveryOn == 0)
+        return;
+    if (recoverOpen != 0 || restoredOpen != 0)
+        return;
+    recoverCount = 0;
+    recoverAt = 0;
+    i = 0;
+    while (i < recentUsed && i < recentCount) {
+        queue_recover(recentPath[i]);
+        i = i + 1;
+    }
+    i = 0;
+    while (i < openCount && i < EDITOR_OPEN_MAX) {
+        queue_recover(openPath[i]);
+        i = i + 1;
+    }
+    show_next_recover();
+}
+
+void Ui::answer_recovery(int response) {
+    char path[EDITOR_PATH];
+    char dir[EDITOR_PATH];
+    char leaf[128];
+    char full[EDITOR_PATH];
+    char *raw;
+    long n;
+    const char *io;
+    int open;
+
+    if (recoverOpen == 0)
+        return;
+    if (recoverAt < 0 || recoverAt >= recoverCount) {
+        recoverOpen = 0;
+        return;
+    }
+    open = 0;
+    if (response == 1)
+        open = 1;
+    text_copy(path, EDITOR_PATH, recoverPath[recoverAt]);
+    recoverAt = recoverAt + 1;
+    recoverOpen = 0;
+    if (recoverDialog != nullptr)
+        recoverDialog->set_visible(false);
+    if (open == 0) {
+        show_next_recover();
+        return;
+    }
+    io = "";
+    n = 0;
+    raw = nullptr;
+    if (recovery_dir(dir, EDITOR_PATH) == 1
+            && recovery_leaf_for(path, leaf, 128) == 1) {
+        path_join(full, EDITOR_PATH, dir, leaf);
+        if (full[0] != 0)
+            raw = read_file(full, &n, &io);
+    }
+    if (raw != nullptr && state != nullptr) {
+        state->open_recovery(path, raw);
+        refresh();
+    }
+    show_restored(path);
+}
+
+int Ui::recovery_prompt(void) {
+    return recoverOpen;
+}
+
+const char *Ui::recovery_text(void) {
+    return recoverNote;
+}
+
+void Ui::answer_restored(int response) {
+    void *dialog;
+
+    (void)response;
+    if (restoredOpen == 0)
+        return;
+    restoredOpen = 0;
+    dialog = restoredNative;
+    restoredNative = nullptr;
+    if (dialog != nullptr)
+        gtk_widget_set_visible(dialog, 0);
+    show_next_recover();
+}
+
+int Ui::restored_prompt(void) {
+    return restoredOpen;
+}
+
+const char *Ui::restored_text(void) {
+    return restoredNote;
 }
 
 void Ui::open_path(const char *path) {
@@ -4556,6 +4798,10 @@ void Ui::leave(void) {
         diskDialog->set_visible(false);
     if (goneDialog != nullptr)
         goneDialog->set_visible(false);
+    if (recoverDialog != nullptr)
+        recoverDialog->set_visible(false);
+    if (restoredNative != nullptr)
+        gtk_widget_set_visible(restoredNative, 0);
     if (choiceDialog != nullptr)
         choiceDialog->set_visible(false);
     if (dirtyDialog != nullptr) {

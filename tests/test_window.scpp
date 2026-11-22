@@ -344,6 +344,60 @@ int main(void) {
                 "recent text");
         ui->on_menu("Close");
         expect(editor->count() == 2, "closed recent again");
+        {
+            char pathR[EDITOR_PATH];
+            long count;
+
+            path_join(pathR, EDITOR_PATH, dir, "kept.scpp");
+            expect(write_file(pathR, "draft\n", &io) == 1,
+                    "recover seed");
+            ui->open_path(pathR);
+            editor->active()->buffer()->set_text(
+                    "draft plus\n");
+            editor->active()->buffer()->mark_dirty();
+            expect(editor->save_active() == EDITOR_OK,
+                    "recover save");
+            expect(ui->write_recovery_files() >= 1,
+                    "recover copy");
+            ui->on_menu("Close");
+            count = editor->count();
+            unlink(pathR);
+            ui->set_option("Write recovery files", 1);
+            ui->offer_recovery();
+            expect(ui->recovery_prompt() == 1,
+                    "recover prompt");
+            expect(text_same(
+                        ui->recovery_text(),
+                        "File \"kept.scpp\" is gone.") == 1,
+                    "recover text");
+            ui->answer_recovery(2);
+            expect(ui->recovery_prompt() == 0,
+                    "recover ignored");
+            expect(editor->count() == count,
+                    "ignore stays closed");
+            ui->offer_recovery();
+            expect(ui->recovery_prompt() == 1,
+                    "recover asks again");
+            ui->answer_recovery(1);
+            expect(text_same(
+                        ui->page_text(editor->index()),
+                        "draft plus\n") == 1,
+                    "opened recovery");
+            expect(text_same(
+                        ui->restored_text(),
+                        "File \"kept.scpp\" was restored.")
+                    == 1,
+                    "says restored");
+            ui->answer_restored(1);
+            expect(ui->restored_prompt() == 0,
+                    "restored closed");
+            editor->active()->buffer()->mark_clean();
+            ui->on_menu("Close");
+            expect(editor->count() == count,
+                    "closed recovery");
+            ui->set_option("Write recovery files", 0);
+            unlink(pathR);
+        }
         ui->switched(0);
         expect(editor->index() == 0, "switch");
         view = ui->view_buffer();

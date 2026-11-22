@@ -199,7 +199,10 @@ the file changes again. A saved file that is gone from
 disk is reported once. General has Write recovery files,
 off until it is turned on, and a Minutes box that starts
 at 5. A recovery copy is the buffer text, written under
-`$HOME/.config/smallcpp/recovery`.
+`$HOME/.config/smallcpp/recovery`. On startup, a
+recovery copy for a file that is gone asks Open or
+Ignore. Open loads that copy and says the file was
+restored. Ignore leaves it closed.
 A missing file, or a missing
 `HOME`, keeps the defaults. The dialog is transient for the
 editor window.

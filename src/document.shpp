@@ -18,6 +18,7 @@ public:
     int disk_status(void);
     void ignore_disk(void);
     void mark_missing(void);
+    int load_recovery(const char *path, const char *text);
     int recovery_leaf(char *dest, long cap);
     int write_recovery(const char *dir);
     const char *path(void);
@@ -42,5 +43,7 @@ private:
     void remember(void);
     void apply_name(const char *path);
 };
+
+int recovery_leaf_for(const char *path, char *dest, long cap);
 
 #endif
