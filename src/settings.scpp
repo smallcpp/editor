@@ -1,6 +1,7 @@
 #include "settings.shpp"
 #include "syntax.shpp"
 #include "buffer.shpp"
+#include <dirent>
 
 extern char *getenv(const char *name);
 
@@ -101,6 +102,34 @@ const char *theme_name(int slot) {
         return "brackets-bold";
     if (slot == 22)
         return "brackets-unmatched-bold";
+    if (slot == 23)
+        return "text";
+    if (slot == 24)
+        return "menu";
+    if (slot == 25)
+        return "menu-text";
+    if (slot == 26)
+        return "tab";
+    if (slot == 27)
+        return "tab-text";
+    if (slot == 28)
+        return "tab-current";
+    if (slot == 29)
+        return "keyword-back";
+    if (slot == 30)
+        return "type-back";
+    if (slot == 31)
+        return "string-back";
+    if (slot == 32)
+        return "comment-back";
+    if (slot == 33)
+        return "number-back";
+    if (slot == 34)
+        return "preprocessor-back";
+    if (slot == 35)
+        return "call-back";
+    if (slot == 36)
+        return "operator-back";
     return "";
 }
 
@@ -328,8 +357,22 @@ static void theme_defaults(EditorConfig *item) {
             "brackets-unmatched-back",
             "#c03030");
     theme_set(item, "", "background", "#ffffff");
+    theme_set(item, "", "text", "#1a1a1a");
+    theme_set(item, "", "menu", "#f4f4f4");
+    theme_set(item, "", "menu-text", "#1a1a1a");
+    theme_set(item, "", "tab", "#f4f4f4");
+    theme_set(item, "", "tab-text", "#1a1a1a");
+    theme_set(item, "", "tab-current", "#ffffff");
+    theme_set(item, "", "keyword-back", "none");
+    theme_set(item, "", "type-back", "none");
+    theme_set(item, "", "string-back", "none");
+    theme_set(item, "", "comment-back", "none");
+    theme_set(item, "", "number-back", "none");
+    theme_set(item, "", "preprocessor-back", "none");
+    theme_set(item, "", "call-back", "none");
+    theme_set(item, "", "operator-back", "none");
     slot = 13;
-    while (slot < THEME_ALL) {
+    while (slot < 23) {
         theme_set(item, "", theme_name(slot), "0");
         slot = slot + 1;
     }
@@ -375,6 +418,7 @@ void config_defaults(EditorConfig *item) {
     item->activePath[0] = 0;
     text_copy(item->lineColor, 32, "#d6e4f5");
     text_copy(item->marginColor, 32, "#c8c8c8");
+    text_copy(item->themeName, THEME_NAME, "default");
     item->font[0] = 0;
     {
         int i;
@@ -546,6 +590,248 @@ static void take_theme(
     theme_set(item, lang, name + cut, value);
 }
 
+int theme_is_default(const char *name) {
+    if (name == nullptr || name[0] == 0)
+        return 1;
+    if (text_same(name, "default") == 1)
+        return 1;
+    return 0;
+}
+
+static int theme_file_ok(const char *name) {
+    long i;
+    char c;
+
+    if (name == nullptr || name[0] == 0)
+        return 0;
+    if (theme_is_default(name) == 1)
+        return 0;
+    i = 0;
+    while (name[i] != 0) {
+        c = name[i];
+        if (c >= 'a' && c <= 'z')
+            c = 'a';
+        else if (c >= 'A' && c <= 'Z')
+            c = 'A';
+        else if (c >= '0' && c <= '9')
+            c = '0';
+        else if (c == '-' || c == '_')
+            c = '-';
+        else
+            return 0;
+        i = i + 1;
+        if (i >= THEME_NAME)
+            return 0;
+    }
+    return 1;
+}
+
+static int themes_dir(char *dest, long cap) {
+    char *home;
+    char config[EDITOR_PATH];
+    char dir[EDITOR_PATH];
+
+    if (dest == nullptr || cap < 2)
+        return 0;
+    dest[0] = 0;
+    home = getenv("HOME");
+    if (home == nullptr || home[0] == 0)
+        return 0;
+    path_join(config, EDITOR_PATH, home, ".config");
+    if (ensure_dir(config) == 0)
+        return 0;
+    path_join(dir, EDITOR_PATH, config, "smallcpp");
+    if (ensure_dir(dir) == 0)
+        return 0;
+    path_join(dest, cap, dir, "themes");
+    if (dest[0] == 0)
+        return 0;
+    if (ensure_dir(dest) == 0)
+        return 0;
+    return 1;
+}
+
+static int theme_path(
+        char *dest,
+        long cap,
+        const char *name) {
+    char dir[EDITOR_PATH];
+    char file[40];
+    long i;
+
+    if (theme_file_ok(name) == 0)
+        return 0;
+    if (themes_dir(dir, EDITOR_PATH) == 0)
+        return 0;
+    i = 0;
+    while (name[i] != 0 && i < THEME_NAME - 1) {
+        file[i] = name[i];
+        i = i + 1;
+    }
+    file[i] = '.';
+    file[i + 1] = 'i';
+    file[i + 2] = 'n';
+    file[i + 3] = 'i';
+    file[i + 4] = 0;
+    path_join(dest, cap, dir, file);
+    if (dest[0] == 0)
+        return 0;
+    return 1;
+}
+
+static void theme_apply_text(
+        EditorConfig *item,
+        const char *raw,
+        long n) {
+    char line[EDITOR_PATH];
+    const char *value;
+    long i;
+    long start;
+    long k;
+
+    if (item == nullptr || raw == nullptr)
+        return;
+    i = 0;
+    start = 0;
+    while (i <= n) {
+        if (i < n && raw[i] != '\n') {
+            i = i + 1;
+            continue;
+        }
+        k = 0;
+        while (start + k < i && k < EDITOR_PATH - 1) {
+            line[k] = raw[start + k];
+            k = k + 1;
+        }
+        line[k] = 0;
+        if (line[0] != 0 && line[0] != '#') {
+            take_theme(item, line);
+            value = after_eq(line);
+            if (key_is(line, "line-color") == 1)
+                text_copy(item->lineColor, 32, value);
+            if (key_is(line, "margin-color") == 1)
+                text_copy(item->marginColor, 32, value);
+            if (key_is(line, "font") == 1)
+                text_copy(item->font, 128, value);
+        }
+        if (i < n && raw[i] == '\n')
+            start = i + 1;
+        i = i + 1;
+    }
+}
+
+int theme_load(EditorConfig *item, const char *name) {
+    char path[EDITOR_PATH];
+    char *raw;
+    const char *err;
+    long n;
+
+    if (item == nullptr)
+        return 0;
+    if (theme_is_default(name) == 1)
+        return 1;
+    if (theme_path(path, EDITOR_PATH, name) == 0)
+        return 0;
+    err = "";
+    n = 0;
+    raw = read_file(path, &n, &err);
+    if (raw == nullptr)
+        return 0;
+    theme_apply_text(item, raw, n);
+    return 1;
+}
+
+static void add_theme(
+        String *text,
+        const EditorConfig *item);
+
+int theme_save(const char *name, const EditorConfig *item) {
+    char path[EDITOR_PATH];
+    String *text;
+    const char *err;
+
+    if (item == nullptr || theme_file_ok(name) == 0)
+        return 0;
+    if (theme_path(path, EDITOR_PATH, name) == 0)
+        return 0;
+    text = new String();
+    add_theme(text, item);
+    text->append("line-color=");
+    text->append(item->lineColor);
+    text->append("\n");
+    text->append("margin-color=");
+    text->append(item->marginColor);
+    text->append("\n");
+    text->append("font=");
+    text->append(item->font);
+    text->append("\n");
+    err = "";
+    return write_file(path, text->c_str(), &err);
+}
+
+static int ends_ini(const char *name) {
+    long n;
+
+    n = text_length(name);
+    if (n < 5)
+        return 0;
+    if (name[n - 4] != '.')
+        return 0;
+    if (name[n - 3] != 'i')
+        return 0;
+    if (name[n - 2] != 'n')
+        return 0;
+    if (name[n - 1] != 'i')
+        return 0;
+    return 1;
+}
+
+int theme_list(char names[][THEME_NAME], int cap) {
+    char dir[EDITOR_PATH];
+    DIR *listing;
+    struct dirent *entry;
+    int count;
+    long n;
+    long i;
+    char stem[THEME_NAME];
+
+    if (names == nullptr || cap < 1)
+        return 0;
+    text_copy(names[0], THEME_NAME, "default");
+    count = 1;
+    if (themes_dir(dir, EDITOR_PATH) == 0)
+        return count;
+    listing = opendir(dir);
+    if (listing == nullptr)
+        return count;
+    entry = readdir(listing);
+    while (entry != nullptr) {
+        if (entry->d_name[0] != '.'
+                && ends_ini(entry->d_name) == 1
+                && count < cap) {
+            n = text_length(entry->d_name) - 4;
+            if (n > 0 && n < THEME_NAME) {
+                i = 0;
+                while (i < n) {
+                    stem[i] = entry->d_name[i];
+                    i = i + 1;
+                }
+                stem[i] = 0;
+                if (theme_file_ok(stem) == 1) {
+                    text_copy(
+                            names[count],
+                            THEME_NAME,
+                            stem);
+                    count = count + 1;
+                }
+            }
+        }
+        entry = readdir(listing);
+    }
+    closedir(listing);
+    return count;
+}
+
 static void take_line(EditorConfig *item, const char *line) {
     const char *value;
 
@@ -578,6 +864,11 @@ static void take_line(EditorConfig *item, const char *line) {
         text_copy(item->marginColor, 32, value);
     if (key_is(line, "font") == 1)
         text_copy(item->font, 128, value);
+    if (key_is(line, "theme") == 1) {
+        if (theme_is_default(value) == 1
+                || theme_file_ok(value) == 1)
+            text_copy(item->themeName, THEME_NAME, value);
+    }
     if (key_is(line, "search-wrap") == 1)
         item->searchWrap = read_int(value, item->searchWrap);
     if (key_is(line, "search-reverse") == 1)
@@ -868,6 +1159,9 @@ int config_write(
     }
     text->append("font=");
     text->append(item->font);
+    text->append("\n");
+    text->append("theme=");
+    text->append(item->themeName);
     text->append("\n");
     i = 0;
     while (i < EDITOR_KEY_COUNT) {

@@ -37,6 +37,19 @@ open focuses that document.
 ## Window
 
 The window has a menu bar, document tabs, and a status line.
+A narrow column on the right of the current buffer shows
+the shape of the file and a band for the visible lines.
+A click in that column scrolls the buffer. The column
+reads the buffer the editor already has.
+A panel on the left lists files, the project, and symbols.
+The project is a folder. Set types a path, and File folder
+uses the directory of the active file. When that folder
+contains `CMakeLists.txt`, the project page lists
+`add_executable` and `add_library` targets, and compile
+lines from `compile_commands.json` when that file is
+there. The panel does not own the buffer. Opening a file
+uses the same path as File, Open. A symbol moves the
+cursor in the current buffer.
 The menus are File, Edit, Search, View, and Documents. The
 status line shows the title, a dirty star, the line, the
 column, and the language. Each tab has a dark border.
@@ -69,13 +82,18 @@ a fresh untitled buffer. A modified tab draws a dot before
 the file name. The dot is removed when the buffer is clean.
 
 Edit covers Undo, Redo, Cut, Copy, Paste, Indent,
-Unindent, Comment, Block comment, Record, Stop, Play,
-and Settings. Comment toggles a line comment on every
-selected line. Ctrl+/ runs it. Record stores the
-keystrokes that reach the text view. Stop keeps that
-list. Play performs it: typing, Enter, Tab, Backspace,
-Delete, and the arrow keys run in the view, and a
-shortcut runs its command. Block comment is Alt+/,
+Unindent, Comment, Block comment, Add caret, Clear
+carets, Record, Stop, Play, and Settings. Comment
+toggles a line comment on every selected line. Ctrl+/
+runs it. Add caret puts another caret on the next line,
+in the same column. Typing, Backspace, Delete, and
+Comment then apply at each caret. Clear carets removes
+the extras. An arrow key or a click clears them too.
+Record stores the keystrokes that reach the text view.
+Stop keeps that list. Play performs it: typing, Enter,
+Tab, Backspace, Delete, and the arrow keys run in the
+view, and a shortcut runs its command. Block comment
+is Alt+/,
 and it adds a
 multi-line comment without removing one. Python, shell,
 and toml put `#` on each line.
@@ -95,12 +113,25 @@ Whitespace, Line ends, and Indent stops. Whitespace draws
 a dot for each space and a line for each tab. Line ends
 draws a mark after each line. Indent stops draws a line
 at each tab stop inside the leading indent. Settings has
-General, Search, Appearance, and Keyboard pages, and the
-tabs sit on the left and stay put while the page scrolls.
+General, Search, Appearance, Languages, and Keyboard
+pages, and the tabs sit on the left and stay put while
+the page scrolls. Languages lists each language. It has
+a name, suffixes, special filenames, a shebang, a line
+comment, an optional block comment, and keywords. Add,
+Save, and Delete change the list. Reset restores a
+built-in language. A file that matches nothing stays
+plain. Commenting and coloring use this list.
 Search holds wrap at the end of the buffer, reverse
 direction, whole words only, and exact word case.
 Appearance holds Whitespace, Line ends, Indent stops, and
-Font. Remember files is on General with the recent-file
+Font. It also picks a theme and can save the current
+settings as a new theme. A theme file lives in
+`$HOME/.config/smallcpp/themes` and can be copied in.
+It sets the window background and text, menus, tabs, the
+current line, the column marker, syntax colors, bracket
+colors, and the font. The tag map in `editor.ini` is the
+default theme. A missing color keeps that default.
+Remember files is on General with the recent-file
 count, and it is off until it is turned on. Search and
 Appearance
 say that the choices on those pages are the defaults.

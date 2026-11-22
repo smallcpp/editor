@@ -7,8 +7,11 @@
  * title-bar setter.
  */
 #include "editor.shpp"
+#include "minimap.shpp"
+#include "panel.shpp"
 #include "settings.shpp"
 #include "syntax.shpp"
+#include "language.shpp"
 #include <exceptions>
 #include <gtk>
 
@@ -23,11 +26,28 @@ public:
     long index;
 };
 
+class MapColumn : public Widget {
+public:
+    MapColumn(void *owner, long index);
+    void redraw(void);
+    void watch(void *view);
+    void note_size(long width, long height);
+    long drawn_height(void);
+    long drawn_width(void);
+    void *owner;
+    long page;
+    long pixels;
+    long wide;
+    int hooked;
+    void *adjust;
+};
+
 class EditPage {
 public:
     TextBuffer *buffer;
     TextView *view;
     ScrolledWindow *scroll;
+    MapColumn *map;
     int tags;
     int userDepth;
     int pendingSync;
@@ -126,6 +146,28 @@ public:
     int recovery_keep(void);
     void set_recovery_keep(int value);
     void take_recovery_keep(void);
+    const char *theme_choice(void);
+    int theme_pick(const char *name);
+    int theme_store(const char *name);
+    void choose_theme_list(void);
+    void save_theme_entry(void);
+    int language_total(void);
+    const char *language_choice(void);
+    int language_define(
+            const char *name,
+            const char *suffixes,
+            const char *names,
+            const char *shebang,
+            const char *line,
+            const char *block,
+            const char *keywords);
+    int language_drop(const char *name);
+    int language_builtin_reset(const char *name);
+    void show_language_fields(void);
+    void add_language(void);
+    void save_language(void);
+    void delete_language(void);
+    void reset_language(void);
     int write_recovery_files(void);
     void tick(void);
     void save_listed(long index);
@@ -156,6 +198,42 @@ public:
     void play_macro(void);
     int recorded_keys(void);
     void record_key(const char *accel);
+    void add_caret(long line, long column);
+    void clear_carets(void);
+    int caret_count(void);
+    void paint_map(
+            MapColumn *column,
+            void *cr,
+            int width,
+            int height);
+    long map_height(void);
+    long map_top(void);
+    long map_band(void);
+    int map_ink(long line);
+    void map_click(long y);
+    int set_project(const char *path);
+    const char *project_path(void);
+    int project_from_file(void);
+    void apply_project_entry(void);
+    int panel_files(void);
+    const char *panel_file(int index);
+    int panel_file_dir(int index);
+    const char *shown_file(int index);
+    void open_panel_file(int index);
+    int panel_cmake(void);
+    const char *cmake_note(void);
+    int panel_targets(void);
+    const char *panel_target(int index);
+    const char *shown_target(int index);
+    int panel_commands(void);
+    const char *panel_command_file(int index);
+    const char *panel_command(int index);
+    const char *shown_command(int index);
+    void open_panel_command(int index);
+    int panel_symbols(void);
+    const char *panel_symbol(int index);
+    long panel_symbol_line(int index);
+    void open_panel_symbol(int index);
 private:
     Editor *state;
     Application *app;
@@ -163,6 +241,15 @@ private:
     MenuBar *menuBar;
     long documentsMenu;
     Notebook *book;
+    SidePanel *panel;
+    Notebook *panelBook;
+    ColumnView *fileView;
+    ColumnView *targetView;
+    ColumnView *commandView;
+    ColumnView *symbolView;
+    Label *projectLabel;
+    Label *cmakeLabel;
+    Entry *projectEntry;
     Label *status;
     EditPage pages[EDITOR_PAGES];
     PageRef refs[EDITOR_PAGES];
@@ -183,6 +270,9 @@ private:
     int leaving;
     char lineColor[32];
     char marginColor[32];
+    char themeName[THEME_NAME];
+    EditorConfig *themeBase;
+    void *themeCss;
     EditorConfig *themeConfig;
     char fontDesc[128];
     char lastDir[EDITOR_PATH];
@@ -213,6 +303,8 @@ private:
     Entry *bracketEntry;
     Button *lineColorButton;
     Button *marginColorButton;
+    DropDown *themePick;
+    Entry *themeSaveEntry;
     FileDialog *files;
     FontDialog *fonts;
     ColorDialog *colors;
@@ -291,6 +383,15 @@ private:
     CheckButton *recoverCheck;
     Entry *recoverEntry;
     Entry *keepEntry;
+    DropDown *langDrop;
+    Entry *langName;
+    Entry *langSuffix;
+    Entry *langNames;
+    Entry *langShebang;
+    Entry *langLine;
+    Entry *langBlock;
+    Entry *langKeys;
+    int langIndex;
     int listedCount;
     int dirtyOpen;
     long dirtySlot[EDITOR_PAGES];
@@ -314,11 +415,18 @@ private:
     void collect_open(EditorConfig *item);
     void show_search(void);
     void show_replace(void);
+    Widget *mount_panel(void);
+    void fill_files(void);
+    void fill_project(void);
+    void fill_symbols(void);
     void add_page(long index);
     void rebuild(void);
     void push_active(void);
     void place_cursor(long index);
     TextView *current_view(void);
+    void take_carets(long index);
+    void apply_carets(long index);
+    void add_next_caret(void);
     void sync_view(long index);
     void mirror_pages(void);
     void take_selection(void);
@@ -326,7 +434,25 @@ private:
     void paint_brackets(long index);
     void paint_status(void);
     void paint_line(long index);
+    void redraw_map(long index);
+    void view_span(
+            long index,
+            long *first,
+            long *count);
     void apply_view(long index);
+    void paint_frame(void);
+    void fill_themes(void);
+    void keep_theme_base(const EditorConfig *item);
+    void give_theme_base(EditorConfig *item);
+    void fill_languages(void);
+    void read_language_fields(
+            const char **name,
+            const char **suffixes,
+            const char **names,
+            const char **shebang,
+            const char **line,
+            const char **block,
+            const char **keywords);
     void retitle(long index);
     void mount_tab(long index, const char *title);
     void fill_documents(void);

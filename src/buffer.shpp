@@ -8,6 +8,8 @@
  */
 #include "util.shpp"
 
+enum { EDITOR_CARETS = 16 };
+
 class EditMark {
 public:
     String *text;
@@ -17,6 +19,9 @@ public:
     bool scopeOn;
     long scopeStart;
     long scopeEnd;
+    int caretCount;
+    long caretLine[EDITOR_CARETS];
+    long caretCol[EDITOR_CARETS];
 };
 
 class MarkVec : public Array {
@@ -71,6 +76,10 @@ public:
     void insert_text(const char *value);
     void backspace(void);
     void delete_forward(void);
+    void add_caret(long line, long column);
+    void clear_carets(void);
+    int caret_count(void);
+    int caret_at(int index, long *line, long *column);
     bool can_undo(void);
     bool can_redo(void);
     void undo(void);
@@ -80,7 +89,7 @@ public:
     void toggle_line_comment(const char *leader);
     void add_line_comment(const char *leader);
     void toggle_block_comment(void);
-    void add_block_comment(void);
+    void add_block_comment(const char *open, const char *close);
     void indent_lines(long width, int style);
     void outdent_lines(long width, int style);
     void insert_column(const char *value);
@@ -134,13 +143,21 @@ private:
     char pairText[64];
     bool indentOn;
     bool multi;
+    int caretCount;
+    long caretLine[EDITOR_CARETS];
+    long caretCol[EDITOR_CARETS];
     MarkVec *undoStack;
     MarkVec *redoStack;
     void assign(const char *value);
     void clamp_point(void);
     void push_undo(void);
+    void snapshot(EditMark *mark);
     void clear_marks(MarkVec *marks);
     void restore(EditMark *mark);
+    void insert_at_carets(const char *value);
+    void delete_at_carets(int forward);
+    void drop_cursor_carets(void);
+    void comment_carets(const char *leader);
     void splice(long from, long to, const char *value);
     void shift_scope(long at, long delta);
     int match_at(
