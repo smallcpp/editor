@@ -59,10 +59,13 @@ spaces, which is off. Autoclose pairs are an edit box.
 The default is `()[]{}""''`, saved as `bracket-pairs`.
 Close button on file tabs is on General. It is not on
 the dialog frame. Appearance opens a dialog that sets
-tag colors for one file type. The tag name and the
-color control are two columns of a grid. Those overrides are
-`theme-` lines, such as `theme-python-keyword`. Operator
-is a tag for characters such as `()` and `{}`.
+tag colors for one file type. The tag name, the
+foreground, and the background are columns of a grid.
+Those overrides are `theme-` lines, such as
+`theme-python-keyword`. Operator is a tag for characters
+such as `()` and `{}`. `brackets` paints a matching pair,
+and `brackets-unmatched` paints a bracket with no mate.
+Each of those has a foreground and a background.
 A Color button sets the current-line color and another
 sets the column-marker color. Indent width is a character count. Keyboard
 is a grid of command and shortcut. Click a shortcut, press

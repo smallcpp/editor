@@ -54,16 +54,79 @@ static int lang_ok(const char *text) {
     return 1;
 }
 
+const char *theme_name(int slot) {
+    if (slot == 0)
+        return "keyword";
+    if (slot == 1)
+        return "type";
+    if (slot == 2)
+        return "string";
+    if (slot == 3)
+        return "comment";
+    if (slot == 4)
+        return "number";
+    if (slot == 5)
+        return "preprocessor";
+    if (slot == 6)
+        return "call";
+    if (slot == 7)
+        return "operator";
+    if (slot == 8)
+        return "brackets";
+    if (slot == 9)
+        return "brackets-back";
+    if (slot == 10)
+        return "brackets-unmatched";
+    if (slot == 11)
+        return "brackets-unmatched-back";
+    return "";
+}
+
 static int tag_slot(const char *name) {
-    int kind;
+    int slot;
 
     if (name == nullptr)
         return -1;
-    kind = SPAN_KEYWORD;
-    while (kind <= SPAN_OPERATOR) {
-        if (text_same(name, span_tag(kind)) == 1)
-            return kind - 1;
-        kind = kind + 1;
+    slot = 0;
+    while (slot < THEME_ALL) {
+        if (text_same(name, theme_name(slot)) == 1)
+            return slot;
+        slot = slot + 1;
+    }
+    return -1;
+}
+
+static int theme_cut(const char *name, long *cut) {
+    int slot;
+    const char *tag;
+    long n;
+    long t;
+    long i;
+
+    n = 0;
+    while (name[n] != 0)
+        n = n + 1;
+    slot = THEME_ALL - 1;
+    while (slot >= 0) {
+        tag = theme_name(slot);
+        t = 0;
+        while (tag[t] != 0)
+            t = t + 1;
+        if (t > 0 && t <= n) {
+            i = 0;
+            while (i < t
+                    && name[n - t + i] == tag[i])
+                i = i + 1;
+            if (i == t && t == n) {
+                *cut = 0;
+                return slot;
+            }
+            if (i == t && name[n - t - 1] == '-') {
+                *cut = n - t;
+                return slot;
+            }
+        }
+        slot = slot - 1;
     }
     return -1;
 }
@@ -150,7 +213,7 @@ void theme_copy(
     if (dest == nullptr || src == nullptr)
         return;
     slot = 0;
-    while (slot < THEME_TAGS) {
+    while (slot < THEME_ALL) {
         text_copy(
                 dest->themeColor[slot],
                 32,
@@ -187,6 +250,18 @@ static void theme_defaults(EditorConfig *item) {
     theme_set(item, "", "preprocessor", "#a04020");
     theme_set(item, "", "call", "#106060");
     theme_set(item, "", "operator", "#404040");
+    theme_set(item, "", "brackets", "#1a1a1a");
+    theme_set(item, "", "brackets-back", "#ffd56a");
+    theme_set(
+            item,
+            "",
+            "brackets-unmatched",
+            "#ffffff");
+    theme_set(
+            item,
+            "",
+            "brackets-unmatched-back",
+            "#c03030");
 }
 
 void config_defaults(EditorConfig *item) {
@@ -351,26 +426,22 @@ static void take_theme(
     name[n] = 0;
     if (line[i] != '=')
         return;
-    if (tag_slot(name) >= 0) {
+    cut = 0;
+    if (theme_cut(name, &cut) < 0)
+        return;
+    if (cut == 0) {
         theme_set(item, "", name, value);
         return;
     }
-    cut = -1;
-    i = 0;
-    while (name[i] != 0) {
-        if (name[i] == '-')
-            cut = i;
-        i = i + 1;
-    }
-    if (cut <= 0 || cut >= 16)
+    if (cut <= 1 || cut >= 16)
         return;
     i = 0;
-    while (i < cut) {
+    while (i < cut - 1) {
         lang[i] = name[i];
         i = i + 1;
     }
     lang[i] = 0;
-    theme_set(item, lang, name + cut + 1, value);
+    theme_set(item, lang, name + cut, value);
 }
 
 static void take_line(EditorConfig *item, const char *line) {
@@ -569,23 +640,14 @@ static void add_num(
 static void add_theme(
         String *text,
         const EditorConfig *item) {
-    int order[THEME_TAGS];
     int i;
 
-    order[0] = SPAN_KEYWORD;
-    order[1] = SPAN_TYPE;
-    order[2] = SPAN_STRING;
-    order[3] = SPAN_COMMENT;
-    order[4] = SPAN_NUMBER;
-    order[5] = SPAN_PREPROC;
-    order[6] = SPAN_CALL;
-    order[7] = SPAN_OPERATOR;
     i = 0;
-    while (i < THEME_TAGS) {
+    while (i < THEME_ALL) {
         text->append("theme-");
-        text->append(span_tag(order[i]));
+        text->append(theme_name(i));
         text->append("=");
-        text->append(item->themeColor[order[i] - 1]);
+        text->append(item->themeColor[i]);
         text->append("\n");
         i = i + 1;
     }
@@ -594,8 +656,8 @@ static void add_theme(
         text->append("theme-");
         text->append(item->themeLang[i]);
         text->append("-");
-        text->append(span_tag(
-                item->themeSlot[i] + 1));
+        text->append(theme_name(
+                item->themeSlot[i]));
         text->append("=");
         text->append(item->themeOver[i]);
         text->append("\n");

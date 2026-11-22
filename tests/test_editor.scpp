@@ -386,6 +386,28 @@ int main(void) {
                     theme_color(&item, "c", "operator"),
                     "#404040") == 1,
                 "default operator");
+        expect(text_same(
+                    theme_color(&item, "c", "brackets"),
+                    "#1a1a1a") == 1,
+                "default brackets");
+        expect(text_same(
+                    theme_color(&item, "c", "brackets-back"),
+                    "#ffd56a") == 1,
+                "default bracket back");
+        expect(text_same(
+                    theme_color(
+                            &item,
+                            "c",
+                            "brackets-unmatched"),
+                    "#ffffff") == 1,
+                "default unmatched");
+        expect(text_same(
+                    theme_color(
+                            &item,
+                            "c",
+                            "brackets-unmatched-back"),
+                    "#c03030") == 1,
+                "default unmatched back");
         expect(theme_set(
                     &item,
                     "python",
@@ -494,6 +516,48 @@ int main(void) {
                     theme_color(&back, "python", "operator"),
                     "#404040") == 1,
                 "python operator default");
+        expect(theme_set(
+                    &item,
+                    "python",
+                    "brackets-back",
+                    "#112244") == 1,
+                "set python bracket back");
+        expect(theme_set(
+                    &item,
+                    "c",
+                    "brackets-unmatched",
+                    "#010101") == 1,
+                "set c unmatched");
+        expect(config_write(path, &item) == 1,
+                "config write brackets");
+        config_defaults(&back);
+        expect(config_read(path, &back) == 1,
+                "config read brackets");
+        expect(text_same(
+                    theme_color(
+                            &back,
+                            "python",
+                            "brackets-back"),
+                    "#112244") == 1,
+                "saved bracket back");
+        expect(text_same(
+                    theme_color(&back, "c", "brackets-back"),
+                    "#ffd56a") == 1,
+                "c bracket back stays");
+        expect(text_same(
+                    theme_color(
+                            &back,
+                            "c",
+                            "brackets-unmatched"),
+                    "#010101") == 1,
+                "saved unmatched");
+        expect(text_same(
+                    theme_color(
+                            &back,
+                            "python",
+                            "brackets-unmatched"),
+                    "#ffffff") == 1,
+                "python unmatched default");
         expect(text_same(
                     back.marginColor,
                     "#112233") == 1,

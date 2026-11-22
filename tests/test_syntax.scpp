@@ -178,6 +178,110 @@ int main(void) {
         expect(kind_at(light, 1) == SPAN_STRING,
                 "string paren");
     }
+    {
+        long here;
+        long other;
+
+        here = 0;
+        other = 0;
+        expect(match_bracket(
+                    "()",
+                    "c",
+                    0,
+                    &here,
+                    &other) == 1,
+                "pair");
+        expect(here == 0 && other == 1, "pair offsets");
+        expect(match_bracket(
+                    "()",
+                    "c",
+                    1,
+                    &here,
+                    &other) == 1,
+                "on close");
+        expect(here == 1 && other == 0, "close offsets");
+        expect(match_bracket(
+                    "()",
+                    "c",
+                    2,
+                    &here,
+                    &other) == 1,
+                "after close");
+        expect(here == 1 && other == 0, "before cursor");
+        expect(match_bracket(
+                    "(",
+                    "c",
+                    0,
+                    &here,
+                    &other) == 1,
+                "open");
+        expect(other == -1, "unmatched");
+        expect(match_bracket(
+                    "a",
+                    "c",
+                    1,
+                    &here,
+                    &other) == 0,
+                "none");
+        expect(match_bracket(
+                    "(())",
+                    "c",
+                    0,
+                    &here,
+                    &other) == 1,
+                "nest");
+        expect(other == 3, "outer");
+        expect(match_bracket(
+                    "([)]",
+                    "c",
+                    1,
+                    &here,
+                    &other) == 1,
+                "cross");
+        expect(other == 3, "bracket mate");
+        expect(match_bracket(
+                    "foo(\"(\")",
+                    "scpp",
+                    3,
+                    &here,
+                    &other) == 1,
+                "code paren");
+        expect(here == 3 && other == 7, "skip string");
+        expect(match_bracket(
+                    "foo(\"(\")",
+                    "scpp",
+                    5,
+                    &here,
+                    &other) == 1,
+                "string paren cursor");
+        expect(here == 5 && other == -1,
+                "string unmatched");
+        expect(match_bracket(
+                    "/*(*/)",
+                    "c",
+                    2,
+                    &here,
+                    &other) == 1,
+                "comment bracket");
+        expect(other == -1, "comment unmatched");
+        expect(match_bracket(
+                    "/*(*/)",
+                    "c",
+                    5,
+                    &here,
+                    &other) == 1,
+                "after comment");
+        expect(here == 5 && other == -1,
+                "skip comment");
+        expect(match_bracket(
+                    "{a}",
+                    "python",
+                    0,
+                    &here,
+                    &other) == 1,
+                "brace");
+        expect(other == 2, "brace mate");
+    }
     if (failures == 0) {
         print("test-syntax ok\n");
         return 0;

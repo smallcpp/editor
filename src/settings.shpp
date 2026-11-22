@@ -12,7 +12,8 @@ enum {
     EDITOR_OPEN_MAX = 32,
     EDITOR_RECENT_MAX = 32,
     THEME_TAGS = 8,
-    THEME_MAX = 16
+    THEME_ALL = 12,
+    THEME_MAX = 32
 };
 
 class EditorConfig {
@@ -35,7 +36,7 @@ public:
     int showStops;
     char lineColor[32];
     char marginColor[32];
-    char themeColor[THEME_TAGS][32];
+    char themeColor[THEME_ALL][32];
     int themeUsed;
     char themeLang[THEME_MAX][16];
     int themeSlot[THEME_MAX];
@@ -57,6 +58,7 @@ public:
 };
 
 void config_defaults(EditorConfig *item);
+const char *theme_name(int slot);
 int theme_set(
         EditorConfig *item,
         const char *language,

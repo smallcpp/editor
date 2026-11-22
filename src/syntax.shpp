@@ -26,6 +26,12 @@ public:
 };
 
 const char *span_tag(int kind);
+int match_bracket(
+        const char *text,
+        const char *language,
+        long cursor,
+        long *here,
+        long *other);
 
 class SpanVec : public Array {
 public:

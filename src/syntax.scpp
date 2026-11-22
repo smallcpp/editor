@@ -95,6 +95,155 @@ Span * SpanVec::next(long *cursor) {
 }
 
 
+static int is_bracket(int ch) {
+    if (ch == '(' || ch == ')')
+        return 1;
+    if (ch == '[' || ch == ']')
+        return 1;
+    if (ch == '{' || ch == '}')
+        return 1;
+    return 0;
+}
+
+static int bracket_open(int ch) {
+    if (ch == '(' || ch == '[' || ch == '{')
+        return 1;
+    return 0;
+}
+
+static int bracket_mate(int ch) {
+    if (ch == '(')
+        return ')';
+    if (ch == ')')
+        return '(';
+    if (ch == '[')
+        return ']';
+    if (ch == ']')
+        return '[';
+    if (ch == '{')
+        return '}';
+    if (ch == '}')
+        return '{';
+    return 0;
+}
+
+static int hidden_span(
+        Highlighter *scan,
+        long at,
+        long *start,
+        long *end) {
+    long i;
+    Span *span;
+    int kind;
+
+    i = 0;
+    while (i < scan->count()) {
+        span = scan->at(i);
+        if (at >= span->start && at < span->end) {
+            kind = span->kind;
+            if (kind == SPAN_STRING
+                    || kind == SPAN_COMMENT) {
+                *start = span->start;
+                *end = span->end;
+                return 1;
+            }
+            return 0;
+        }
+        i = i + 1;
+    }
+    return 0;
+}
+
+int match_bracket(
+        const char *text,
+        const char *language,
+        long cursor,
+        long *here,
+        long *other) {
+    Highlighter *scan;
+    long n;
+    long at;
+    long lo;
+    long hi;
+    long i;
+    long start;
+    long end;
+    int ch;
+    int mate;
+    int depth;
+    int step;
+    int inside;
+
+    if (here != nullptr)
+        *here = -1;
+    if (other != nullptr)
+        *other = -1;
+    if (text == nullptr)
+        return 0;
+    if (language == nullptr)
+        language = "";
+    n = text_length(text);
+    if (cursor < 0)
+        cursor = 0;
+    if (cursor > n)
+        cursor = n;
+    at = -1;
+    if (cursor < n
+            && is_bracket(byte_at(text, cursor)) == 1)
+        at = cursor;
+    else if (cursor > 0
+            && is_bracket(
+                    byte_at(text, cursor - 1)) == 1)
+        at = cursor - 1;
+    if (at < 0)
+        return 0;
+    if (here != nullptr)
+        *here = at;
+    scan = new Highlighter();
+    scan->scan(text, language);
+    lo = 0;
+    hi = n;
+    inside = hidden_span(scan, at, &start, &end);
+    if (inside == 1) {
+        lo = start;
+        hi = end;
+    }
+    ch = byte_at(text, at);
+    mate = bracket_mate(ch);
+    depth = 0;
+    if (bracket_open(ch) == 1)
+        step = 1;
+    else
+        step = -1;
+    i = at + step;
+    while (i >= lo && i < hi) {
+        if (inside == 0
+                && hidden_span(
+                        scan,
+                        i,
+                        &start,
+                        &end) == 1) {
+            if (step > 0)
+                i = end;
+            else
+                i = start - 1;
+            continue;
+        }
+        if (byte_at(text, i) == ch)
+            depth = depth + 1;
+        else if (byte_at(text, i) == mate) {
+            if (depth == 0) {
+                if (other != nullptr)
+                    *other = i;
+                return 1;
+            }
+            depth = depth - 1;
+        }
+        i = i + step;
+    }
+    return 1;
+}
+
 const char *span_tag(int kind) {
     if (kind == SPAN_KEYWORD)
         return "keyword";

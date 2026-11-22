@@ -173,11 +173,17 @@ file tabs sits on General. It is not on the dialog
 frame. Current line color and the
 column marker color each have a Color button that opens
 the color chooser and stores the chosen `#rrggbb`.
-Appearance has Syntax colors. That dialog chooses one
-file type and assigns a color to each tag. The tag name
-and the color control sit in two columns of a grid.
-The color is saved as a theme override, such as
-`theme-python-keyword`.
+Appearance has Syntax colors. That dialog is a grid.
+The tag name, the foreground, and the background are
+columns. It chooses one file type and assigns a color
+to each tag. The color is saved as a theme override,
+such as `theme-python-keyword`. When the cursor is on
+a bracket, a matching pair uses the `brackets` colors
+and an unmatched bracket uses `brackets-unmatched`.
+Each of those tags has a foreground and a background.
+The match is dark on gold, and an unmatched bracket is
+white on red. A bracket in a string or a comment stays
+inside that span. A bracket in code skips those spans.
 A missing file, or a missing
 `HOME`, keeps the defaults. The dialog is transient for the
 editor window.

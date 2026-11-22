@@ -162,8 +162,8 @@ private:
     Dialog *settingsDialog;
     Dialog *themeDialog;
     DropDown *themeDrop;
-    Entry *themeEntry[THEME_TAGS];
-    Button *themeColorButton[THEME_TAGS];
+    Entry *themeEntry[THEME_ALL];
+    Button *themeColorButton[THEME_ALL];
     CheckButton *bracketCheck;
     CheckButton *indentCheck;
     DropDown *indentDrop;
@@ -256,6 +256,7 @@ private:
     void sync_view(long index);
     void take_selection(void);
     void highlight(long index);
+    void paint_brackets(long index);
     void paint_status(void);
     void paint_line(long index);
     void apply_view(long index);

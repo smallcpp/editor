@@ -13,6 +13,9 @@ extern unsigned long g_signal_connect_data(
         void *data,
         void *destroy,
         int flags);
+extern void *gtk_text_buffer_get_insert(void *buffer);
+extern int gtk_text_iter_get_line(void *iter);
+extern int gtk_text_iter_get_line_offset(void *iter);
 
 Ui *editorUi;
 
@@ -36,6 +39,7 @@ void ui_saved(void *data, const char *path) {
     editorUi->save_path(path);
 }
 
+static int bracketPainting = 0;
 static int keySlots[EDITOR_KEY_COUNT];
 static int keySlotsReady;
 
@@ -116,6 +120,28 @@ void ui_moved(void *data, long line, long offset) {
 
     ref = (PageRef *)data;
     editorUi->moved(ref->index, line, offset);
+}
+
+void ui_mark(
+        void *buffer,
+        void *iter,
+        void *mark,
+        void *data) {
+    PageRef *ref;
+    void *insert;
+
+    if (editorUi == nullptr)
+        return;
+    if (editorUi->is_leaving() == 1)
+        return;
+    insert = gtk_text_buffer_get_insert(buffer);
+    if (insert != mark)
+        return;
+    ref = (PageRef *)data;
+    editorUi->moved(
+            ref->index,
+            (long)gtk_text_iter_get_line(iter),
+            (long)gtk_text_iter_get_line_offset(iter));
 }
 
 void ui_switched(void *data, long index) {
@@ -602,6 +628,13 @@ void Ui::add_page(long index) {
     pages[index].view->on_move_cursor(
             ui_moved,
             (void *)&refs[index]);
+    g_signal_connect_data(
+            pages[index].buffer->native,
+            "mark-set",
+            (void *)ui_mark,
+            (void *)&refs[index],
+            nullptr,
+            0);
     text_copy(title, 256, doc->title());
     book->append_page((Widget *)scroll, title);
     pageCount = pageCount + 1;
@@ -858,6 +891,160 @@ void Ui::highlight(long index) {
                     end);
         i = i + 1;
     }
+    paint_brackets(index);
+}
+
+static void paint_one(
+        TextBuffer *buffer,
+        const char *text,
+        long n,
+        long offset,
+        const char *name) {
+    long at;
+    long line;
+    long column;
+    long line2;
+    long column2;
+    TextIter *start;
+    TextIter *end;
+
+    at = 0;
+    line = 0;
+    column = 0;
+    seek_offset(
+            text,
+            n,
+            offset,
+            &at,
+            &line,
+            &column);
+    line2 = line;
+    column2 = column;
+    seek_offset(
+            text,
+            n,
+            offset + 1,
+            &at,
+            &line,
+            &column);
+    start = new TextIter(line2, column2);
+    end = new TextIter(line, column);
+    buffer->apply_tag(name, start, end);
+}
+
+static void prepare_bracket_tag(
+        TextBuffer *buffer,
+        const EditorConfig *theme,
+        const char *language,
+        const char *name,
+        const char *back,
+        TextIter *start,
+        TextIter *end,
+        int clear) {
+    buffer->set_tag_foreground(
+            name,
+            theme_color(theme, language, name));
+    buffer->set_tag_text_background(
+            name,
+            theme_color(theme, language, back));
+    if (clear == 1)
+        buffer->remove_tag(name, start, end);
+}
+
+void Ui::paint_brackets(long index) {
+    Document *doc;
+    const char *text;
+    const char *language;
+    const char *name;
+    long n;
+    long here;
+    long other;
+    long line;
+    long column;
+    TextIter *start;
+    TextIter *end;
+    int clear;
+    int matched;
+
+    if (bracketPainting == 1)
+        return;
+    bracketPainting = 1;
+    if (index < 0 || index >= pageCount) {
+        bracketPainting = 0;
+        return;
+    }
+    if (pages[index].buffer == nullptr) {
+        bracketPainting = 0;
+        return;
+    }
+    doc = state->at(index);
+    if (doc == nullptr) {
+        bracketPainting = 0;
+        return;
+    }
+    text = pages[index].buffer->get_text();
+    if (text == nullptr)
+        text = "";
+    n = text_length(text);
+    language = doc->language();
+    line = 0;
+    column = 0;
+    text_position(text, n, &line, &column);
+    start = new TextIter(0, 0);
+    end = new TextIter(line, column);
+    clear = 0;
+    if (n > 0)
+        clear = 1;
+    prepare_bracket_tag(
+            pages[index].buffer,
+            themeConfig,
+            language,
+            "brackets",
+            "brackets-back",
+            start,
+            end,
+            clear);
+    prepare_bracket_tag(
+            pages[index].buffer,
+            themeConfig,
+            language,
+            "brackets-unmatched",
+            "brackets-unmatched-back",
+            start,
+            end,
+            clear);
+    if (n > 200000) {
+        bracketPainting = 0;
+        return;
+    }
+    matched = match_bracket(
+            text,
+            language,
+            doc->buffer()->cursor_offset(),
+            &here,
+            &other);
+    if (matched == 0) {
+        bracketPainting = 0;
+        return;
+    }
+    if (other < 0)
+        name = "brackets-unmatched";
+    else
+        name = "brackets";
+    paint_one(
+            pages[index].buffer,
+            text,
+            n,
+            here,
+            name);
+    if (other >= 0)
+        paint_one(
+                pages[index].buffer,
+                text,
+                n,
+                other,
+                name);
+    bracketPainting = 0;
 }
 
 void Ui::paint_status(void) {
@@ -1138,6 +1325,7 @@ void Ui::moved(long index, long line, long offset) {
     if (doc == nullptr)
         return;
     doc->buffer()->move_to(line + 1, offset + 1);
+    paint_brackets(index);
     paint_line(index);
     paint_status();
 }
@@ -2181,6 +2369,29 @@ static Box *color_field(Entry *entry, Button *button) {
     return row;
 }
 
+static int themeSlots[THEME_ALL];
+
+static Box *theme_field(
+        int slot,
+        Entry **entryOut,
+        Button **buttonOut) {
+    Entry *entry;
+    Button *button;
+
+    entry = new Entry("#000000");
+    entry->set_width_chars(12);
+    entry->on_changed(
+            ui_theme_entry,
+            (void *)&themeSlots[slot]);
+    button = new Button("Color");
+    button->on_clicked(
+            ui_theme_color,
+            (void *)&themeSlots[slot]);
+    *entryOut = entry;
+    *buttonOut = button;
+    return color_field(entry, button);
+}
+
 static Box *group_box(const char *title) {
     Box *box;
 
@@ -2202,7 +2413,6 @@ static Box *labeled_field(
     return row;
 }
 
-static int themeSlots[THEME_TAGS];
 static int themeSlotsReady = 0;
 
 static int theme_type_count(void) {
@@ -2274,9 +2484,12 @@ void Ui::hide_theme(void) {
 void Ui::show_theme(void) {
     Grid *grid;
     int i;
+    int row;
     int pick;
     const char *labels[7];
     Document *doc;
+    Entry *entry;
+    Button *button;
 
     if (themeDialog == nullptr) {
         themeDialog = new Dialog("Syntax colors");
@@ -2301,11 +2514,23 @@ void Ui::show_theme(void) {
                 (Widget *)themeDrop,
                 1,
                 0,
+                2,
+                1);
+        grid->attach(
+                (Widget *)new Label("Foreground"),
+                1,
+                1,
+                1,
+                1);
+        grid->attach(
+                (Widget *)new Label("Background"),
+                2,
+                1,
                 1,
                 1);
         if (themeSlotsReady == 0) {
             i = 0;
-            while (i < THEME_TAGS) {
+            while (i < THEME_ALL) {
                 themeSlots[i] = i;
                 i = i + 1;
             }
@@ -2313,40 +2538,83 @@ void Ui::show_theme(void) {
         }
         i = 0;
         while (i < THEME_TAGS) {
-            Entry *entry;
-            Button *button;
-
-            entry = new Entry("#000000");
-            entry->set_width_chars(12);
-            entry->on_changed(
-                    ui_theme_entry,
-                    (void *)&themeSlots[i]);
-            button = new Button("Color");
-            button->on_clicked(
-                    ui_theme_color,
-                    (void *)&themeSlots[i]);
-            themeEntry[i] = entry;
-            themeColorButton[i] = button;
             grid->attach(
                     (Widget *)new Label(span_tag(i + 1)),
                     0,
-                    i + 1,
+                    i + 2,
                     1,
                     1);
             grid->attach(
-                    (Widget *)color_field(entry, button),
+                    (Widget *)theme_field(
+                            i,
+                            &entry,
+                            &button),
                     1,
-                    i + 1,
+                    i + 2,
                     1,
                     1);
+            themeEntry[i] = entry;
+            themeColorButton[i] = button;
             i = i + 1;
         }
+        row = THEME_TAGS + 2;
+        grid->attach(
+                (Widget *)new Label(theme_name(8)),
+                0,
+                row,
+                1,
+                1);
+        grid->attach(
+                (Widget *)theme_field(8, &entry, &button),
+                1,
+                row,
+                1,
+                1);
+        themeEntry[8] = entry;
+        themeColorButton[8] = button;
+        grid->attach(
+                (Widget *)theme_field(9, &entry, &button),
+                2,
+                row,
+                1,
+                1);
+        themeEntry[9] = entry;
+        themeColorButton[9] = button;
+        row = row + 1;
+        grid->attach(
+                (Widget *)new Label(theme_name(10)),
+                0,
+                row,
+                1,
+                1);
+        grid->attach(
+                (Widget *)theme_field(
+                        10,
+                        &entry,
+                        &button),
+                1,
+                row,
+                1,
+                1);
+        themeEntry[10] = entry;
+        themeColorButton[10] = button;
+        grid->attach(
+                (Widget *)theme_field(
+                        11,
+                        &entry,
+                        &button),
+                2,
+                row,
+                1,
+                1);
+        themeEntry[11] = entry;
+        themeColorButton[11] = button;
         themeDialog->set_content((Widget *)grid);
         themeDialog->add_button("Close", 1);
         themeDialog->on_response(
                 ui_theme_response,
                 nullptr);
-        themeDialog->set_default_size(520, 480);
+        themeDialog->set_default_size(780, 640);
     }
     pick = 0;
     doc = nullptr;
@@ -2383,12 +2651,12 @@ void Ui::fill_theme(void) {
     language = theme_type_name(which);
     themeFill = 1;
     i = 0;
-    while (i < THEME_TAGS) {
+    while (i < THEME_ALL) {
         if (themeEntry[i] != nullptr) {
             color = theme_color(
                     themeConfig,
                     language,
-                    span_tag(i + 1));
+                    theme_name(i));
             themeEntry[i]->set_text(color);
         }
         i = i + 1;
@@ -2403,7 +2671,7 @@ void Ui::take_theme_entry(int slot) {
 
     if (themeFill != 0)
         return;
-    if (slot < 0 || slot >= THEME_TAGS)
+    if (slot < 0 || slot >= THEME_ALL)
         return;
     if (themeEntry[slot] == nullptr)
         return;
@@ -2417,7 +2685,7 @@ void Ui::take_theme_entry(int slot) {
     if (theme_set(
             themeConfig,
             language,
-            span_tag(slot + 1),
+            theme_name(slot),
             color) == 0)
         return;
     paint_theme(language);
@@ -2433,7 +2701,7 @@ void Ui::open_theme_color(int slot) {
         return;
     if (colors->pending != 0)
         return;
-    if (slot < 0 || slot >= THEME_TAGS)
+    if (slot < 0 || slot >= THEME_ALL)
         return;
     if (themeEntry[slot] == nullptr)
         return;
@@ -3690,7 +3958,7 @@ void Ui::take_color(const char *color) {
         return;
     if (colorKind == 2) {
         if (themeTag >= 0
-                && themeTag < THEME_TAGS
+                && themeTag < THEME_ALL
                 && themeEntry[themeTag] != nullptr)
             themeEntry[themeTag]->set_text(color);
         return;
