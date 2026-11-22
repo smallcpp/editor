@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+A narrow column on the right of the current buffer
+shows the shape of the file and a band for the lines
+in view. A click in that column scrolls the buffer.
+The column reads the buffer the editor already has.
 The top of the window is a menu bar. File, Edit, Search, View,
 and Documents are submenus. File has New, Open, Save, Save As,
 Save All, Close, and Quit. Edit has Undo, Redo, Cut, Copy,

@@ -7,6 +7,7 @@
  * title-bar setter.
  */
 #include "editor.shpp"
+#include "minimap.shpp"
 #include "settings.shpp"
 #include "syntax.shpp"
 #include <exceptions>
@@ -23,11 +24,28 @@ public:
     long index;
 };
 
+class MapColumn : public Widget {
+public:
+    MapColumn(void *owner, long index);
+    void redraw(void);
+    void watch(void *view);
+    void note_size(long width, long height);
+    long drawn_height(void);
+    long drawn_width(void);
+    void *owner;
+    long page;
+    long pixels;
+    long wide;
+    int hooked;
+    void *adjust;
+};
+
 class EditPage {
 public:
     TextBuffer *buffer;
     TextView *view;
     ScrolledWindow *scroll;
+    MapColumn *map;
     int tags;
     int userDepth;
     int pendingSync;
@@ -152,6 +170,16 @@ public:
     void open_theme_color(int slot);
     void paint_theme(const char *language);
     void paint_paper(long index);
+    void paint_map(
+            MapColumn *column,
+            void *cr,
+            int width,
+            int height);
+    long map_height(void);
+    long map_top(void);
+    long map_band(void);
+    int map_ink(long line);
+    void map_click(long y);
 private:
     Editor *state;
     Application *app;
@@ -321,6 +349,11 @@ private:
     void paint_brackets(long index);
     void paint_status(void);
     void paint_line(long index);
+    void redraw_map(long index);
+    void view_span(
+            long index,
+            long *first,
+            long *count);
     void apply_view(long index);
     void retitle(long index);
     void mount_tab(long index, const char *title);

@@ -58,6 +58,7 @@ set(EDITOR_PROGRAM "${CMAKE_SOURCE_DIR}/bin/editor")
 set(EDITOR_LIB_SOURCES
     "${CMAKE_SOURCE_DIR}/src/string.scpp"
     "${CMAKE_SOURCE_DIR}/src/util.scpp"
+    "${CMAKE_SOURCE_DIR}/src/minimap.scpp"
     "${CMAKE_SOURCE_DIR}/src/buffer.scpp"
     "${CMAKE_SOURCE_DIR}/src/syntax.scpp"
     "${CMAKE_SOURCE_DIR}/src/document.scpp"
@@ -73,6 +74,7 @@ set(EDITOR_SOURCES
 set(EDITOR_HEADERS
     "${CMAKE_SOURCE_DIR}/src/string.shpp"
     "${CMAKE_SOURCE_DIR}/src/util.shpp"
+    "${CMAKE_SOURCE_DIR}/src/minimap.shpp"
     "${CMAKE_SOURCE_DIR}/src/buffer.shpp"
     "${CMAKE_SOURCE_DIR}/src/syntax.shpp"
     "${CMAKE_SOURCE_DIR}/src/document.shpp"

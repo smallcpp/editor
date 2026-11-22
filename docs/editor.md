@@ -37,6 +37,10 @@ open focuses that document.
 ## Window
 
 The window has a menu bar, document tabs, and a status line.
+A narrow column on the right of the current buffer shows
+the shape of the file and a band for the visible lines.
+A click in that column scrolls the buffer. The column
+reads the buffer the editor already has.
 The menus are File, Edit, Search, View, and Documents. The
 status line shows the title, a dirty star, the line, the
 column, and the language. Each tab has a dark border.

@@ -18,7 +18,12 @@ default. The current line is drawn under the cursor line, one
 line high, including a blank line. Line numbers are a gutter of
 the visible lines, wide enough for four digits and one space.
 Each number is drawn at its buffer line and scrolls with the
-text. A line Enter just created is numbered before it has
+text. A narrow column on the right draws the shape of the
+file from the length of its lines, and a band for the lines
+in view. A click scrolls that part of the file into view.
+The column reads the editor buffer and does not keep a
+second copy. The wrapper has no mini-map widget, so the
+column is drawn directly. A line Enter just created is numbered before it has
 characters. Whitespace, line ends, and indent stops are overlays
 the view can turn on. The right column marker is an overlay at a character
 column. The status line shows the line and column from the
