@@ -698,8 +698,20 @@ int main(void) {
                     notes->active()->buffer()->text(),
                     "#!/bin/bash\n# echo hi\n") == 1,
                 "shebang uses the shell marker");
+        which = key_index("key-select-all=");
+        expect(which == 13, "select key");
+        key_info(which, &label, &command, &config, &accel);
+        expect(text_same(label, "Select All") == 1,
+                "select label");
+        expect(text_same(command, "select-all") == 1,
+                "select command");
+        expect(text_same(accel, "<Control>a") == 1,
+                "ctrl a");
+        expect(key_place(which, &menu, &item) == 1,
+                "select place");
+        expect(menu == 1 && item == 5, "select menu");
         which = key_index("key-comment=");
-        expect(which == 15, "comment key");
+        expect(which == 16, "comment key");
         key_info(which, &label, &command, &config, &accel);
         expect(text_same(label, "Comment") == 1,
                 "comment label");
@@ -709,7 +721,7 @@ int main(void) {
                 "ctrl slash");
         expect(key_place(which, &menu, &item) == 1,
                 "comment place");
-        expect(menu == 1 && item == 7, "comment menu");
+        expect(menu == 1 && item == 8, "comment menu");
         {
             char shown[64];
 
@@ -724,7 +736,7 @@ int main(void) {
                     "letter shortcut stays");
         }
         which = key_index("key-block-comment=");
-        expect(which == 16, "block key");
+        expect(which == 17, "block key");
         key_info(which, &label, &command, &config, &accel);
         expect(text_same(label, "Block comment") == 1,
                 "block label");
@@ -734,7 +746,7 @@ int main(void) {
                 "alt slash");
         expect(key_place(which, &menu, &item) == 1,
                 "block place");
-        expect(menu == 1 && item == 8, "block menu");
+        expect(menu == 1 && item == 9, "block menu");
     }
     {
         char folder[EDITOR_PATH];
@@ -776,6 +788,11 @@ int main(void) {
                     item.accel[which],
                     "<Control>f") == 1,
                 "default search key");
+        which = key_index("key-select-all=");
+        expect(text_same(
+                    item.accel[which],
+                    "<Control>a") == 1,
+                "default select key");
         expect(item.searchWrap == 1, "default wrap");
         expect(item.showSpace == 0, "default whitespace");
         expect(item.recentCount == 10, "default recent");

@@ -93,9 +93,11 @@ The last document, when closed, is replaced by
 a fresh untitled buffer. A modified tab draws a dot before
 the file name. The dot is removed when the buffer is clean.
 
-Edit covers Undo, Redo, Cut, Copy, Paste, Indent,
-Unindent, Comment, Block comment, Add caret, Clear
-carets, Record, Stop, Play, and Settings. Comment
+Edit covers Undo, Redo, Cut, Copy, Paste, Select All,
+Indent, Unindent, Comment, Block comment, Add caret,
+Clear carets, Record, Stop, Play, and Settings. Select All
+and Ctrl+A select the current buffer from the start
+through the end. Comment
 toggles a line comment on every selected line. Ctrl+/
 runs it. Add caret puts another caret on the next line,
 in the same column. Typing, Backspace, Delete, and
@@ -221,9 +223,10 @@ Keys: Ctrl+N creates a document, Ctrl+O opens, Ctrl+S saves,
 Ctrl+Shift+S saves as, Ctrl+Shift+L saves all, Ctrl+W closes,
 Ctrl+Shift+W closes all, Ctrl+Q quits, Ctrl+Z undoes,
 Ctrl+Shift+Z and Ctrl+Y redo, Ctrl+X cuts, Ctrl+C copies,
-Ctrl+V pastes, Tab and Ctrl+] indent, and Shift+Tab and
-Ctrl+[ unindent. Ctrl+F searches and Ctrl+H replaces. The
-menus show the same accelerators. The Keyboard page can
+Ctrl+V pastes, Ctrl+A selects the whole buffer, Tab and
+Ctrl+] indent, and Shift+Tab and Ctrl+[ unindent. Ctrl+F
+searches and Ctrl+H replaces. The menus show the same
+accelerators. The Keyboard page can
 change each one. Tab, Shift+Tab, and Ctrl+Shift+Z stay bound
 as well. Ctrl+S runs
 after the key handler returns, so the save dialog is not opened

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+Edit, Select All, and Ctrl+A select the current buffer from
+the start through the end. The Edit menu shows that shortcut.
+If another command already used Ctrl+A, that command loses
+the shortcut.
+
 The mini-map keeps its own reference to the drawing area.
 Closing a file, or quitting with several files open, no
 longer releases that area after the split has already

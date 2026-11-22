@@ -5,7 +5,7 @@
  * index matches the order File, Edit, Search.
  */
 enum {
-    EDITOR_KEY_COUNT = 19
+    EDITOR_KEY_COUNT = 20
 };
 
 void key_info(
