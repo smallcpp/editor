@@ -362,6 +362,8 @@ int main(void) {
         expect(item.saveOnTab == 0, "default save tab");
         expect(item.saveOnWindow == 0, "default save window");
         expect(item.trimTrailing == 0, "default trim");
+        expect(item.recoveryOn == 0, "default recovery");
+        expect(item.recoveryMinutes == 5, "default minutes");
         expect(text_same(
                     item.bracketPairs,
                     "()[]{}\"\"''") == 1,
@@ -453,6 +455,8 @@ int main(void) {
         text_copy(item.bracketPairs, 64, "<>");
         item.spaces = 2;
         item.trimTrailing = 1;
+        item.recoveryOn = 1;
+        item.recoveryMinutes = 12;
         item.tabWidth = 2;
         item.showMargin = 1;
         item.marginCols = 90;
@@ -509,6 +513,8 @@ int main(void) {
                 "saved pairs");
         expect(back.spaces == 2, "saved both");
         expect(back.trimTrailing == 1, "saved trim");
+        expect(back.recoveryOn == 1, "saved recovery");
+        expect(back.recoveryMinutes == 12, "saved minutes");
         expect(back.tabWidth == 2, "saved tab");
         expect(back.showMargin == 1, "saved margin");
         expect(back.marginCols == 90, "saved columns");

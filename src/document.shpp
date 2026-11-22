@@ -15,6 +15,11 @@ public:
     int save_as(const char *path, bool strip);
     int reload_file(void);
     int disk_differs(void);
+    int disk_status(void);
+    void ignore_disk(void);
+    void mark_missing(void);
+    int recovery_leaf(char *dest, long cap);
+    int write_recovery(const char *dir);
     const char *path(void);
     int untitled(void);
     const char *title(void);
@@ -26,6 +31,8 @@ private:
     String *filePath;
     String *titleText;
     String *loaded;
+    String *ignored;
+    int missingNoted;
     String *lang;
     String *errorText;
     EditBuffer *body;

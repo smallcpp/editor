@@ -71,6 +71,11 @@ default is `#ffffff`. Each tag has a Bold checkbox,
 off until it is turned on. A line separates the grid
 from Close. Close is centered on this dialog and on
 the setup dialog.
+A changed file asks to reload, save, or ignore. A
+removed file is reported once. Write recovery files is
+off. The interval is `recovery-minutes`, from 1 to 1440,
+and the default is 5. Copies are the buffer text in
+`$HOME/.config/smallcpp/recovery`.
 A Color button sets the current-line color and another
 sets the column-marker color. Indent width is a character count. Keyboard
 is a grid of command and shortcut. Click a shortcut, press

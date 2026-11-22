@@ -19,7 +19,13 @@ separates Settings from the other commands. File also has
 Close All. Open can select
 several files. Each one is opened, and the last one is the
 active tab. A new line shows its gutter number when Enter
-creates it, before any character is typed. A settings
+creates it, before any character is typed. The last
+line keeps a number when that line has no characters.
+When a buffer's file changes on disk, a dialog offers
+Reload, Save, or Ignore. A saved file that disappears
+is reported once. General can write recovery copies.
+That checkbox is off. The minutes box starts at 5.
+Copies go in `$HOME/.config/smallcpp/recovery`. A settings
 control writes `$HOME/.config/smallcpp/editor.ini` when it
 changes. Close only hides the dialog. Settings is a notebook
 with the tabs on the

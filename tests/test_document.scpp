@@ -94,6 +94,44 @@ int main(void) {
     expect(doc->load_path(path) == 1, "load shpp");
     expect(text_same(doc->language(), "scpp") == 1, "shpp language");
     unlink(path);
+    path_join(path, EDITOR_PATH, dir, "watch.scpp");
+    expect(write_file(path, "keep\n", &io) == 1, "watch seed");
+    doc = new Document();
+    expect(doc->disk_status() == 0, "untitled disk");
+    expect(doc->write_recovery(dir) == 0, "untitled recovery");
+    expect(doc->load_path(path) == 1, "watch load");
+    expect(doc->disk_status() == 0, "disk same");
+    expect(write_file(path, "other\n", &io) == 1, "watch change");
+    expect(doc->disk_status() == 1, "disk status changed");
+    doc->ignore_disk();
+    expect(doc->disk_status() == 0, "disk ignored");
+    expect(write_file(path, "third\n", &io) == 1, "watch again");
+    expect(doc->disk_status() == 1, "disk status again");
+    unlink(path);
+    expect(doc->disk_status() == 2, "disk missing");
+    doc->mark_missing();
+    expect(doc->disk_status() == 0, "missing noted");
+    expect(write_file(path, "keep\n", &io) == 1, "watch back");
+    expect(doc->disk_status() == 0, "disk returned");
+    doc->buffer()->set_text("saved work\n");
+    expect(doc->write_recovery(dir) == 1, "recovery write");
+    {
+        char leaf[128];
+        char rec[EDITOR_PATH];
+        char *raw;
+        long n;
+
+        n = 0;
+        expect(doc->recovery_leaf(leaf, 128) == 1, "leaf");
+        path_join(rec, EDITOR_PATH, dir, leaf);
+        raw = read_file(rec, &n, &io);
+        expect(raw != nullptr, "recovery file");
+        if (raw != nullptr)
+            expect(text_same(raw, "saved work\n") == 1,
+                    "recovery text");
+        unlink(rec);
+    }
+    unlink(path);
     path_join(path, EDITOR_PATH, dir, "note.scpp");
     unlink(path);
     rmdir(dir);

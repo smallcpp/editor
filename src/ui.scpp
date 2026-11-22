@@ -6,6 +6,10 @@ extern void gtk_file_dialog_set_initial_folder(
         void *folder);
 extern void g_object_unref(void *object);
 extern unsigned g_idle_add(void *func, void *data);
+extern unsigned g_timeout_add(
+        unsigned interval,
+        void *func,
+        void *data);
 extern unsigned long g_signal_connect_data(
         void *instance,
         const char *signal,
@@ -268,6 +272,25 @@ void ui_option(void *data, bool value) {
     editorUi->set_option((const char *)data, on);
 }
 
+void ui_recover_text(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->take_recovery_text();
+}
+
+void ui_disk_response(void *data, int response) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->answer_disk(response);
+}
+
+int ui_tick(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->tick();
+    return 1;
+}
+
 void ui_settings_response(void *data, int response) {
     (void)data;
     (void)response;
@@ -377,6 +400,18 @@ Ui::Ui(Editor *editor) {
     saveOnTab = 0;
     saveOnWindow = 0;
     trimOn = 0;
+    recoveryOn = 0;
+    recoveryMinutes = 5;
+    diskKind = 0;
+    diskIndex = -1;
+    tickArmed = 0;
+    recoveryMark = 0;
+    diskDialog = nullptr;
+    goneDialog = nullptr;
+    diskLabel = nullptr;
+    goneLabel = nullptr;
+    recoverCheck = nullptr;
+    recoverEntry = nullptr;
     listedCount = 0;
     dirtyOpen = 0;
     recentCount = 10;
@@ -1111,6 +1146,7 @@ void Ui::refresh(void) {
 void Ui::show_main(void) {
     refresh();
     mainWindow->present();
+    arm_tick();
 }
 
 void Ui::show_choice(const char *title, int mode) {
@@ -1431,6 +1467,28 @@ void Ui::hide_settings(void) {
     settingsDialog->set_visible(false);
 }
 
+static void minutes_text(char *dest, int value) {
+    char digits[8];
+    long n;
+    long i;
+
+    if (value < 1)
+        value = 1;
+    n = 0;
+    while (value > 0 && n < 7) {
+        digits[n] = (char)('0' + (value % 10));
+        value = value / 10;
+        n = n + 1;
+    }
+    i = 0;
+    while (n > 0) {
+        n = n - 1;
+        dest[i] = digits[n];
+        i = i + 1;
+    }
+    dest[i] = 0;
+}
+
 static void set_box(CheckButton *box, int on) {
     if (box == nullptr)
         return;
@@ -1455,6 +1513,13 @@ void Ui::sync_boxes(void) {
     set_box(saveTabCheck, saveOnTab);
     set_box(saveWinCheck, saveOnWindow);
     set_box(trimCheck, trimOn);
+    set_box(recoverCheck, recoveryOn);
+    if (recoverEntry != nullptr) {
+        char shown[8];
+
+        minutes_text(shown, recoveryMinutes);
+        recoverEntry->set_text(shown);
+    }
     if (recentSpin != nullptr)
         recentSpin->set_value((double)recentCount);
     applying = 0;
@@ -1518,6 +1583,11 @@ void Ui::set_option(const char *label, int on) {
                 "Trim trailing spaces on save") == 1) {
         trimOn = value;
         state->set_trim(value);
+    }
+    if (text_same(label, "Write recovery files") == 1) {
+        recoveryOn = value;
+        if (value != 0)
+            recoveryMark = (long)time(nullptr);
     }
     push_options();
     apply_settings();
@@ -2233,6 +2303,14 @@ void Ui::use_config(EditorConfig *item) {
     saveOnTab = item->saveOnTab;
     saveOnWindow = item->saveOnWindow;
     trimOn = item->trimTrailing;
+    recoveryOn = item->recoveryOn;
+    if (recoveryOn != 0)
+        recoveryOn = 1;
+    recoveryMinutes = item->recoveryMinutes;
+    if (recoveryMinutes < 1 || recoveryMinutes > 1440)
+        recoveryMinutes = 5;
+    if (recoveryOn != 0)
+        recoveryMark = (long)time(nullptr);
     recentCount = item->recentCount;
     recentUsed = item->recentUsed;
     openCount = item->openCount;
@@ -2372,6 +2450,8 @@ void Ui::apply_settings(void) {
     item.activePath[0] = 0;
     if (rememberFiles == 1)
         collect_open(&item);
+    item.recoveryOn = recoveryOn;
+    item.recoveryMinutes = recoveryMinutes;
     theme_copy(&item, themeConfig);
     use_config(&item);
     if (config_path(path, EDITOR_PATH) == 1)
@@ -3091,6 +3171,14 @@ void Ui::show_settings(void) {
         rememberCheck->on_toggled(
                 ui_option,
                 (void *)"Remember files");
+        recoverCheck = new CheckButton(
+                "Write recovery files");
+        recoverCheck->on_toggled(
+                ui_option,
+                (void *)"Write recovery files");
+        recoverEntry = new Entry("5");
+        recoverEntry->set_width_chars(6);
+        recoverEntry->on_changed(ui_recover_text, nullptr);
         {
             Box *fileGroup;
 
@@ -3100,6 +3188,10 @@ void Ui::show_settings(void) {
                     (Widget *)recentSpin));
             fileGroup->append((Widget *)rememberCheck);
             fileGroup->append((Widget *)closeCheck);
+            fileGroup->append((Widget *)recoverCheck);
+            fileGroup->append((Widget *)labeled_field(
+                    "Minutes",
+                    (Widget *)recoverEntry));
             box->append((Widget *)fileGroup);
         }
         saveTabCheck = new CheckButton(
@@ -4038,11 +4130,279 @@ void Ui::save_quiet(long index) {
     paint_status();
 }
 
+static void join_note(
+        char *dest,
+        long cap,
+        const char *title,
+        const char *tail) {
+    long n;
+    long i;
+
+    n = 0;
+    i = 0;
+    if (title == nullptr)
+        title = "";
+    while (title[i] != 0 && n + 1 < cap) {
+        dest[n] = title[i];
+        n = n + 1;
+        i = i + 1;
+    }
+    i = 0;
+    while (tail[i] != 0 && n + 1 < cap) {
+        dest[n] = tail[i];
+        n = n + 1;
+        i = i + 1;
+    }
+    dest[n] = 0;
+}
+
+void Ui::show_buffer(long index) {
+    Document *doc;
+
+    if (state == nullptr)
+        return;
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].buffer == nullptr)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr)
+        return;
+    applying = 1;
+    pages[index].buffer->set_text(doc->buffer()->text());
+    applying = 0;
+    place_cursor(index);
+    highlight(index);
+    retitle(index);
+    paint_status();
+    paint_line(index);
+}
+
+void Ui::show_disk(long index) {
+    Document *doc;
+    char text[160];
+
+    if (state == nullptr)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr)
+        return;
+    diskIndex = index;
+    diskKind = 1;
+    if (diskDialog == nullptr) {
+        diskDialog = new Dialog("File changed");
+        diskDialog->set_transient(mainWindow);
+        diskLabel = new Label("");
+        diskDialog->set_content((Widget *)diskLabel);
+        diskDialog->add_button("Reload", 1);
+        diskDialog->add_button("Save", 2);
+        diskDialog->add_button("Ignore", 3);
+        diskDialog->on_response(ui_disk_response, nullptr);
+    }
+    join_note(
+            text,
+            160,
+            doc->title(),
+            " changed on disk.");
+    diskLabel->set_text(text);
+    diskDialog->present();
+}
+
+void Ui::show_gone(long index) {
+    Document *doc;
+    char text[160];
+
+    if (state == nullptr)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr)
+        return;
+    diskIndex = index;
+    diskKind = 2;
+    if (goneDialog == nullptr) {
+        goneDialog = new Dialog("File removed");
+        goneDialog->set_transient(mainWindow);
+        goneLabel = new Label("");
+        goneDialog->set_content((Widget *)goneLabel);
+        goneDialog->add_button("Close", 1);
+        goneDialog->on_response(ui_disk_response, nullptr);
+    }
+    join_note(
+            text,
+            160,
+            doc->title(),
+            " is no longer on disk.");
+    goneLabel->set_text(text);
+    goneDialog->present();
+}
+
+void Ui::check_files(void) {
+    long i;
+
+    if (leaving == 1 || state == nullptr)
+        return;
+    if (diskKind != 0)
+        return;
+    i = 0;
+    while (i < state->count()) {
+        Document *doc;
+        int status;
+
+        doc = state->at(i);
+        status = 0;
+        if (doc != nullptr)
+            status = doc->disk_status();
+        if (status == 1) {
+            show_disk(i);
+            return;
+        }
+        if (status == 2) {
+            show_gone(i);
+            return;
+        }
+        i = i + 1;
+    }
+}
+
+void Ui::answer_disk(int response) {
+    Document *doc;
+    long index;
+
+    index = diskIndex;
+    doc = nullptr;
+    if (state != nullptr
+            && index >= 0
+            && index < state->count())
+        doc = state->at(index);
+    if (diskKind == 2) {
+        diskKind = 0;
+        if (goneDialog != nullptr)
+            goneDialog->set_visible(false);
+        if (doc != nullptr)
+            doc->mark_missing();
+        return;
+    }
+    diskKind = 0;
+    if (diskDialog != nullptr)
+        diskDialog->set_visible(false);
+    if (doc == nullptr)
+        return;
+    if (response == 1) {
+        if (doc->reload_file() == 1)
+            show_buffer(index);
+        return;
+    }
+    if (response == 2) {
+        state->set_index(index);
+        state->save_active();
+        retitle(index);
+        paint_status();
+        return;
+    }
+    doc->ignore_disk();
+}
+
+int Ui::disk_prompt(void) {
+    return diskKind;
+}
+
+int Ui::recovery_on(void) {
+    return recoveryOn;
+}
+
+int Ui::recovery_minutes(void) {
+    return recoveryMinutes;
+}
+
+void Ui::set_recovery_minutes(int value) {
+    if (value < 1)
+        value = 1;
+    if (value > 1440)
+        value = 1440;
+    recoveryMinutes = value;
+    if (applying == 1 || settingsHold != 0)
+        return;
+    apply_settings();
+}
+
+void Ui::take_recovery_text(void) {
+    const char *text;
+    int value;
+    long i;
+
+    if (applying == 1 || settingsHold != 0)
+        return;
+    if (recoverEntry == nullptr)
+        return;
+    text = recoverEntry->text();
+    if (text == nullptr || text[0] == 0)
+        return;
+    i = 0;
+    value = 0;
+    while (text[i] >= '0' && text[i] <= '9') {
+        value = value * 10 + (text[i] - '0');
+        i = i + 1;
+        if (value > 100000)
+            return;
+    }
+    if (text[i] != 0)
+        return;
+    set_recovery_minutes(value);
+}
+
+int Ui::write_recovery_files(void) {
+    char dir[EDITOR_PATH];
+    long i;
+    int n;
+
+    if (state == nullptr)
+        return 0;
+    if (recovery_dir(dir, EDITOR_PATH) == 0)
+        return 0;
+    n = 0;
+    i = 0;
+    while (i < state->count()) {
+        Document *doc;
+
+        doc = state->at(i);
+        if (doc != nullptr && doc->write_recovery(dir) == 1)
+            n = n + 1;
+        i = i + 1;
+    }
+    return n;
+}
+
+void Ui::arm_tick(void) {
+    if (tickArmed == 1)
+        return;
+    tickArmed = 1;
+    g_timeout_add(2000, (void *)ui_tick, nullptr);
+}
+
+void Ui::tick(void) {
+    long now;
+
+    if (leaving == 1)
+        return;
+    check_files();
+    if (recoveryOn == 0)
+        return;
+    now = (long)time(nullptr);
+    if (recoveryMark == 0)
+        recoveryMark = now;
+    if (now - recoveryMark < (long)recoveryMinutes * 60)
+        return;
+    write_recovery_files();
+    recoveryMark = now;
+}
+
 void Ui::note_active(int active) {
     if (leaving == 1)
         return;
-    if (active != 0)
+    if (active != 0) {
+        check_files();
         return;
+    }
     if (dirtyOpen == 1)
         return;
     if (saveOnWindow == 0)
@@ -4068,6 +4428,10 @@ void Ui::leave(void) {
     leaving = 1;
     if (settingsDialog != nullptr)
         settingsDialog->set_visible(false);
+    if (diskDialog != nullptr)
+        diskDialog->set_visible(false);
+    if (goneDialog != nullptr)
+        goneDialog->set_visible(false);
     if (choiceDialog != nullptr)
         choiceDialog->set_visible(false);
     if (dirtyDialog != nullptr) {
