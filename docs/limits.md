@@ -23,8 +23,9 @@ file from the length of its lines, a band for the lines
 in view, and a mark on the current line. A click outside
 the highlight scrolls that part of the file into view.
 Pressing the highlight and moving the mouse scrolls the
-buffer and leaves the caret where it was. The column width
-is set in Settings and stays there.
+buffer and leaves the caret where it was. The bar beside
+the column and Map width in Settings both set its width,
+and that width stays until one of those changes it.
 The column reads the editor buffer and does not keep a
 second copy. The wrapper has no mini-map widget, so the
 column is drawn directly. A line Enter just created is numbered before it has

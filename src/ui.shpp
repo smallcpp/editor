@@ -42,6 +42,8 @@ public:
     long markSize;
     long grab;
     long dragAt;
+    long splitWide;
+    long splitPos;
     int hooked;
     int markDrag;
     void *adjust;
@@ -241,6 +243,11 @@ public:
     void finish_font(const char *description);
     long map_width(void);
     void set_map_width(long width);
+    void set_map_spin(long width);
+    long map_spin(void);
+    int map_spin_locked(void);
+    void move_map_bar(long endWidth);
+    void save_map_width(void);
     void keep_map_width(long index);
     void pin_map(long index);
     long panel_width(void);
@@ -383,8 +390,12 @@ private:
     Paned *editorSplit;
     int leftWidth;
     long mapWide;
+    long mapGap;
     int panelHold;
     int mapHold;
+    int mapFollow;
+    int mapSpinHold;
+    int mapSave;
     long fileMenu;
     long searchMenu;
     long viewMenu;
@@ -501,6 +512,9 @@ private:
     void fill_project(void);
     void fill_project_files(void);
     void place_map(long index);
+    void note_map_split(long index);
+    void sync_map_spin(void);
+    void remember_map_width(void);
     void scroll_map_y(long index, long y);
     int in_map_band(long page, long y);
     long band_top(long page);

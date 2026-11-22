@@ -2,11 +2,15 @@
 
 ## Unreleased
 
-The mini-map keeps the width chosen in Settings. Appearance,
-Font, Map width sets that width, and the column does not
-change it on its own. Pressing the highlighted area and
-moving the mouse scrolls the buffer. The caret stays where
-it was. A click outside the highlight still only scrolls.
+The bar between the editor and the mini-map sets the column
+width, and Settings, Appearance, Font, Map width sets that
+same width. The column keeps the width from whichever
+control was used last. Resizing the window does not change
+it.
+
+Pressing the highlighted area and moving the mouse scrolls
+the buffer. The caret stays where it was. A click outside
+the highlight still only scrolls.
 
 The mini-map draws each line in a font, so the shape of the
 text is visible across the column. Settings, Appearance, Font
