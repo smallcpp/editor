@@ -112,8 +112,9 @@ stores the window width and height. The next start uses
 that size, and a first run with no saved size uses the
 usual size. Open Recent sits with Open and lists the
 newest files first, up to the saved count. Choosing one
-opens it. A file that is gone says that name is missing
-and does not open a buffer. When Remember files is on, the named files and
+opens it. A file that is gone opens a message dialog,
+File "name" not found., and does not open a buffer.
+When Remember files is on, the named files and
 the active file are opened again next time. Untitled
 buffers are left out. Document tabs stay inside the
 window. Left and right buttons scroll them. The close

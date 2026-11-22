@@ -48,6 +48,7 @@ public:
     void open_recent(const char *path);
     void answer_missing(int response);
     int missing_prompt(void);
+    const char *missing_text(void);
     void save_path(const char *path);
     void choice(int response);
     void changed(long index);
@@ -249,10 +250,10 @@ private:
     long recoveryMark;
     Dialog *diskDialog;
     Dialog *goneDialog;
-    Dialog *missingDialog;
+    void *missingNative;
     Label *diskLabel;
     Label *goneLabel;
-    Label *missingLabel;
+    char missingNote[EDITOR_PATH];
     int missingOpen;
     CheckButton *recoverCheck;
     Entry *recoverEntry;
