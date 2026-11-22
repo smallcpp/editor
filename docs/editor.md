@@ -90,8 +90,14 @@ Whitespace, Line ends, and Indent stops. Whitespace draws
 a dot for each space and a line for each tab. Line ends
 draws a mark after each line. Indent stops draws a line
 at each tab stop inside the leading indent. Settings has
-General, Search, Appearance, and Keyboard pages, and the
-tabs sit on the left and stay put while the page scrolls.
+General, Search, Appearance, Languages, and Keyboard
+pages, and the tabs sit on the left and stay put while
+the page scrolls. Languages lists each language. It has
+a name, suffixes, special filenames, a shebang, a line
+comment, an optional block comment, and keywords. Add,
+Save, and Delete change the list. Reset restores a
+built-in language. A file that matches nothing stays
+plain. Commenting and coloring use this list.
 Search holds wrap at the end of the buffer, reverse
 direction, whole words only, and exact word case.
 Appearance holds Whitespace, Line ends, Indent stops, and

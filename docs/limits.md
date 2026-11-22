@@ -49,7 +49,12 @@ beside the compiler's `config.ini`. A control writes that
 file when it changes, including one `key-` accelerator for
 each command, the search options, and the view options.
 Close only hides the dialog. The setup dialog is a notebook with
-the tabs on the left. General holds the switches. Search
+the tabs on the left. Languages is one page. A language
+has suffixes, filenames, a shebang, a line comment, an
+optional block comment, and keywords. The built-in set
+can be reset. The list is `languages.ini` beside
+`editor.ini`. A file with no language stays plain.
+General holds the switches. Search
 holds wrap at the end of the buffer, reverse direction,
 whole words only, and exact word case. Appearance holds
 Whitespace, Line ends, Indent stops, and Font. General
