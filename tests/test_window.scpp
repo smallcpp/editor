@@ -272,6 +272,29 @@ static int send_ctrl_s(void) {
     return send_chord(0x73, 1);
 }
 
+void check_panels(Ui *ui) {
+    expect(ui->shows_left() == 1, "left starts shown");
+    expect(ui->left_checked() == 1, "left starts checked");
+    expect(ui->shows_map() == 1, "map starts shown");
+    expect(ui->map_checked() == 1, "map starts checked");
+    ui->set_option("Left panel", 0);
+    expect(ui->shows_left() == 0, "left hides");
+    expect(ui->left_checked() == 0, "left unchecked");
+    ui->on_menu("Left panel");
+    expect(ui->shows_left() == 0, "left stays hidden");
+    ui->set_option("Left panel", 1);
+    expect(ui->shows_left() == 1, "left shows");
+    expect(ui->left_checked() == 1, "left checked");
+    ui->set_option("Right panel", 0);
+    expect(ui->shows_map() == 0, "map hides");
+    expect(ui->map_checked() == 0, "map unchecked");
+    ui->on_menu("Right panel");
+    expect(ui->shows_map() == 0, "map stays hidden");
+    ui->set_option("Right panel", 1);
+    expect(ui->shows_map() == 1, "map shows");
+    expect(ui->map_checked() == 1, "map checked");
+}
+
 void check_projects(Ui *ui, const char *dir, const char *io) {
     char job[EDITOR_PATH];
     char other[EDITOR_PATH];
@@ -352,6 +375,7 @@ int main(void) {
         burn_stack(8);
         expect(text_same(ui->page_text(0), "one\n") == 1,
                 "page a");
+        check_panels(ui);
         expect(text_same(ui->page_text(1), "two\n") == 1,
                 "page b");
         path_join(pathC, EDITOR_PATH, dir, "how_dy.scpp");
@@ -1033,6 +1057,10 @@ int main(void) {
                             raw,
                             "show-whitespace=0") == 1,
                         "saved whitespace");
+                expect(text_has(raw, "left-panel=1") == 1,
+                        "saved left panel");
+                expect(text_has(raw, "right-panel=1") == 1,
+                        "saved right panel");
                 expect(text_has(raw, "recovery=1") == 1,
                         "saved recovery");
                 expect(text_has(

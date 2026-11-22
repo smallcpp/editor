@@ -36,6 +36,8 @@ public:
     int showSpace;
     int showEnds;
     int showStops;
+    int showLeft;
+    int showMap;
     char lineColor[32];
     char marginColor[32];
     char themeName[THEME_NAME];

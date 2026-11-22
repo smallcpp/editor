@@ -400,6 +400,8 @@ void config_defaults(EditorConfig *item) {
     item->showSpace = 0;
     item->showEnds = 0;
     item->showStops = 0;
+    item->showLeft = 1;
+    item->showMap = 1;
     item->windowWidth = 0;
     item->windowHeight = 0;
     item->rememberFiles = 0;
@@ -1046,6 +1048,10 @@ static void take_line(EditorConfig *item, const char *line) {
         item->showEnds = read_int(value, item->showEnds);
     if (key_is(line, "show-indent-stops") == 1)
         item->showStops = read_int(value, item->showStops);
+    if (key_is(line, "left-panel") == 1)
+        item->showLeft = read_int(value, item->showLeft);
+    if (key_is(line, "right-panel") == 1)
+        item->showMap = read_int(value, item->showMap);
     if (key_is(line, "window-width") == 1)
         item->windowWidth = read_int(value, item->windowWidth);
     if (key_is(line, "window-height") == 1)
@@ -1304,6 +1310,8 @@ int config_write(
     add_flag(text, "show-whitespace", item->showSpace);
     add_flag(text, "show-line-ends", item->showEnds);
     add_flag(text, "show-indent-stops", item->showStops);
+    add_flag(text, "left-panel", item->showLeft);
+    add_flag(text, "right-panel", item->showMap);
     add_flag(text, "remember-files", item->rememberFiles);
     add_flag(text, "save-on-tab", item->saveOnTab);
     add_flag(text, "save-on-window", item->saveOnWindow);

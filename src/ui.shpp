@@ -125,6 +125,10 @@ public:
     int shows_space(void);
     int shows_ends(void);
     int shows_stops(void);
+    int shows_left(void);
+    int shows_map(void);
+    int left_checked(void);
+    int map_checked(void);
     int search_wrap(void);
     int recent_count(void);
     const char *recent_at(int index);
@@ -322,6 +326,9 @@ private:
     int showSpace;
     int showEnds;
     int showStops;
+    int showLeft;
+    int showMap;
+    Paned *editorSplit;
     long fileMenu;
     long searchMenu;
     long viewMenu;
@@ -415,6 +422,7 @@ private:
     void build(void);
     void bind_keys(void);
     void push_options(void);
+    void apply_panels(void);
     void sync_boxes(void);
     void read_keys(void);
     void show_key_note(void);

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+View has Left panel and Right panel. Each is checked
+while that panel is shown. Left panel is the files and
+project list. Right panel is the mini-map. Clearing a
+check hides that panel, and checking it shows the panel
+again. The choice is saved in `editor.ini`.
+
 Settings has a Projects page. Recent projects is a pull-down
 of project folders, and choosing one opens that project.
 A project is the folder the editor is working in. Opening
