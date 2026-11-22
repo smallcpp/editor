@@ -95,6 +95,12 @@ one group: Autoindent, tabs or spaces or both, and the
 indent width. The width is how many character places one
 indent shows. General can trim trailing spaces when a
 file is saved. That switch is off until it is turned on.
+Ensure newline at end of file is off until it is turned
+on. A save then adds one newline when the buffer does not
+already end with one. Show path in file tab is off until
+it is turned on. Depth is how many parent directories the
+tab keeps. Depth 0, or the switch off, shows only the
+file name.
 Each field has its label on the same line, and the field
 is 12 characters wide. General also holds how many recent
 files to keep. The count starts at 10. It can save a named

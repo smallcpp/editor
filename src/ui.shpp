@@ -112,6 +112,8 @@ public:
     long window_width(void);
     long window_height(void);
     void set_recent_count(int value);
+    void set_path_depth(int value);
+    int path_depth(void);
     void note_size(long width, long height);
     void note_active(int active);
     void check_files(void);
@@ -191,6 +193,9 @@ private:
     CheckButton *indentCheck;
     DropDown *indentDrop;
     CheckButton *trimCheck;
+    CheckButton *newlineCheck;
+    CheckButton *pathCheck;
+    SpinButton *pathSpin;
     CheckButton *lineCheck;
     CheckButton *marginCheck;
     CheckButton *closeCheck;
@@ -249,6 +254,9 @@ private:
     int saveOnTab;
     int saveOnWindow;
     int trimOn;
+    int newlineOn;
+    int pathOn;
+    int pathDepth;
     int recoveryOn;
     int recoveryMinutes;
     int diskKind;
@@ -302,6 +310,7 @@ private:
     void push_active(void);
     void place_cursor(long index);
     void sync_view(long index);
+    void mirror_pages(void);
     void take_selection(void);
     void highlight(long index);
     void paint_brackets(long index);

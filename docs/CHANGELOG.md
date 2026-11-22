@@ -108,6 +108,13 @@ bordered group. Indent can use tabs, spaces, or both, and
 the width is how many character places one indent shows.
 Autoindent is the name of the new-line indent. Trim
 trailing spaces on save is off until it is turned on.
+Ensure newline at end of file is off until it is turned
+on. A save then adds one newline when the buffer does not
+already end with one. Show path in file tab is off until
+it is turned on. Its depth is how many parent directories
+to keep. Depth 2 of `.../editor/src/ui.scpp` shows
+`editor/src/ui.scpp`. Depth 0, or the switch off, shows
+only the file name. Both are saved in `editor.ini`.
 Font is on Appearance. Remember files sits with the
 recent-file count on General. Autoclose brackets keeps an
 edit box of the pairs. The default is `()[]{}""''`. The

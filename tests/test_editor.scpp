@@ -315,6 +315,67 @@ int main(void) {
     expect(raw != nullptr
             && text_same(raw, "keep  \n") == 1,
             "kept spaces");
+    expect(editor->ensures_newline() == 0, "newline default");
+    editor->active()->buffer()->set_text("plain");
+    expect(editor->save_active() == EDITOR_OK,
+            "save without a newline");
+    raw = read_file(pathC, &n, &io);
+    expect(raw != nullptr
+            && text_same(raw, "plain") == 1,
+            "leaves a missing newline");
+    editor->set_newline(1);
+    editor->active()->buffer()->set_text("plain");
+    expect(editor->save_active() == EDITOR_OK,
+            "save with a newline");
+    raw = read_file(pathC, &n, &io);
+    expect(raw != nullptr
+            && text_same(raw, "plain\n") == 1,
+            "appends a newline");
+    expect(text_same(
+                editor->active()->buffer()->text(),
+                "plain\n") == 1,
+            "buffer ends with a newline");
+    editor->active()->buffer()->set_text("plain\n");
+    expect(editor->save_active() == EDITOR_OK,
+            "save an ending newline");
+    raw = read_file(pathC, &n, &io);
+    expect(raw != nullptr
+            && text_same(raw, "plain\n") == 1,
+            "does not add a second newline");
+    editor->active()->buffer()->set_text("");
+    expect(editor->save_active() == EDITOR_OK,
+            "save an empty buffer");
+    raw = read_file(pathC, &n, &io);
+    expect(raw != nullptr && text_same(raw, "\n") == 1,
+            "empty buffer gains a newline");
+    editor->set_newline(0);
+    {
+        char tail[EDITOR_PATH];
+
+        path_tail(
+                tail,
+                EDITOR_PATH,
+                "/home/chuck/Src/smallcpp/editor/src/ui.scpp",
+                2);
+        expect(text_same(
+                    tail,
+                    "editor/src/ui.scpp") == 1,
+                "two directories");
+        path_tail(
+                tail,
+                EDITOR_PATH,
+                "/home/chuck/Src/smallcpp/editor/src/ui.scpp",
+                0);
+        expect(text_same(tail, "ui.scpp") == 1,
+                "depth zero is the name");
+        path_tail(
+                tail,
+                EDITOR_PATH,
+                "src/ui.scpp",
+                4);
+        expect(text_same(tail, "src/ui.scpp") == 1,
+                "short path stays whole");
+    }
     {
         char folder[EDITOR_PATH];
 
@@ -362,6 +423,9 @@ int main(void) {
         expect(item.saveOnTab == 0, "default save tab");
         expect(item.saveOnWindow == 0, "default save window");
         expect(item.trimTrailing == 0, "default trim");
+        expect(item.ensureNewline == 0, "default newline");
+        expect(item.showPath == 0, "default path");
+        expect(item.pathDepth == 0, "default depth");
         expect(item.recoveryOn == 0, "default recovery");
         expect(item.recoveryMinutes == 5, "default minutes");
         expect(text_same(
@@ -455,6 +519,9 @@ int main(void) {
         text_copy(item.bracketPairs, 64, "<>");
         item.spaces = 2;
         item.trimTrailing = 1;
+        item.ensureNewline = 1;
+        item.showPath = 1;
+        item.pathDepth = 2;
         item.recoveryOn = 1;
         item.recoveryMinutes = 12;
         item.tabWidth = 2;
@@ -513,6 +580,9 @@ int main(void) {
                 "saved pairs");
         expect(back.spaces == 2, "saved both");
         expect(back.trimTrailing == 1, "saved trim");
+        expect(back.ensureNewline == 1, "saved newline");
+        expect(back.showPath == 1, "saved path");
+        expect(back.pathDepth == 2, "saved depth");
         expect(back.recoveryOn == 1, "saved recovery");
         expect(back.recoveryMinutes == 12, "saved minutes");
         expect(back.tabWidth == 2, "saved tab");

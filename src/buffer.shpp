@@ -76,6 +76,7 @@ public:
     void undo(void);
     void redo(void);
     void strip_trailing(void);
+    void ensure_newline(void);
     void toggle_line_comment(const char *leader);
     void toggle_block_comment(void);
     void indent_lines(long width, int style);

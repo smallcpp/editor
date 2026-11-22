@@ -95,6 +95,8 @@ public:
     int indent_style(void);
     void set_trim(int value);
     int trims(void);
+    void set_newline(int value);
+    int ensures_newline(void);
 private:
     DocVec *docs;
     long activeIndex;
@@ -111,6 +113,7 @@ private:
     int tabWidth;
     int indentStyle;
     int trimOn;
+    int newlineOn;
     void set_error(const char *msg);
     void apply_typing(Document *doc);
     int save_named(Document *doc);
