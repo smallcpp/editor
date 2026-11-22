@@ -1,3 +1,6 @@
+.scpp/
+.sedit/
+
 # Prerequisites
 *.d
 
