@@ -20,10 +20,11 @@ the visible lines, wide enough for four digits and one space.
 Each number is drawn at its buffer line and scrolls with the
 text. A narrow column on the right draws the shape of the
 file from the length of its lines, a band for the lines
-in view, and a mark on the current line. A click scrolls
-that part of the file into view. Dragging the mark moves
-the caret and scrolls the buffer. The column can be dragged
-wider or narrower.
+in view, and a mark on the current line. A click outside
+the highlight scrolls that part of the file into view.
+Pressing the highlight and moving the mouse scrolls the
+buffer and leaves the caret where it was. The column width
+is set in Settings and stays there.
 The column reads the editor buffer and does not keep a
 second copy. The wrapper has no mini-map widget, so the
 column is drawn directly. A line Enter just created is numbered before it has
