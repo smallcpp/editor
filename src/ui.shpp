@@ -38,7 +38,11 @@ public:
     long page;
     long pixels;
     long wide;
+    long markAt;
+    long markSize;
+    long grab;
     int hooked;
+    int markDrag;
     void *adjust;
 };
 
@@ -48,6 +52,7 @@ public:
     TextView *view;
     ScrolledWindow *scroll;
     MapColumn *map;
+    Paned *mapSplit;
     int tags;
     int userDepth;
     int pendingSync;
@@ -215,6 +220,14 @@ public:
     long map_band(void);
     int map_ink(long line);
     void map_click(long y);
+    long map_mark(void);
+    int on_map_mark(long page, long y);
+    void drag_map_mark(long y);
+    long map_width(void);
+    void set_map_width(long width);
+    void keep_map_width(long index);
+    long panel_width(void);
+    void set_panel_width(long width);
     int set_project(const char *path);
     const char *project_path(void);
     int project_from_file(void);
@@ -243,6 +256,7 @@ public:
     int project_clicks(void);
     void align_file_names(void);
     int files_left(void);
+    int project_files_left(void);
     int panel_cmake(void);
     const char *cmake_note(void);
     int panel_targets(void);
@@ -346,6 +360,10 @@ private:
     int showLeft;
     int showMap;
     Paned *editorSplit;
+    int leftWidth;
+    long mapWide;
+    int panelHold;
+    int mapHold;
     long fileMenu;
     long searchMenu;
     long viewMenu;
@@ -459,6 +477,7 @@ private:
     void fill_files(void);
     void fill_project(void);
     void fill_project_files(void);
+    void place_map(long index);
     void make_project_controls(void);
     void place_project_controls(Box *parent);
     void fill_symbols(void);

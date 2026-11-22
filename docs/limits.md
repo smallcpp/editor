@@ -19,8 +19,11 @@ line high, including a blank line. Line numbers are a gutter of
 the visible lines, wide enough for four digits and one space.
 Each number is drawn at its buffer line and scrolls with the
 text. A narrow column on the right draws the shape of the
-file from the length of its lines, and a band for the lines
-in view. A click scrolls that part of the file into view.
+file from the length of its lines, a band for the lines
+in view, and a mark on the current line. A click scrolls
+that part of the file into view. Dragging the mark moves
+the caret and scrolls the buffer. The column can be dragged
+wider or narrower.
 The column reads the editor buffer and does not keep a
 second copy. The wrapper has no mini-map widget, so the
 column is drawn directly. A line Enter just created is numbered before it has
