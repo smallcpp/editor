@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+A project is a named list of files, and using one is
+optional. More than one project can describe the same
+directory. Project has New, Open, Close, Save, Save As,
+and Delete. Open lists the projects already saved. A
+project's files come from an explicit list, a directory,
+a git repository, or the sources named by a CMake build.
+The project panel shows those files as a collapsible
+tree of names. Each project is a file under
+`$HOME/.config/smallcpp/projects/<name>.project`. That
+file remembers the active file, the line, and the other
+open files, and opening the project uses that place.
+Remember files in the global `editor.ini` is a separate
+choice. There is no build, run, or debug.
+
 A click in the buffer that moves the caret marks that line
 on the mini-map at once. The mark is the same one drawn
 when the buffer scrolls, and the click does not wait for
@@ -39,10 +53,8 @@ is marked in the mini-map.
 
 The left panel tab row has scroll buttons. The panel
 sits on the left edge of the window. Files lines up its
-names on the left. Project lists the files in the project
-folder, and one click opens a file. The path field, Set,
-and File folder live on Settings, Projects, with the
-CMake target and command lists.
+names on the left. Project shows the open project's
+files as a tree of names, and one click opens a file.
 
 View has Left panel and Right panel. Each is checked
 while that panel is shown. Left panel is the files and
@@ -50,13 +62,6 @@ project list. Right panel is the mini-map. Clearing a
 check hides that panel, and checking it shows the panel
 again. The choice is saved in `editor.ini`.
 
-Settings has a Projects page. Recent projects is a pull-down
-of project folders, and choosing one opens that project.
-A project is the folder the editor is working in. Opening
-it writes a copy of the current settings to
-`<project>/.sedit/editor.ini`. That file includes
-`recovery-dir` for the same folder. Recovery files for
-the project are written in `<project>/.sedit` as well.
 The installed program is `sedit`. The binary is `bin/sedit`,
 and `install` copies that file into the prefix. Help and the
 version line use that name.
@@ -84,15 +89,11 @@ shows the shape of the file and a band for the lines
 in view. A click in that column scrolls the buffer.
 The column reads the buffer the editor already has.
 A panel on the left lists files, the project, and
-symbols. The project is a folder. When that folder
-contains `CMakeLists.txt`, the project page lists
-targets from that file and compile lines from
-`compile_commands.json` when that file is present.
-The panel does not keep its own buffer. Opening a
+symbols. The panel does not keep its own buffer. Opening a
 file uses the same path as File, Open. A symbol
 moves the cursor in the current buffer.
 The top of the window is a menu bar. File, Edit, Search, View,
-and Documents are submenus. File has New, Open, Save, Save As,
+Project, and Documents are submenus. File has New, Open, Save, Save As,
 Save All, Close, and Quit. Edit has Undo, Redo, Cut, Copy,
 Paste, Indent, Unindent, Comment, Add caret, Clear
 carets, Record, Stop, Play, and Settings. Search has
@@ -143,8 +144,7 @@ When a buffer's file changes on disk, a dialog offers
 Reload, Save, or Ignore. A saved file that disappears
 is reported once. General can write recovery copies.
 That checkbox is off. The minutes box starts at 5.
-Copies for the open project go in that project's `.sedit`
-directory. With no project they go in
+Recovery copies go in
 `$HOME/.config/smallcpp/recovery`. Keep
 starts at 20 and is `recovery-keep`. Older copies past
 that count are removed. A settings

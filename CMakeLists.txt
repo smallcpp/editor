@@ -66,6 +66,7 @@ set(EDITOR_LIB_SOURCES
     "${CMAKE_SOURCE_DIR}/src/document.scpp"
     "${CMAKE_SOURCE_DIR}/src/editor.scpp"
     "${CMAKE_SOURCE_DIR}/src/settings.scpp"
+    "${CMAKE_SOURCE_DIR}/src/project.scpp"
     "${CMAKE_SOURCE_DIR}/src/keys.scpp")
 
 set(EDITOR_SOURCES
@@ -85,6 +86,7 @@ set(EDITOR_HEADERS
     "${CMAKE_SOURCE_DIR}/src/editor.shpp"
     "${CMAKE_SOURCE_DIR}/src/ui.shpp"
     "${CMAKE_SOURCE_DIR}/src/settings.shpp"
+    "${CMAKE_SOURCE_DIR}/src/project.shpp"
     "${CMAKE_SOURCE_DIR}/src/keys.shpp")
 
 set(SCPP_FLAGS "")
