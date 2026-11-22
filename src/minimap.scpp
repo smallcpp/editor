@@ -1,0 +1,119 @@
+#include "minimap.shpp"
+
+int map_ink(const char *text, long from, long to) {
+    long i;
+    int ink;
+    int value;
+
+    if (text == nullptr || to <= from)
+        return 0;
+    if (from < 0)
+        from = 0;
+    ink = 0;
+    i = from;
+    while (i < to && ink < MAP_INK) {
+        value = byte_at(text, i);
+        if (value != ' ' && value != '\t'
+                && value != '\r')
+            ink = ink + 1;
+        i = i + 1;
+    }
+    return ink;
+}
+
+int map_ink_at(const char *text, long line) {
+    long i;
+    long n;
+    long row;
+    long start;
+
+    if (text == nullptr || line < 0)
+        return 0;
+    n = text_length(text);
+    i = 0;
+    row = 0;
+    while (i < n && row < line) {
+        if (text[i] == '\n')
+            row = row + 1;
+        i = i + 1;
+    }
+    start = i;
+    while (i < n && text[i] != '\n')
+        i = i + 1;
+    return map_ink(text, start, i);
+}
+
+long map_line(long lines, long height, long y) {
+    long line;
+
+    if (lines < 1 || height < 1)
+        return 0;
+    if (y < 0)
+        y = 0;
+    if (y >= height)
+        y = height - 1;
+    if (y >= height - 1)
+        return lines - 1;
+    line = y * lines / height;
+    if (line < 0)
+        line = 0;
+    if (line >= lines)
+        line = lines - 1;
+    return line;
+}
+
+long map_top_of(long lines, long height, long line) {
+    long y;
+
+    if (lines < 1)
+        lines = 1;
+    if (height < 1)
+        height = 1;
+    if (line <= 0)
+        return 0;
+    if (line >= lines)
+        return height;
+    y = 0;
+    while (y < height) {
+        if (map_line(lines, height, y) >= line)
+            return y;
+        y = y + 1;
+    }
+    return height;
+}
+
+void map_place(
+        long lines,
+        long height,
+        long first,
+        long count,
+        long *top,
+        long *band) {
+    long last;
+    long bottom;
+
+    if (top == nullptr || band == nullptr)
+        return;
+    if (lines < 1)
+        lines = 1;
+    if (height < 1)
+        height = 1;
+    if (first < 0)
+        first = 0;
+    if (first >= lines)
+        first = lines - 1;
+    if (count < 1)
+        count = 1;
+    last = first + count - 1;
+    if (last >= lines)
+        last = lines - 1;
+    *top = map_top_of(lines, height, first);
+    bottom = map_top_of(lines, height, last + 1);
+    *band = bottom - *top;
+    if (*band < 1)
+        *band = 1;
+    if (*top + *band > height)
+        *top = height - *band;
+    if (*top < 0)
+        *top = 0;
+}

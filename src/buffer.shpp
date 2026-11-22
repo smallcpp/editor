@@ -89,7 +89,7 @@ public:
     void toggle_line_comment(const char *leader);
     void add_line_comment(const char *leader);
     void toggle_block_comment(void);
-    void add_block_comment(void);
+    void add_block_comment(const char *open, const char *close);
     void indent_lines(long width, int style);
     void outdent_lines(long width, int style);
     void insert_column(const char *value);

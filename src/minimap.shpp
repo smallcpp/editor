@@ -1,0 +1,27 @@
+#ifndef EDITOR_MINIMAP
+#define EDITOR_MINIMAP
+
+/* Geometry for the column beside the buffer. The
+ * column reads the editor buffer. These functions do
+ * not keep a copy of that text.
+ */
+#include "util.shpp"
+
+enum {
+    MAP_WIDTH = 48,
+    MAP_INK = 64
+};
+
+int map_ink(const char *text, long from, long to);
+int map_ink_at(const char *text, long line);
+long map_line(long lines, long height, long y);
+long map_top_of(long lines, long height, long line);
+void map_place(
+        long lines,
+        long height,
+        long first,
+        long count,
+        long *top,
+        long *band);
+
+#endif

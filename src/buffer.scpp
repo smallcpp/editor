@@ -1395,16 +1395,28 @@ void EditBuffer::toggle_block_comment(void) {
     cursor = lo + inner->size();
 }
 
-void EditBuffer::add_block_comment(void) {
+void EditBuffer::add_block_comment(
+        const char *open,
+        const char *close) {
     long lo;
     long hi;
+    long back;
     String *inner;
     const char *raw;
 
+    if (open == nullptr || open[0] == 0)
+        open = "/*";
+    if (close == nullptr || close[0] == 0)
+        close = "*/";
     if (has_selection() == false) {
         push_undo();
-        splice(cursor, cursor, "/*  */");
-        cursor = cursor - 3;
+        inner = new String();
+        inner->append(open);
+        inner->append("  ");
+        inner->append(close);
+        splice(cursor, cursor, inner->c_str());
+        back = text_length(close) + 1;
+        cursor = cursor - back;
         anchor = cursor;
         return;
     }
@@ -1413,9 +1425,9 @@ void EditBuffer::add_block_comment(void) {
     raw = body->c_str();
     push_undo();
     inner = new String();
-    inner->append("/*");
+    inner->append(open);
     inner->append(slice_text(raw, lo, hi));
-    inner->append("*/");
+    inner->append(close);
     splice(lo, hi, inner->c_str());
     anchor = lo;
     cursor = lo + inner->size();

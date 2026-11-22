@@ -18,7 +18,12 @@ default. The current line is drawn under the cursor line, one
 line high, including a blank line. Line numbers are a gutter of
 the visible lines, wide enough for four digits and one space.
 Each number is drawn at its buffer line and scrolls with the
-text. A line Enter just created is numbered before it has
+text. A narrow column on the right draws the shape of the
+file from the length of its lines, and a band for the lines
+in view. A click scrolls that part of the file into view.
+The column reads the editor buffer and does not keep a
+second copy. The wrapper has no mini-map widget, so the
+column is drawn directly. A line Enter just created is numbered before it has
 characters. Whitespace, line ends, and indent stops are overlays
 the view can turn on. The right column marker is an overlay at a character
 column. The status line shows the line and column from the
@@ -43,7 +48,17 @@ FileDialog open can return several paths. Save still picks
 one path. It has no folder mode. The first dialog starts in the
 process current directory, and later dialogs start in the
 directory last chosen
-during this session. Tab titles are the file name. A modified
+during this session. The left panel cannot ask for a
+folder, because the dialog has no folder mode. The
+project is the active file's directory or a path typed
+in the panel. A directory row lists that directory and
+does not leave the project. CMake targets are the names
+in `add_executable` and `add_library`, not a full CMake
+run. A compile line is the `command` string, or the
+`arguments` list when `command` is absent. Symbols are
+a scan of the current buffer, not a compiler's view.
+The panel does not keep a second copy of the text.
+Tab titles are the file name. A modified
 tab draws a dot before that name. The dirty star is on the
 status line. A tab can show a close button. The save dialog
 lists every modified file. The window shows at most
@@ -57,9 +72,20 @@ beside the compiler's `config.ini`. A control writes that
 file when it changes, including one `key-` accelerator for
 each command, the search options, and the view options.
 Close only hides the dialog. The setup dialog is a notebook with
-the tabs on the left. General holds the switches. Search
+the tabs on the left. Languages is one page. A language
+has suffixes, filenames, a shebang, a line comment, an
+optional block comment, and keywords. The built-in set
+can be reset. The list is `languages.ini` beside
+`editor.ini`. A file with no language stays plain.
+General holds the switches. Search
 holds wrap at the end of the buffer, reverse direction,
-whole words only, and exact word case. Appearance holds
+whole words only, and exact word case. Appearance picks
+a theme. Saving the current settings writes
+`$HOME/.config/smallcpp/themes/<name>.ini`. The default
+theme is the `theme-` map in `editor.ini`. A theme file
+that omits a key keeps the default. A theme also sets
+the window background, text, menus, tabs, the current
+line, the column marker, and the font. Appearance holds
 Whitespace, Line ends, Indent stops, and Font. General
 holds the recent-file count, which starts at 10, Remember
 files, which is off until turned on, and trim trailing

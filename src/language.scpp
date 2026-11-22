@@ -1,0 +1,991 @@
+#include "util.shpp"
+#include "language.shpp"
+
+static Language live[EDITOR_LANG_MAX];
+static Language parsed[EDITOR_LANG_MAX];
+static Language stock[8];
+static char blockLeft[EDITOR_LANG_MARK];
+static char blockRight[EDITOR_LANG_MARK];
+static int liveCount;
+static int stockCount;
+static int ready;
+
+static void clear_language(Language *item) {
+    if (item == nullptr)
+        return;
+    item->name[0] = 0;
+    item->origin[0] = 0;
+    item->suffixes[0] = 0;
+    item->names[0] = 0;
+    item->shebang[0] = 0;
+    item->line[0] = 0;
+    item->block[0] = 0;
+    item->keywords[0] = 0;
+    item->builtin = 0;
+}
+
+static void copy_field(
+        char *dest,
+        long cap,
+        const char *src) {
+    long i;
+
+    if (dest == nullptr || cap < 1)
+        return;
+    if (src == nullptr)
+        src = "";
+    i = 0;
+    while (src[i] != 0 && i < cap - 1) {
+        dest[i] = src[i];
+        i = i + 1;
+    }
+    dest[i] = 0;
+}
+
+static void copy_language(Language *dest, Language *src) {
+    if (dest == nullptr || src == nullptr)
+        return;
+    copy_field(dest->name, EDITOR_LANG_NAME, src->name);
+    copy_field(
+            dest->origin,
+            EDITOR_LANG_NAME,
+            src->origin);
+    copy_field(
+            dest->suffixes,
+            EDITOR_LANG_LIST,
+            src->suffixes);
+    copy_field(dest->names, EDITOR_LANG_LIST, src->names);
+    copy_field(
+            dest->shebang,
+            EDITOR_LANG_LIST,
+            src->shebang);
+    copy_field(dest->line, EDITOR_LANG_MARK, src->line);
+    copy_field(dest->block, EDITOR_LANG_MARK, src->block);
+    copy_field(
+            dest->keywords,
+            EDITOR_LANG_KEYS,
+            src->keywords);
+    dest->builtin = src->builtin;
+}
+
+static void add_words(char *dest, long cap, const char *words) {
+    long n;
+    long i;
+
+    if (dest == nullptr || words == nullptr)
+        return;
+    n = 0;
+    while (dest[n] != 0)
+        n = n + 1;
+    if (n > 0 && n < cap - 1) {
+        dest[n] = ' ';
+        n = n + 1;
+        dest[n] = 0;
+    }
+    i = 0;
+    while (words[i] != 0 && n < cap - 1) {
+        dest[n] = words[i];
+        n = n + 1;
+        i = i + 1;
+    }
+    dest[n] = 0;
+}
+
+static void add_code_words(char *dest, long cap) {
+    add_words(dest, cap, "class public private if else");
+    add_words(dest, cap, "for while return new delete");
+    add_words(dest, cap, "int long char bool void const");
+    add_words(dest, cap, "struct enum true false nullptr");
+    add_words(dest, cap, "namespace using virtual");
+    add_words(dest, cap, "throw catch try");
+}
+
+static void add_stock(
+        const char *name,
+        const char *suffixes,
+        const char *names,
+        const char *shebang,
+        const char *line,
+        const char *block) {
+    Language *item;
+
+    if (stockCount >= 8)
+        return;
+    item = &stock[stockCount];
+    clear_language(item);
+    copy_field(item->name, EDITOR_LANG_NAME, name);
+    copy_field(item->origin, EDITOR_LANG_NAME, name);
+    copy_field(
+            item->suffixes,
+            EDITOR_LANG_LIST,
+            suffixes);
+    copy_field(item->names, EDITOR_LANG_LIST, names);
+    copy_field(
+            item->shebang,
+            EDITOR_LANG_LIST,
+            shebang);
+    copy_field(item->line, EDITOR_LANG_MARK, line);
+    copy_field(item->block, EDITOR_LANG_MARK, block);
+    item->builtin = 1;
+    stockCount = stockCount + 1;
+}
+
+static void fill_stock(void) {
+    Language *item;
+
+    if (stockCount > 0)
+        return;
+    add_stock(
+            "scpp",
+            ".scpp .shpp",
+            "",
+            "scpp",
+            "//",
+            "/* */");
+    add_code_words(stock[0].keywords, EDITOR_LANG_KEYS);
+    add_words(
+            stock[0].keywords,
+            EDITOR_LANG_KEYS,
+            "static break continue switch");
+    add_words(
+            stock[0].keywords,
+            EDITOR_LANG_KEYS,
+            "case default do sizeof this");
+    add_words(
+            stock[0].keywords,
+            EDITOR_LANG_KEYS,
+            "protected");
+    add_stock(
+            "c",
+            ".c .h",
+            "",
+            "",
+            "//",
+            "/* */");
+    add_code_words(stock[1].keywords, EDITOR_LANG_KEYS);
+    add_stock(
+            "cpp",
+            ".cpp .hpp .cc",
+            "",
+            "cpp c++",
+            "//",
+            "/* */");
+    add_code_words(stock[2].keywords, EDITOR_LANG_KEYS);
+    add_stock(
+            "cw",
+            ".cw",
+            "",
+            "cw",
+            "//",
+            "/* */");
+    add_code_words(stock[3].keywords, EDITOR_LANG_KEYS);
+    add_stock(
+            "python",
+            ".py",
+            "",
+            "python*",
+            "#",
+            "");
+    add_words(
+            stock[4].keywords,
+            EDITOR_LANG_KEYS,
+            "class def if else for while");
+    add_words(
+            stock[4].keywords,
+            EDITOR_LANG_KEYS,
+            "return import True False None");
+    add_stock(
+            "shell",
+            ".sh",
+            "CMakeLists.txt Makefile makefile",
+            "sh bash dash ksh zsh ash",
+            "#",
+            "");
+    item = &stock[5];
+    add_words(
+            item->names,
+            EDITOR_LANG_LIST,
+            "GNUmakefile Dockerfile");
+    add_words(
+            item->names,
+            EDITOR_LANG_LIST,
+            "dockerfile Containerfile");
+    add_code_words(item->keywords, EDITOR_LANG_KEYS);
+    add_stock("toml", ".toml", "", "toml", "#", "");
+    add_stock("markdown", ".md", "", "", "", "");
+}
+
+static void use_stock(void) {
+    int i;
+
+    fill_stock();
+    liveCount = 0;
+    i = 0;
+    while (i < stockCount && liveCount < EDITOR_LANG_MAX) {
+        copy_language(&live[liveCount], &stock[i]);
+        liveCount = liveCount + 1;
+        i = i + 1;
+    }
+    ready = 1;
+}
+
+static void ensure(void) {
+    if (ready == 1)
+        return;
+    use_stock();
+}
+
+static int next_token(
+        const char *text,
+        long *at,
+        char *dest,
+        long cap) {
+    long i;
+    long n;
+
+    if (text == nullptr || at == nullptr || dest == nullptr)
+        return 0;
+    if (cap < 2)
+        return 0;
+    i = *at;
+    while (text[i] == ' ' || text[i] == '\t')
+        i = i + 1;
+    if (text[i] == 0) {
+        *at = i;
+        dest[0] = 0;
+        return 0;
+    }
+    n = 0;
+    while (text[i] != 0
+            && text[i] != ' '
+            && text[i] != '\t') {
+        if (n < cap - 1) {
+            dest[n] = text[i];
+            n = n + 1;
+        }
+        i = i + 1;
+    }
+    dest[n] = 0;
+    *at = i;
+    return 1;
+}
+
+static int token_is(const char *list, const char *word) {
+    char token[EDITOR_LANG_LIST];
+    long at;
+
+    if (list == nullptr || word == nullptr || word[0] == 0)
+        return 0;
+    at = 0;
+    while (next_token(list, &at, token, EDITOR_LANG_LIST)
+            == 1) {
+        if (text_same(token, word) == 1)
+            return 1;
+    }
+    return 0;
+}
+
+static int ends_with(const char *text, const char *suffix) {
+    long n;
+    long m;
+
+    n = text_length(text);
+    m = text_length(suffix);
+    if (m < 1 || m > n)
+        return 0;
+    return text_same(text + (n - m), suffix);
+}
+
+static Language *find_stock(const char *name) {
+    int i;
+
+    fill_stock();
+    i = 0;
+    while (i < stockCount) {
+        if (text_same(stock[i].name, name) == 1)
+            return &stock[i];
+        i = i + 1;
+    }
+    return nullptr;
+}
+
+static int find_live(const char *name) {
+    int i;
+
+    i = 0;
+    while (i < liveCount) {
+        if (text_same(live[i].name, name) == 1)
+            return i;
+        i = i + 1;
+    }
+    return -1;
+}
+
+static int languages_path(char *dest, long cap) {
+    char *home;
+    char config[EDITOR_PATH];
+    char dir[EDITOR_PATH];
+
+    if (dest == nullptr || cap < 2)
+        return 0;
+    dest[0] = 0;
+    home = getenv("HOME");
+    if (home == nullptr || home[0] == 0)
+        return 0;
+    path_join(config, EDITOR_PATH, home, ".config");
+    if (ensure_dir(config) == 0)
+        return 0;
+    path_join(dir, EDITOR_PATH, config, "smallcpp");
+    if (ensure_dir(dir) == 0)
+        return 0;
+    path_join(dest, cap, dir, "languages.ini");
+    if (dest[0] == 0)
+        return 0;
+    return 1;
+}
+
+static void add_line(String *text, const char *key, const char *value) {
+    text->append(key);
+    text->append("=");
+    if (value != nullptr)
+        text->append(value);
+    text->append("\n");
+}
+
+static int save_languages(void) {
+    String *text;
+    char path[EDITOR_PATH];
+    const char *err;
+    int i;
+    int wrote;
+
+    if (languages_path(path, EDITOR_PATH) == 0)
+        return 0;
+    text = new String();
+    text->append("languages=1\n");
+    i = 0;
+    while (i < liveCount) {
+        add_line(text, "name", live[i].name);
+        add_line(text, "origin", live[i].origin);
+        add_line(text, "suffixes", live[i].suffixes);
+        add_line(text, "names", live[i].names);
+        add_line(text, "shebang", live[i].shebang);
+        add_line(text, "line", live[i].line);
+        add_line(text, "block", live[i].block);
+        add_line(text, "keywords", live[i].keywords);
+        if (live[i].builtin == 0)
+            add_line(text, "builtin", "0");
+        else
+            add_line(text, "builtin", "1");
+        i = i + 1;
+    }
+    err = "";
+    wrote = write_file(path, text->c_str(), &err);
+    return wrote;
+}
+
+static const char *value_after(
+        const char *line,
+        const char *key) {
+    long n;
+
+    n = text_length(key);
+    if (text_starts(line, key) == 0)
+        return nullptr;
+    if (line[n] != '=')
+        return nullptr;
+    return line + n + 1;
+}
+
+static void take_record(Language *item, const char *line) {
+    const char *value;
+
+    value = value_after(line, "origin");
+    if (value != nullptr) {
+        copy_field(item->origin, EDITOR_LANG_NAME, value);
+        return;
+    }
+    value = value_after(line, "suffixes");
+    if (value != nullptr) {
+        copy_field(item->suffixes, EDITOR_LANG_LIST, value);
+        return;
+    }
+    value = value_after(line, "names");
+    if (value != nullptr) {
+        copy_field(item->names, EDITOR_LANG_LIST, value);
+        return;
+    }
+    value = value_after(line, "shebang");
+    if (value != nullptr) {
+        copy_field(item->shebang, EDITOR_LANG_LIST, value);
+        return;
+    }
+    value = value_after(line, "line");
+    if (value != nullptr) {
+        copy_field(item->line, EDITOR_LANG_MARK, value);
+        return;
+    }
+    value = value_after(line, "block");
+    if (value != nullptr) {
+        copy_field(item->block, EDITOR_LANG_MARK, value);
+        return;
+    }
+    value = value_after(line, "keywords");
+    if (value != nullptr) {
+        copy_field(item->keywords, EDITOR_LANG_KEYS, value);
+        return;
+    }
+    value = value_after(line, "builtin");
+    if (value != nullptr) {
+        item->builtin = 0;
+        if (value[0] == '1')
+            item->builtin = 1;
+    }
+}
+
+void languages_load(void) {
+    char path[EDITOR_PATH];
+    char *raw;
+    char line[EDITOR_PATH];
+    const char *err;
+    const char *value;
+    int count;
+    int saw;
+    int current;
+    long i;
+    long n;
+    long start;
+    long k;
+
+    use_stock();
+    if (languages_path(path, EDITOR_PATH) == 0)
+        return;
+    err = "";
+    n = 0;
+    raw = read_file(path, &n, &err);
+    if (raw == nullptr)
+        return;
+    count = 0;
+    saw = 0;
+    current = -1;
+    i = 0;
+    start = 0;
+    while (i <= n) {
+        if (i < n && raw[i] != '\n') {
+            i = i + 1;
+            continue;
+        }
+        k = 0;
+        while (start + k < i && k < EDITOR_PATH - 1) {
+            line[k] = raw[start + k];
+            k = k + 1;
+        }
+        line[k] = 0;
+        if (line[0] != 0 && line[0] != '#') {
+            value = value_after(line, "languages");
+            if (value != nullptr && value[0] == '1')
+                saw = 1;
+            value = value_after(line, "name");
+            if (value != nullptr && value[0] != 0) {
+                if (count < EDITOR_LANG_MAX) {
+                    clear_language(&parsed[count]);
+                    copy_field(
+                            parsed[count].name,
+                            EDITOR_LANG_NAME,
+                            value);
+                    current = count;
+                    count = count + 1;
+                }
+                else
+                    current = -1;
+            }
+            else if (current >= 0)
+                take_record(&parsed[current], line);
+        }
+        if (i < n && raw[i] == '\n')
+            start = i + 1;
+        i = i + 1;
+    }
+    if (saw == 0)
+        return;
+    liveCount = 0;
+    i = 0;
+    while (i < count) {
+        if (parsed[i].name[0] != 0) {
+            copy_language(&live[liveCount], &parsed[i]);
+            liveCount = liveCount + 1;
+        }
+        i = i + 1;
+    }
+}
+
+int language_count(void) {
+    ensure();
+    return liveCount;
+}
+
+Language *language_at(int index) {
+    ensure();
+    if (index < 0 || index >= liveCount)
+        return nullptr;
+    return &live[index];
+}
+
+int language_find(const char *name) {
+    ensure();
+    if (name == nullptr)
+        return -1;
+    return find_live(name);
+}
+
+static int name_ok(const char *name) {
+    long i;
+
+    if (name == nullptr || name[0] == 0)
+        return 0;
+    i = 0;
+    while (name[i] != 0) {
+        if (name[i] == ' ' || name[i] == '\n')
+            return 0;
+        if (name[i] == '=')
+            return 0;
+        i = i + 1;
+    }
+    if (i >= EDITOR_LANG_NAME)
+        return 0;
+    return 1;
+}
+
+static void fill_fields(
+        Language *item,
+        const char *name,
+        const char *suffixes,
+        const char *names,
+        const char *shebang,
+        const char *line,
+        const char *block,
+        const char *keywords) {
+    copy_field(item->name, EDITOR_LANG_NAME, name);
+    copy_field(item->suffixes, EDITOR_LANG_LIST, suffixes);
+    copy_field(item->names, EDITOR_LANG_LIST, names);
+    copy_field(item->shebang, EDITOR_LANG_LIST, shebang);
+    copy_field(item->line, EDITOR_LANG_MARK, line);
+    copy_field(item->block, EDITOR_LANG_MARK, block);
+    copy_field(item->keywords, EDITOR_LANG_KEYS, keywords);
+}
+
+int language_store(
+        int index,
+        const char *name,
+        const char *suffixes,
+        const char *names,
+        const char *shebang,
+        const char *line,
+        const char *block,
+        const char *keywords) {
+    int other;
+
+    ensure();
+    if (index < 0 || index >= liveCount)
+        return 0;
+    if (name_ok(name) == 0)
+        return 0;
+    other = find_live(name);
+    if (other >= 0 && other != index)
+        return 0;
+    fill_fields(
+            &live[index],
+            name,
+            suffixes,
+            names,
+            shebang,
+            line,
+            block,
+            keywords);
+    save_languages();
+    return 1;
+}
+
+int language_insert(
+        const char *name,
+        const char *suffixes,
+        const char *names,
+        const char *shebang,
+        const char *line,
+        const char *block,
+        const char *keywords) {
+    ensure();
+    if (name_ok(name) == 0)
+        return 0;
+    if (find_live(name) >= 0)
+        return 0;
+    if (liveCount >= EDITOR_LANG_MAX)
+        return 0;
+    clear_language(&live[liveCount]);
+    fill_fields(
+            &live[liveCount],
+            name,
+            suffixes,
+            names,
+            shebang,
+            line,
+            block,
+            keywords);
+    liveCount = liveCount + 1;
+    save_languages();
+    return 1;
+}
+
+int language_remove(int index) {
+    int i;
+
+    ensure();
+    if (index < 0 || index >= liveCount)
+        return 0;
+    i = index;
+    while (i + 1 < liveCount) {
+        copy_language(&live[i], &live[i + 1]);
+        i = i + 1;
+    }
+    liveCount = liveCount - 1;
+    save_languages();
+    return 1;
+}
+
+int language_restore(const char *name) {
+    Language *src;
+    int index;
+
+    ensure();
+    if (name == nullptr || name[0] == 0)
+        return 0;
+    src = find_stock(name);
+    if (src == nullptr)
+        return 0;
+    index = 0;
+    while (index < liveCount) {
+        if (text_same(live[index].origin, name) == 1
+                || text_same(live[index].name, name) == 1)
+            break;
+        index = index + 1;
+    }
+    if (index >= liveCount) {
+        if (liveCount >= EDITOR_LANG_MAX)
+            return 0;
+        index = liveCount;
+        liveCount = liveCount + 1;
+    }
+    copy_language(&live[index], src);
+    save_languages();
+    return 1;
+}
+
+static void split_block(
+        const char *block,
+        const char **open,
+        const char **close) {
+    long at;
+
+    blockLeft[0] = 0;
+    blockRight[0] = 0;
+    at = 0;
+    if (block != nullptr)
+        next_token(
+                block,
+                &at,
+                blockLeft,
+                EDITOR_LANG_MARK);
+    if (blockLeft[0] != 0)
+        next_token(
+                block,
+                &at,
+                blockRight,
+                EDITOR_LANG_MARK);
+    if (open != nullptr)
+        *open = blockLeft;
+    if (close != nullptr)
+        *close = blockRight;
+}
+
+void language_comment(
+        const char *name,
+        const char **line,
+        const char **open,
+        const char **close) {
+    int index;
+    const char *blockOpen;
+    const char *blockClose;
+
+    if (line != nullptr)
+        *line = "";
+    if (open != nullptr)
+        *open = "";
+    if (close != nullptr)
+        *close = "";
+    ensure();
+    index = find_live(name);
+    if (index < 0)
+        return;
+    if (line != nullptr)
+        *line = live[index].line;
+    split_block(live[index].block, &blockOpen, &blockClose);
+    if (open != nullptr)
+        *open = blockOpen;
+    if (close != nullptr)
+        *close = blockClose;
+}
+
+int language_keyword(const char *name, const char *word) {
+    int index;
+
+    ensure();
+    index = find_live(name);
+    if (index < 0)
+        return 0;
+    return token_is(live[index].keywords, word);
+}
+
+const char *language_of(const char *path) {
+    const char *base;
+    char token[EDITOR_LANG_LIST];
+    int i;
+    int best;
+    long bestLen;
+    long at;
+    long n;
+
+    ensure();
+    base = path_base(path);
+    best = -1;
+    bestLen = 0;
+    i = 0;
+    while (i < liveCount) {
+        at = 0;
+        while (next_token(
+                    live[i].suffixes,
+                    &at,
+                    token,
+                    EDITOR_LANG_LIST) == 1) {
+            n = text_length(token);
+            if (n > bestLen && ends_with(base, token) == 1) {
+                bestLen = n;
+                best = i;
+            }
+        }
+        i = i + 1;
+    }
+    if (best >= 0)
+        return live[best].name;
+    i = 0;
+    while (i < liveCount) {
+        at = 0;
+        while (next_token(
+                    live[i].names,
+                    &at,
+                    token,
+                    EDITOR_LANG_LIST) == 1) {
+            if (text_same(base, token) == 1)
+                return live[i].name;
+        }
+        i = i + 1;
+    }
+    return "plain";
+}
+
+static int shebang_match(
+        const char *token,
+        const char *program) {
+    long n;
+    long i;
+
+    if (token == nullptr || program == nullptr)
+        return 0;
+    n = text_length(token);
+    if (n < 1)
+        return 0;
+    if (token[n - 1] == '*') {
+        n = n - 1;
+        if (n < 1)
+            return 0;
+        if (text_length(program) < n)
+            return 0;
+        i = 0;
+        while (i < n) {
+            if (program[i] != token[i])
+                return 0;
+            i = i + 1;
+        }
+        return 1;
+    }
+    return text_same(token, program);
+}
+
+static const char *language_for_program(const char *program) {
+    char token[EDITOR_LANG_LIST];
+    int i;
+    long at;
+
+    if (program == nullptr || program[0] == 0)
+        return "";
+    i = 0;
+    while (i < liveCount) {
+        at = 0;
+        while (next_token(
+                    live[i].shebang,
+                    &at,
+                    token,
+                    EDITOR_LANG_LIST) == 1) {
+            if (shebang_match(token, program) == 1)
+                return live[i].name;
+        }
+        i = i + 1;
+    }
+    return "";
+}
+
+static void copy_span(
+        char *dest,
+        long cap,
+        const char *text,
+        long from,
+        long to) {
+    long n;
+    long i;
+
+    if (dest == nullptr || cap < 1)
+        return;
+    n = to - from;
+    if (n < 0)
+        n = 0;
+    if (n > cap - 1)
+        n = cap - 1;
+    i = 0;
+    while (i < n) {
+        dest[i] = text[from + i];
+        i = i + 1;
+    }
+    dest[i] = 0;
+}
+
+const char *shebang_language(const char *text) {
+    long i;
+    long start;
+    int which;
+    char token[64];
+    const char *base;
+    const char *lang;
+
+    ensure();
+    if (text == nullptr)
+        return "";
+    if (text[0] != '#' || text[1] != '!')
+        return "";
+    i = 2;
+    which = 0;
+    while (text[i] != 0
+            && text[i] != '\n'
+            && text[i] != '\r') {
+        while (text[i] == ' ' || text[i] == '\t')
+            i = i + 1;
+        if (text[i] == 0
+                || text[i] == '\n'
+                || text[i] == '\r')
+            break;
+        start = i;
+        while (text[i] != 0
+                && text[i] != ' '
+                && text[i] != '\t'
+                && text[i] != '\n'
+                && text[i] != '\r')
+            i = i + 1;
+        copy_span(token, 64, text, start, i);
+        base = path_base(token);
+        which = which + 1;
+        if (which == 1) {
+            if (text_same(base, "env") == 0) {
+                lang = language_for_program(base);
+                return lang;
+            }
+        }
+        else if (token[0] != '-') {
+            lang = language_for_program(base);
+            return lang;
+        }
+    }
+    return "";
+}
+
+static const char *resolve_language(
+        const char *language,
+        const char *path,
+        const char *text) {
+    const char *from;
+    const char *use;
+    const char *line;
+
+    from = shebang_language(text);
+    if (from[0] != 0)
+        return from;
+    line = "";
+    language_comment(language, &line, nullptr, nullptr);
+    if (line[0] != 0)
+        return language;
+    use = language_of(path);
+    line = "";
+    language_comment(use, &line, nullptr, nullptr);
+    if (line[0] != 0)
+        return use;
+    return "";
+}
+
+const char *comment_leader(const char *language) {
+    const char *line;
+
+    line = "";
+    language_comment(language, &line, nullptr, nullptr);
+    return line;
+}
+
+void comment_style_of(
+        const char *language,
+        const char *path,
+        const char *text,
+        CommentMarks *out) {
+    const char *use;
+    const char *line;
+    const char *open;
+    const char *close;
+
+    if (out == nullptr)
+        return;
+    out->leader = "";
+    out->open[0] = 0;
+    out->close[0] = 0;
+    out->block = 0;
+    use = resolve_language(language, path, text);
+    line = "";
+    open = "";
+    close = "";
+    language_comment(use, &line, &open, &close);
+    if (line != nullptr)
+        out->leader = line;
+    copy_field(out->open, EDITOR_LANG_MARK, open);
+    copy_field(out->close, EDITOR_LANG_MARK, close);
+    if (out->open[0] != 0 && out->close[0] != 0)
+        out->block = 1;
+}
+
+void comment_style(
+        const char *language,
+        const char *path,
+        const char *text,
+        const char **leader,
+        int *block) {
+    CommentMarks marks;
+
+    comment_style_of(language, path, text, &marks);
+    if (leader != nullptr)
+        *leader = marks.leader;
+    if (block != nullptr)
+        *block = marks.block;
+}
