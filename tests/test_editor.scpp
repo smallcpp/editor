@@ -866,6 +866,8 @@ int main(void) {
                 "default menu");
         expect(text_same(item.themeName, "default") == 1,
                 "default theme");
+        expect(text_same(item.mapFont, "Monospace 3") == 1,
+                "default map font");
         expect(theme_bold(&item, "c", "keyword") == 0,
                 "default bold off");
         expect(theme_bold(
@@ -957,6 +959,7 @@ int main(void) {
                     "background",
                     "#101010") == 1,
                 "set python background");
+        text_copy(item.mapFont, 128, "Monospace 6");
         expect(config_path(path, EDITOR_PATH) == 1,
                 "config path");
         expect(config_write(path, &item) == 1,
@@ -980,6 +983,8 @@ int main(void) {
         expect(back.marginCols == 90, "saved columns");
         expect(text_same(back.lineColor, "#aabbcc") == 1,
                 "saved line color");
+        expect(text_same(back.mapFont, "Monospace 6") == 1,
+                "saved map font");
         expect(text_same(
                     theme_color(&back, "python", "keyword"),
                     "#010203") == 1,

@@ -39,9 +39,12 @@ open focuses that document.
 The window has a menu bar, document tabs, and a status line.
 A narrow column on the right of the current buffer shows
 the shape of the file, a band for the visible lines, and
-a mark on the current line. A click in that column scrolls
-the buffer. Dragging the current-line mark moves the caret
-to that line and scrolls the buffer with it. A drag marker
+a mark on the current line. Each line is drawn in the
+mini-map font, far enough across the column that the text
+keeps its shape. A click in that column scrolls the buffer.
+Dragging the current-line mark moves the caret to the line
+under the pointer and scrolls that line to the top, so the
+mark stays with the pointer. A drag marker
 on the column's left edge makes the column wider or
 narrower. The column reads the buffer the editor already has.
 A panel on the left lists files, the project, and symbols.
@@ -142,7 +145,9 @@ plain. Commenting and coloring use this list.
 Search holds wrap at the end of the buffer, reverse
 direction, whole words only, and exact word case.
 Appearance holds Whitespace, Line ends, Indent stops, and
-Font. It also picks a theme and can save the current
+Font. Font opens the editor font. Mini-map, in that same
+group, opens the font used to draw the mini-map. Appearance
+also picks a theme and can save the current
 settings as a new theme. A theme file lives in
 `$HOME/.config/smallcpp/themes` and can be copied in.
 It sets the window background and text, menus, tabs, the

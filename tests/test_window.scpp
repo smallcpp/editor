@@ -331,7 +331,12 @@ void check_map_mark(Ui *ui, Editor *editor) {
     long before;
     long wide;
     long y;
+    long height;
+    long mark;
 
+    ui->set_map_font("Monospace 4");
+    expect(text_same(ui->map_font(), "Monospace 4") == 1,
+            "map font");
     editor->active()->buffer()->move_to(1, 1);
     ui->scroll_view(0);
     pump(30);
@@ -339,15 +344,17 @@ void check_map_mark(Ui *ui, Editor *editor) {
     expect(ui->map_mark() < ui->map_height(),
             "mark is on the map");
     before = editor->active()->buffer()->cursor_line();
-    ui->drag_map_mark(ui->map_height() - 1);
+    height = ui->map_height();
+    ui->drag_map_mark(height - 1);
     usleep(80000);
     pump(20);
     expect(editor->active()->buffer()->cursor_line()
                     > before,
             "drag moves the cursor");
     y = ui->gutter_line_y(0);
-    expect(y < 0 || ui->map_top() > 0,
-            "drag scrolls the buffer");
+    expect(y < 0, "drag scrolls the buffer");
+    mark = ui->map_mark();
+    expect(mark > height / 2, "mark follows the drag");
     wide = ui->map_width();
     ui->set_map_width(wide + 40);
     usleep(100000);

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+The mini-map draws each line in a font, so the shape of the
+text is visible across the column. Settings, Appearance, Font
+has a Mini-map control that chooses that font. Dragging the
+current-line mark scrolls the buffer and keeps the mark under
+the pointer. A click elsewhere still only scrolls.
+
 Edit, Select All, and Ctrl+A select the current buffer from
 the start through the end. The Edit menu shows that shortcut.
 If another command already used Ctrl+A, that command loses

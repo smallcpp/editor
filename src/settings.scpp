@@ -422,6 +422,7 @@ void config_defaults(EditorConfig *item) {
     text_copy(item->marginColor, 32, "#c8c8c8");
     text_copy(item->themeName, THEME_NAME, "default");
     item->font[0] = 0;
+    text_copy(item->mapFont, 128, "Monospace 3");
     {
         int i;
 
@@ -1029,6 +1030,8 @@ static void take_line(EditorConfig *item, const char *line) {
         text_copy(item->marginColor, 32, value);
     if (key_is(line, "font") == 1)
         text_copy(item->font, 128, value);
+    if (key_is(line, "map-font") == 1)
+        text_copy(item->mapFont, 128, value);
     if (key_is(line, "theme") == 1) {
         if (theme_is_default(value) == 1
                 || theme_file_ok(value) == 1)
@@ -1330,6 +1333,9 @@ int config_write(
     }
     text->append("font=");
     text->append(item->font);
+    text->append("\n");
+    text->append("map-font=");
+    text->append(item->mapFont);
     text->append("\n");
     text->append("theme=");
     text->append(item->themeName);
