@@ -44,8 +44,10 @@ mini-map font, far enough across the column that the text
 keeps its shape. A click outside the highlighted band
 scrolls the buffer. Pressing the highlighted area and
 moving the mouse scrolls the buffer with the pointer.
-The caret stays where it was. The column width is the
-Map width from Settings and does not change on its own.
+The caret stays where it was. Dragging the bar between the
+editor and the column sets the column width. Map width in
+Settings sets that same width. The column keeps the width
+from the last of those and does not change it on its own.
 The column reads the buffer the editor already has.
 A panel on the left lists files, the project, and symbols.
 Its left edge is the left edge of the window. Dragging the
@@ -147,7 +149,8 @@ direction, whole words only, and exact word case.
 Appearance holds Whitespace, Line ends, Indent stops, and
 Font. Font opens the editor font. Mini-map, in that same
 group, opens the font used to draw the mini-map. Map width,
-in that group, sets the column width. Appearance
+in that group, sets the same column width as the bar beside
+the mini-map. Appearance
 also picks a theme and can save the current
 settings as a new theme. A theme file lives in
 `$HOME/.config/smallcpp/themes` and can be copied in.

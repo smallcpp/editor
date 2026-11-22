@@ -240,6 +240,13 @@ static int map_event(
     return 1;
 }
 
+static int map_save_idle(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->save_map_width();
+    return 0;
+}
+
 static void map_split_moved(
         void *paned,
         void *spec,
@@ -758,8 +765,12 @@ Ui::Ui(Editor *editor) {
     editorSplit = nullptr;
     leftWidth = 200;
     mapWide = MAP_WIDTH;
+    mapGap = 0;
     panelHold = 0;
     mapHold = 0;
+    mapFollow = 0;
+    mapSpinHold = 0;
+    mapSave = 0;
     fileMenu = 0;
     searchMenu = 0;
     viewMenu = 0;
@@ -1930,6 +1941,8 @@ MapColumn::MapColumn(void *owner, long index) : Widget() {
     markSize = 0;
     grab = 0;
     dragAt = 0;
+    splitWide = 0;
+    splitPos = -1;
     hooked = 0;
     markDrag = 0;
     adjust = nullptr;
@@ -2643,6 +2656,51 @@ long Ui::map_width(void) {
     return mapWide;
 }
 
+void Ui::note_map_split(long index) {
+    int wide;
+
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].map == nullptr
+            || pages[index].mapSplit == nullptr)
+        return;
+    if (pages[index].mapSplit->native == nullptr)
+        return;
+    wide = gtk_widget_get_width(
+            pages[index].mapSplit->native);
+    pages[index].map->splitWide = (long)wide;
+    pages[index].map->splitPos =
+            pages[index].mapSplit->position();
+}
+
+void Ui::sync_map_spin(void) {
+    if (mapWidthSpin == nullptr)
+        return;
+    if ((long)mapWidthSpin->value() == mapWide)
+        return;
+    mapSpinHold = 1;
+    mapWidthSpin->set_value((double)mapWide);
+    mapSpinHold = 0;
+}
+
+void Ui::remember_map_width(void) {
+    if (mapSave == 1)
+        return;
+    mapSave = 1;
+    g_idle_add((void *)map_save_idle, nullptr);
+}
+
+void Ui::save_map_width(void) {
+    mapSave = 0;
+    if (settingsHold != 0 || leaving == 1)
+        return;
+    apply_settings();
+}
+
+int Ui::map_spin_locked(void) {
+    return mapSpinHold;
+}
+
 void Ui::place_map(long index) {
     int wide;
     int held;
@@ -2656,36 +2714,77 @@ void Ui::place_map(long index) {
         return;
     wide = gtk_widget_get_width(
             pages[index].mapSplit->native);
-    room = (long)wide - mapWide;
-    if (room < 80)
+    room = (long)wide - mapGap - mapWide;
+    if (room < 80) {
+        note_map_split(index);
         return;
-    if (pages[index].mapSplit->position() == room)
+    }
+    if (pages[index].mapSplit->position() == room) {
+        note_map_split(index);
         return;
+    }
     held = mapHold;
     mapHold = 1;
     pages[index].mapSplit->set_position(room);
     mapHold = held;
+    note_map_split(index);
 }
 
 void Ui::keep_map_width(long index) {
-    int held;
+    int panedWide;
+    long pos;
+    long end;
 
     if (mapHold != 0)
         return;
     if (index < 0 || index >= pageCount)
         return;
-    if (pages[index].map == nullptr)
+    if (pages[index].map == nullptr
+            || pages[index].mapSplit == nullptr)
         return;
-    held = mapHold;
+    if (pages[index].mapSplit->native == nullptr)
+        return;
+    panedWide = gtk_widget_get_width(
+            pages[index].mapSplit->native);
+    if (panedWide < 1)
+        return;
+    pos = pages[index].mapSplit->position();
+    if (pages[index].map->splitWide == (long)panedWide
+            && pos == pages[index].map->splitPos)
+        return;
+    if (pages[index].map->splitWide == (long)panedWide) {
+        pages[index].map->splitPos = pos;
+        end = (long)panedWide - mapGap - pos;
+        if (end < 24)
+            end = 24;
+        if (end > 240)
+            end = 240;
+        if (end == mapWide)
+            return;
+        mapWide = end;
+        mapHold = 1;
+        pages[index].map->set_width_request(mapWide);
+        mapHold = 0;
+        sync_map_spin();
+        remember_map_width();
+        mapFollow = 1;
+        if ((long)panedWide - mapGap - pos != end)
+            place_map(index);
+        return;
+    }
+    mapFollow = 0;
     mapHold = 1;
     pages[index].map->set_width_request(mapWide);
-    mapHold = held;
+    mapHold = 0;
     place_map(index);
 }
 
 void Ui::pin_map(long index) {
     int got;
-    int held;
+    int panedWide;
+    long pos;
+    long gap;
+    long end;
 
     if (mapHold != 0)
         return;
@@ -2697,13 +2796,79 @@ void Ui::pin_map(long index) {
     got = gtk_widget_get_width(pages[index].map->native);
     if (got < 1)
         return;
-    if (got > (int)mapWide - 3 && got < (int)mapWide + 3)
+    if (pages[index].mapSplit != nullptr
+            && pages[index].mapSplit->native != nullptr) {
+        panedWide = gtk_widget_get_width(
+                pages[index].mapSplit->native);
+        pos = pages[index].mapSplit->position();
+        if (panedWide > 0 && (long)panedWide > pos) {
+            gap = (long)panedWide - pos - (long)got;
+            if (gap >= 0 && gap < 48)
+                mapGap = gap;
+        }
+    }
+    if (mapFollow == 1) {
+        end = (long)got;
+        if (end < 24)
+            end = 24;
+        if (end > 240)
+            end = 240;
+        mapFollow = 0;
+        if (end != mapWide) {
+            mapWide = end;
+            mapHold = 1;
+            pages[index].map->set_width_request(mapWide);
+            mapHold = 0;
+            sync_map_spin();
+            remember_map_width();
+        }
+        if ((long)got != mapWide)
+            place_map(index);
+        else
+            note_map_split(index);
         return;
-    held = mapHold;
+    }
+    if (got > (int)mapWide - 3 && got < (int)mapWide + 3) {
+        note_map_split(index);
+        return;
+    }
     mapHold = 1;
     pages[index].map->set_width_request(mapWide);
-    mapHold = held;
+    mapHold = 0;
     place_map(index);
+}
+
+void Ui::set_map_spin(long width) {
+    if (mapWidthSpin == nullptr)
+        return;
+    mapWidthSpin->set_value((double)width);
+}
+
+long Ui::map_spin(void) {
+    if (mapWidthSpin == nullptr)
+        return mapWide;
+    return (long)mapWidthSpin->value();
+}
+
+void Ui::move_map_bar(long endWidth) {
+    long index;
+    int wide;
+    long room;
+
+    if (state == nullptr)
+        return;
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].mapSplit == nullptr
+            || pages[index].mapSplit->native == nullptr)
+        return;
+    wide = gtk_widget_get_width(
+            pages[index].mapSplit->native);
+    room = (long)wide - mapGap - endWidth;
+    if (room < 80)
+        return;
+    pages[index].mapSplit->set_position(room);
 }
 
 void Ui::set_map_width(long width) {
@@ -2724,6 +2889,7 @@ void Ui::set_map_width(long width) {
         place_map(i);
         i = i + 1;
     }
+    sync_map_spin();
 }
 
 long Ui::panel_width(void) {
@@ -2849,8 +3015,8 @@ void Ui::add_page(long index) {
         gtk_paned_set_resize_start_child(split->native, 1);
         gtk_paned_set_shrink_start_child(split->native, 1);
         gtk_paned_set_resize_end_child(split->native, 0);
-        gtk_paned_set_shrink_end_child(split->native, 0);
-        gtk_paned_set_wide_handle(split->native, 0);
+        gtk_paned_set_shrink_end_child(split->native, 1);
+        gtk_paned_set_wide_handle(split->native, 1);
         split->set_start_child((Widget *)scroll);
         split->set_end_child((Widget *)pages[index].map);
         pages[index].mapSplit = split;
@@ -5310,6 +5476,8 @@ void ui_map_width_spin(void *data) {
 
     spin = (SpinButton *)data;
     if (editorUi == nullptr || spin == nullptr)
+        return;
+    if (editorUi->map_spin_locked() == 1)
         return;
     editorUi->set_map_width((long)spin->value());
     editorUi->apply_settings();

@@ -327,6 +327,41 @@ void check_panel_layout(Ui *ui) {
     expect(ui->panel_edge() >= 0, "panel stays on the edge");
 }
 
+void check_map_controls(Ui *ui) {
+    long wide;
+    long spun;
+    long dragged;
+
+    wide = ui->map_width();
+    ui->show_settings();
+    pump(10);
+    spun = wide + 36;
+    if (spun > 220)
+        spun = 120;
+    ui->set_map_spin(spun);
+    usleep(100000);
+    pump(20);
+    expect(ui->map_width() > spun - 8, "spin widens the map");
+    expect(ui->map_width() < spun + 8, "spin sets the map width");
+    dragged = ui->map_width();
+    if (dragged > 160)
+        dragged = dragged - 40;
+    else
+        dragged = dragged + 40;
+    ui->move_map_bar(dragged);
+    usleep(100000);
+    pump(20);
+    expect(ui->map_width() > dragged - 8, "drag sets the map width");
+    expect(ui->map_width() < dragged + 8, "drag keeps the map width");
+    expect(ui->map_spin() > dragged - 8, "drag updates the spin");
+    expect(ui->map_spin() < dragged + 8, "spin matches the drag");
+    wide = ui->map_width();
+    usleep(100000);
+    pump(20);
+    expect(ui->map_width() > wide - 3, "chosen width holds");
+    expect(ui->map_width() < wide + 3, "map does not resize itself");
+}
+
 void check_map_mark(Ui *ui, Editor *editor) {
     long caret;
     long wide;
@@ -383,6 +418,7 @@ void check_map_mark(Ui *ui, Editor *editor) {
     pump(20);
     expect(ui->map_width() > wide - 3, "map keeps its width");
     expect(ui->map_width() < wide + 3, "map width stays");
+    check_map_controls(ui);
 }
 
 void check_panels(Ui *ui) {
