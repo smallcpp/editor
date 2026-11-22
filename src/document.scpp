@@ -284,7 +284,28 @@ static void put_hash(char *dest, long *used, long cap, long hash) {
     }
 }
 
-int Document::recovery_leaf(char *dest, long cap) {
+int Document::load_recovery(
+        const char *path,
+        const char *text) {
+    long n;
+
+    if (path == nullptr || path[0] == 0 || text == nullptr)
+        return 0;
+    n = text_length(text);
+    if (bytes_have_nul(text, n) == 1 || utf8_ok(text, n) == 0) {
+        set_error("not a text file");
+        return 0;
+    }
+    body->set_text(text);
+    apply_name(path);
+    remember();
+    mark_missing();
+    body->mark_dirty();
+    set_error("");
+    return 1;
+}
+
+int recovery_leaf_for(const char *path, char *dest, long cap) {
     const char *base;
     long hash;
     long i;
@@ -294,14 +315,14 @@ int Document::recovery_leaf(char *dest, long cap) {
     if (dest == nullptr || cap < 16)
         return 0;
     dest[0] = 0;
-    if (isUntitled == 1)
+    if (path == nullptr || path[0] == 0)
         return 0;
-    base = titleText->c_str();
+    base = path_base(path);
     hash = 0;
     i = 0;
     n = 0;
-    while (filePath->c_str()[i] != 0) {
-        c = filePath->c_str()[i];
+    while (path[i] != 0) {
+        c = path[i];
         if (c < 0)
             c = c + 256;
         hash = hash * 33 + c;
@@ -342,6 +363,12 @@ int Document::recovery_leaf(char *dest, long cap) {
     }
     dest[n] = 0;
     return 1;
+}
+
+int Document::recovery_leaf(char *dest, long cap) {
+    if (isUntitled == 1)
+        return 0;
+    return recovery_leaf_for(filePath->c_str(), dest, cap);
 }
 
 int Document::write_recovery(const char *dir) {
