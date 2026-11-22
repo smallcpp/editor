@@ -20,7 +20,9 @@ the visible lines, wide enough for four digits and one space.
 Each number is drawn at its buffer line and scrolls with the
 text. A narrow column on the right draws the shape of the
 file from the length of its lines, a band for the lines
-in view, and a mark on the current line. A click outside
+in view, and a mark on the current line. A click in the
+buffer moves that mark with the caret, without scrolling.
+A click outside
 the highlight scrolls that part of the file into view.
 Pressing the highlight and moving the mouse scrolls the
 buffer and leaves the caret where it was. The bar beside

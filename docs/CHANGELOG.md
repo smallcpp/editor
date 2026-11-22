@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+A click in the buffer that moves the caret marks that line
+on the mini-map at once. The mark is the same one drawn
+when the buffer scrolls, and the click does not wait for
+a scroll.
+
 The bar between the editor and the mini-map sets the column
 width, and Settings, Appearance, Font, Map width sets that
 same width. The column keeps the width from whichever
