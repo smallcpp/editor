@@ -54,6 +54,7 @@ public:
     int pathDepth;
     int recoveryOn;
     int recoveryMinutes;
+    int recoveryKeep;
     int recentCount;
     int openCount;
     int recentUsed;

@@ -8,6 +8,27 @@ extern int setenv(
 
 static int failures;
 
+struct FileTime {
+    long sec;
+    long nsec;
+};
+
+extern int utimensat(
+        int dirfd,
+        const char *path,
+        struct FileTime *times,
+        int flags);
+
+static void stamp_file(const char *path, long sec) {
+    struct FileTime times[2];
+
+    times[0].sec = sec;
+    times[0].nsec = 0;
+    times[1].sec = sec;
+    times[1].nsec = 0;
+    utimensat(-100, path, times, 0);
+}
+
 static void style_is(
         const char *language,
         const char *path,
@@ -700,6 +721,7 @@ int main(void) {
         expect(item.pathDepth == 0, "default depth");
         expect(item.recoveryOn == 0, "default recovery");
         expect(item.recoveryMinutes == 5, "default minutes");
+        expect(item.recoveryKeep == 20, "default keep");
         expect(text_same(
                     item.bracketPairs,
                     "()[]{}\"\"''") == 1,
@@ -796,6 +818,7 @@ int main(void) {
         item.pathDepth = 2;
         item.recoveryOn = 1;
         item.recoveryMinutes = 12;
+        item.recoveryKeep = 7;
         item.tabWidth = 2;
         item.showMargin = 1;
         item.marginCols = 90;
@@ -857,6 +880,7 @@ int main(void) {
         expect(back.pathDepth == 2, "saved depth");
         expect(back.recoveryOn == 1, "saved recovery");
         expect(back.recoveryMinutes == 12, "saved minutes");
+        expect(back.recoveryKeep == 7, "saved keep");
         expect(back.tabWidth == 2, "saved tab");
         expect(back.showMargin == 1, "saved margin");
         expect(back.marginCols == 90, "saved columns");
@@ -981,6 +1005,42 @@ int main(void) {
                     "/tmp/a.scpp") == 1,
                 "saved active");
         unlink(path);
+    }
+    {
+        char rec[EDITOR_PATH];
+        char old[EDITOR_PATH];
+        char mid[EDITOR_PATH];
+        char neu[EDITOR_PATH];
+        char note[EDITOR_PATH];
+
+        path_join(rec, EDITOR_PATH, dir, "recovery");
+        expect(ensure_dir(rec) == 1, "recovery dir");
+        path_join(old, EDITOR_PATH, rec, "old.recover");
+        path_join(mid, EDITOR_PATH, rec, "mid.recover");
+        path_join(neu, EDITOR_PATH, rec, "new.recover");
+        path_join(note, EDITOR_PATH, rec, "notes.txt");
+        expect(write_file(old, "old\n", &io) == 1,
+                "old copy");
+        expect(write_file(mid, "mid\n", &io) == 1,
+                "mid copy");
+        expect(write_file(neu, "new\n", &io) == 1,
+                "new copy");
+        expect(write_file(note, "no\n", &io) == 1,
+                "other file");
+        stamp_file(old, 1000);
+        stamp_file(mid, 2000);
+        stamp_file(neu, 3000);
+        stamp_file(note, 1);
+        expect(trim_recovery_dir(rec, 2) == 2,
+                "kept two");
+        expect(file_exists(old) == 0, "dropped oldest");
+        expect(file_exists(mid) == 1, "kept newer");
+        expect(file_exists(neu) == 1, "kept newest");
+        expect(file_exists(note) == 1, "left other files");
+        unlink(mid);
+        unlink(neu);
+        unlink(note);
+        rmdir(rec);
     }
     unlink(pathA);
     unlink(pathB);

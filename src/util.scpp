@@ -1,4 +1,5 @@
 #include "util.shpp"
+#include <dirent>
 
 
 
@@ -545,6 +546,28 @@ int file_exists(const char *path) {
     return 1;
 }
 
+long file_mtime(const char *path) {
+    struct stat info;
+    long *stamp;
+
+    if (path == nullptr || stat(path, &info) != 0)
+        return 0;
+    /* st_mtim.tv_sec is the third long in the pad. */
+    stamp = (long *)info.pad1;
+    return stamp[2];
+}
+
+static int text_ends(const char *text, const char *suffix) {
+    long n;
+    long m;
+
+    n = text_length(text);
+    m = text_length(suffix);
+    if (m > n)
+        return 0;
+    return text_same(text + (n - m), suffix);
+}
+
 int ensure_dir(const char *path) {
     if (path == nullptr || path[0] == 0)
         return 0;
@@ -555,6 +578,66 @@ int ensure_dir(const char *path) {
     if (file_is_dir(path) == 1)
         return 1;
     return 0;
+}
+
+int trim_recovery_dir(const char *dir, int limit) {
+    DIR *listing;
+    struct dirent *entry;
+    int count;
+    int guard;
+    char oldest[EDITOR_PATH];
+    char path[EDITOR_PATH];
+    long oldestTime;
+
+    if (dir == nullptr || dir[0] == 0)
+        return 0;
+    if (limit < 0)
+        limit = 0;
+    guard = 0;
+    while (guard < 10000) {
+        listing = opendir(dir);
+        if (listing == nullptr)
+            return 0;
+        count = 0;
+        oldest[0] = 0;
+        oldestTime = 0;
+        entry = readdir(listing);
+        while (entry != nullptr) {
+            long when;
+
+            if (entry->d_name[0] != '.'
+                    && text_ends(
+                            entry->d_name,
+                            ".recover") == 1) {
+                path_join(
+                        path,
+                        EDITOR_PATH,
+                        dir,
+                        entry->d_name);
+                if (path[0] != 0
+                        && file_is_reg(path) == 1) {
+                    count = count + 1;
+                    when = file_mtime(path);
+                    if (oldest[0] == 0
+                            || when < oldestTime) {
+                        oldestTime = when;
+                        text_copy(
+                                oldest,
+                                EDITOR_PATH,
+                                path);
+                    }
+                }
+            }
+            entry = readdir(listing);
+        }
+        closedir(listing);
+        if (count <= limit || oldest[0] == 0)
+            return count;
+        if (unlink(oldest) != 0)
+            return count;
+        guard = guard + 1;
+    }
+    return limit;
 }
 
 char *read_file(

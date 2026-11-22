@@ -85,10 +85,13 @@ the setup dialog.
 A changed file asks to reload, save, or ignore. A
 removed file is reported once. Write recovery files is
 off. The interval is `recovery-minutes`, from 1 to 1440,
-and the default is 5. Copies are the buffer text in
-`$HOME/.config/smallcpp/recovery`. Startup asks
+and the default is 5. `recovery-keep` is how many
+copies to hold, from 0 to 500, and the default is 20.
+Copies are the buffer text in
+`$HOME/.config/smallcpp/recovery`. Copies past that
+count are removed, oldest first. Startup asks
 Open or Ignore when that copy is for a file that is
-gone. Open loads it. Ignore leaves it closed.
+gone. Open loads it. Ignore deletes that copy.
 A Color button sets the current-line color and another
 sets the column-marker color. Indent width is a character count. Keyboard
 is a grid of command and shortcut. Click a shortcut, press

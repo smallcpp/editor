@@ -29,6 +29,7 @@ extern unsigned long g_signal_connect_data(
 extern void *gtk_text_buffer_get_insert(void *buffer);
 extern int gtk_text_iter_get_line(void *iter);
 extern int gtk_text_iter_get_line_offset(void *iter);
+extern int unlink(const char *path);
 
 Ui *editorUi;
 
@@ -315,6 +316,12 @@ void ui_recover_text(void *data) {
         editorUi->take_recovery_text();
 }
 
+void ui_keep_text(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->take_recovery_keep();
+}
+
 void ui_disk_response(void *data, int response) {
     (void)data;
     if (editorUi != nullptr)
@@ -445,6 +452,7 @@ Ui::Ui(Editor *editor) {
     pathDepth = 0;
     recoveryOn = 0;
     recoveryMinutes = 5;
+    recoveryKeep = 20;
     diskKind = 0;
     diskIndex = -1;
     tickArmed = 0;
@@ -467,6 +475,7 @@ Ui::Ui(Editor *editor) {
     recoverAt = 0;
     recoverCheck = nullptr;
     recoverEntry = nullptr;
+    keepEntry = nullptr;
     listedCount = 0;
     dirtyOpen = 0;
     recentCount = 10;
@@ -1486,6 +1495,22 @@ void Ui::offer_recovery(void) {
     show_next_recover();
 }
 
+static void drop_recovery_copy(const char *path) {
+    char dir[EDITOR_PATH];
+    char leaf[128];
+    char full[EDITOR_PATH];
+
+    if (path == nullptr || path[0] == 0)
+        return;
+    if (recovery_dir(dir, EDITOR_PATH) == 0)
+        return;
+    if (recovery_leaf_for(path, leaf, 128) == 0)
+        return;
+    path_join(full, EDITOR_PATH, dir, leaf);
+    if (full[0] != 0)
+        unlink(full);
+}
+
 void Ui::answer_recovery(int response) {
     char path[EDITOR_PATH];
     char dir[EDITOR_PATH];
@@ -1511,6 +1536,7 @@ void Ui::answer_recovery(int response) {
     if (recoverDialog != nullptr)
         recoverDialog->set_visible(false);
     if (open == 0) {
+        drop_recovery_copy(path);
         show_next_recover();
         return;
     }
@@ -1921,6 +1947,12 @@ void Ui::sync_boxes(void) {
 
         minutes_text(shown, recoveryMinutes);
         recoverEntry->set_text(shown);
+    }
+    if (keepEntry != nullptr) {
+        char shown[8];
+
+        minutes_text(shown, recoveryKeep);
+        keepEntry->set_text(shown);
     }
     if (recentSpin != nullptr)
         recentSpin->set_value((double)recentCount);
@@ -2743,6 +2775,9 @@ void Ui::use_config(EditorConfig *item) {
     recoveryMinutes = item->recoveryMinutes;
     if (recoveryMinutes < 1 || recoveryMinutes > 1440)
         recoveryMinutes = 5;
+    recoveryKeep = item->recoveryKeep;
+    if (recoveryKeep < 0 || recoveryKeep > 500)
+        recoveryKeep = 20;
     if (recoveryOn != 0)
         recoveryMark = (long)time(nullptr);
     recentCount = item->recentCount;
@@ -2911,6 +2946,7 @@ void Ui::apply_settings(void) {
         collect_open(&item);
     item.recoveryOn = recoveryOn;
     item.recoveryMinutes = recoveryMinutes;
+    item.recoveryKeep = recoveryKeep;
     theme_copy(&item, themeConfig);
     use_config(&item);
     if (config_path(path, EDITOR_PATH) == 1)
@@ -3672,6 +3708,12 @@ void Ui::show_settings(void) {
             fileGroup->append((Widget *)labeled_field(
                     "Minutes",
                     (Widget *)recoverEntry));
+            keepEntry = new Entry("20");
+            keepEntry->set_width_chars(6);
+            keepEntry->on_changed(ui_keep_text, nullptr);
+            fileGroup->append((Widget *)labeled_field(
+                    "Keep",
+                    (Widget *)keepEntry));
             box->append((Widget *)fileGroup);
         }
         saveTabCheck = new CheckButton(
@@ -4383,6 +4425,9 @@ void Ui::store_session(void) {
     item.ensureNewline = newlineOn;
     item.showPath = pathOn;
     item.pathDepth = pathDepth;
+    item.recoveryOn = recoveryOn;
+    item.recoveryMinutes = recoveryMinutes;
+    item.recoveryKeep = recoveryKeep;
     item.spaces = state->indent_style();
     item.recentCount = recentCount;
     if (item.recentCount < 1)
@@ -4843,6 +4888,10 @@ int Ui::recovery_minutes(void) {
     return recoveryMinutes;
 }
 
+int Ui::recovery_keep(void) {
+    return recoveryKeep;
+}
+
 void Ui::set_recovery_minutes(int value) {
     if (value < 1)
         value = 1;
@@ -4851,6 +4900,21 @@ void Ui::set_recovery_minutes(int value) {
     recoveryMinutes = value;
     if (applying == 1 || settingsHold != 0)
         return;
+    apply_settings();
+}
+
+void Ui::set_recovery_keep(int value) {
+    char dir[EDITOR_PATH];
+
+    if (value < 0)
+        value = 0;
+    if (value > 500)
+        value = 500;
+    recoveryKeep = value;
+    if (applying == 1 || settingsHold != 0)
+        return;
+    if (recovery_dir(dir, EDITOR_PATH) == 1)
+        trim_recovery_dir(dir, recoveryKeep);
     apply_settings();
 }
 
@@ -4879,6 +4943,31 @@ void Ui::take_recovery_text(void) {
     set_recovery_minutes(value);
 }
 
+void Ui::take_recovery_keep(void) {
+    const char *text;
+    int value;
+    long i;
+
+    if (applying == 1 || settingsHold != 0)
+        return;
+    if (keepEntry == nullptr)
+        return;
+    text = keepEntry->text();
+    if (text == nullptr || text[0] == 0)
+        return;
+    i = 0;
+    value = 0;
+    while (text[i] >= '0' && text[i] <= '9') {
+        value = value * 10 + (text[i] - '0');
+        i = i + 1;
+        if (value > 100000)
+            return;
+    }
+    if (text[i] != 0)
+        return;
+    set_recovery_keep(value);
+}
+
 int Ui::write_recovery_files(void) {
     char dir[EDITOR_PATH];
     long i;
@@ -4898,6 +4987,7 @@ int Ui::write_recovery_files(void) {
             n = n + 1;
         i = i + 1;
     }
+    trim_recovery_dir(dir, recoveryKeep);
     return n;
 }
 

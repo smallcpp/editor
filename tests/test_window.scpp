@@ -386,9 +386,45 @@ int main(void) {
                     "recover ignored");
             expect(editor->count() == count,
                     "ignore stays closed");
+            {
+                char recDir[EDITOR_PATH];
+                char leaf[128];
+                char recPath[EDITOR_PATH];
+
+                path_join(
+                        recDir,
+                        EDITOR_PATH,
+                        dir,
+                        ".config/smallcpp/recovery");
+                expect(recovery_leaf_for(
+                            pathR, leaf, 128) == 1,
+                        "recover leaf");
+                path_join(
+                        recPath,
+                        EDITOR_PATH,
+                        recDir,
+                        leaf);
+                expect(file_exists(recPath) == 0,
+                        "ignore removes the copy");
+            }
+            ui->offer_recovery();
+            expect(ui->recovery_prompt() == 0,
+                    "ignore does not ask again");
+            expect(write_file(pathR, "draft\n", &io) == 1,
+                    "recover seed again");
+            ui->open_path(pathR);
+            editor->active()->buffer()->set_text(
+                    "draft plus\n");
+            editor->active()->buffer()->mark_dirty();
+            expect(editor->save_active() == EDITOR_OK,
+                    "recover save again");
+            expect(ui->write_recovery_files() >= 1,
+                    "recover copy again");
+            ui->on_menu("Close");
+            unlink(pathR);
             ui->offer_recovery();
             expect(ui->recovery_prompt() == 1,
-                    "recover asks again");
+                    "recover asks to open");
             ui->answer_recovery(1);
             expect(text_same(
                         ui->page_text(editor->index()),
@@ -629,6 +665,7 @@ int main(void) {
         expect(ui->recovery_minutes() == 5, "five minutes");
         ui->set_option("Write recovery files", 1);
         ui->set_recovery_minutes(9);
+        ui->set_recovery_keep(8);
         expect(ui->recovery_on() == 1, "recovery on");
         expect(ui->recovery_minutes() == 9, "nine minutes");
         editor->set_indent_style(2);
@@ -673,6 +710,10 @@ int main(void) {
                             raw,
                             "recovery-minutes=9") == 1,
                         "saved minutes");
+                expect(text_has(
+                            raw,
+                            "recovery-keep=8") == 1,
+                        "saved keep");
                 expect(text_has(
                             raw,
                             "key-new=<Control>n") == 1,

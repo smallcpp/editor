@@ -123,6 +123,9 @@ public:
     int recovery_minutes(void);
     void set_recovery_minutes(int value);
     void take_recovery_text(void);
+    int recovery_keep(void);
+    void set_recovery_keep(int value);
+    void take_recovery_keep(void);
     int write_recovery_files(void);
     void tick(void);
     void save_listed(long index);
@@ -259,6 +262,7 @@ private:
     int pathDepth;
     int recoveryOn;
     int recoveryMinutes;
+    int recoveryKeep;
     int diskKind;
     long diskIndex;
     int tickArmed;
@@ -282,6 +286,7 @@ private:
     char recoverPath[EDITOR_RECENT_MAX][EDITOR_PATH];
     CheckButton *recoverCheck;
     Entry *recoverEntry;
+    Entry *keepEntry;
     int listedCount;
     int dirtyOpen;
     long dirtySlot[EDITOR_PAGES];
