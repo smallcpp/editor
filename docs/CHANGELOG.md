@@ -9,6 +9,9 @@ it writes a copy of the current settings to
 `<project>/.sedit/editor.ini`. That file includes
 `recovery-dir` for the same folder. Recovery files for
 the project are written in `<project>/.sedit` as well.
+The installed program is `sedit`. The binary is `bin/sedit`,
+and `install` copies that file into the prefix. Help and the
+version line use that name.
 
 A function that names a return type returns a value of
 that type. `0` and `-1` returned from `long`, and a
@@ -266,10 +269,10 @@ option exits 2 and writes that help text to stderr. The help and
 usage checks expect that text.
 
 The suite gained `test-buffer`, `test-document`, `test-syntax`,
-`test-editor`, and `test-window`. It also checks `editor --help`,
-`editor --version`, and an unknown option. `test-window` runs under
-`xvfb-run`. A normal `build` compiles `bin/editor` and leaves the
-test programs unbuilt. `build test` builds `bin/editor` and those
+`test-editor`, and `test-window`. It also checks `sedit --help`,
+`sedit --version`, and an unknown option. `test-window` runs under
+`xvfb-run`. A normal `build` compiles `bin/sedit` and leaves the
+test programs unbuilt. `build test` builds `bin/sedit` and those
 programs, then runs the suite.
 
 `test-document` rejects a Save As whose write fails, and checks

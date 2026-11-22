@@ -50,7 +50,7 @@ if(NOT SCPP)
         "Install smallcpp and run scripts/setup again.")
 endif()
 
-set(EDITOR_PROGRAM "${CMAKE_SOURCE_DIR}/bin/editor")
+set(EDITOR_PROGRAM "${CMAKE_SOURCE_DIR}/bin/sedit")
 
 # Class definitions live in the headers. Each .scpp is one
 # translation unit. string.scpp is the only unit that includes
@@ -116,7 +116,7 @@ add_custom_command(
     DEPENDS ${EDITOR_SOURCES} ${EDITOR_HEADERS} "${SCPP}"
     COMMENT "Compiling editor"
     VERBATIM)
-add_custom_target(editor ALL DEPENDS "${EDITOR_PROGRAM}")
+add_custom_target(sedit ALL DEPENDS "${EDITOR_PROGRAM}")
 
 # Copy the built application. This checkout is not the compiler, so
 # the install does not write a config file. LIBDIR is set first

@@ -1,13 +1,13 @@
 # editor
 
-`editor` edits text files. It opens several files and untitled
+`sedit` edits text files. It opens several files and untitled
 documents, switches between them, and saves them. Syntax coloring
 covers scpp. The buffer keeps undo and redo.
 
 Build, test, and install it with the scripts in the root `README.md`.
 Do not run `cmake` yourself. `scripts/setup`, then `build`, then
-`install`, then `bin/editor`. `install` copies `bin/editor` to
-`bin/editor` under the prefix. A fresh configuration uses
+`install`, then `bin/sedit`. `install` copies `bin/sedit` to
+`bin/sedit` under the prefix. A fresh configuration uses
 `$HOME/opt/smallcpp`. `install /absolute/path` selects that prefix
 for one run. A normal `build` compiles the editor and leaves the
 test programs unbuilt. `build test` builds those programs and runs
@@ -17,14 +17,14 @@ tests do not open a window.
 ## Starting
 
 ```text
-editor [file]...
-editor --help
-editor --version
+sedit [file]...
+sedit --help
+sedit --version
 ```
 
 `--help` and `--version` exit 0. Help and the version line come
 from the standard `Cli` parser. `--help` prints `help_text`.
-`--version` prints `version_text`, `editor: v0.0.1`. An unknown
+`--version` prints `version_text`, `sedit: v0.0.1`. An unknown
 option exits 2 and writes that same help text to stderr. Each
 file argument opens
 as a document. A directory is refused with `not a file`. A file
