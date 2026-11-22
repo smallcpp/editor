@@ -42,16 +42,22 @@ the shape of the file and a band for the visible lines.
 A click in that column scrolls the buffer. The column
 reads the buffer the editor already has.
 A panel on the left lists files, the project, and symbols.
-The project is a folder. Settings, Projects lists recent
-project folders, and choosing one opens that folder.
-Set types a path, and File folder
-uses the directory of the active file. When that folder
-contains `CMakeLists.txt`, the project page lists
-`add_executable` and `add_library` targets, and compile
-lines from `compile_commands.json` when that file is
-there. The panel does not own the buffer. Opening a file
-uses the same path as File, Open. A symbol moves the
-cursor in the current buffer.
+Its left edge is the left edge of the window. The tab
+row has buttons that scroll the Files, Project, and
+Symbols labels when they do not fit. Files lists the
+current folder with each name starting at the left.
+Project lists the files under the project folder, and
+one click opens that file. The project is a folder.
+Settings, Projects lists recent project folders, and
+choosing one opens that folder. Path, Set, and File
+folder are on that page. File folder uses the directory
+of the active file. When that folder contains
+`CMakeLists.txt`, the same page lists `add_executable`
+and `add_library` targets, and compile lines from
+`compile_commands.json` when that file is there. The
+panel does not own the buffer. Opening a file uses the
+same path as File, Open. A symbol moves the cursor in
+the current buffer.
 The menus are File, Edit, Search, View, and Documents. The
 status line shows the title, a dirty star, the line, the
 column, and the language. Each tab has a dark border.

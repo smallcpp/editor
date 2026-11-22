@@ -27,6 +27,9 @@ public:
     int row_dir(int index);
     int file_path(int index, char *dest, long cap);
     int enter(int index);
+    int tree_count(void);
+    const char *tree_name(int index);
+    int tree_path(int index, char *dest, long cap);
     int cmake_project(void);
     void read_lists(const char *text);
     int target_count(void);
@@ -47,6 +50,8 @@ private:
     int files;
     int fileDir[PANEL_FILES];
     char fileName[PANEL_FILES][PANEL_NAME];
+    int treeFiles;
+    char treeName[PANEL_FILES][PANEL_NAME];
     int cmakeOn;
     int targets;
     char targetName[PANEL_TARGETS][PANEL_NAME];
@@ -57,6 +62,12 @@ private:
     long symbolLine[PANEL_SYMBOLS];
     char symbolName[PANEL_SYMBOLS][PANEL_NAME];
     void list_dir(void);
+    void list_tree(void);
+    void add_tree(
+            const char *dir,
+            const char *prefix,
+            int depth);
+    void sort_tree(void);
     void read_project(void);
     void add_target(const char *name);
     void add_command(const char *file, const char *line);

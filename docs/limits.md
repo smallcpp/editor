@@ -59,7 +59,7 @@ directory last chosen
 during this session. The left panel cannot ask for a
 folder, because the dialog has no folder mode. The
 project is the active file's directory or a path typed
-in the panel. A directory row lists that directory and
+on Settings, Projects. A directory row lists that directory and
 does not leave the project. CMake targets are the names
 in `add_executable` and `add_library`, not a full CMake
 run. A compile line is the `command` string, or the

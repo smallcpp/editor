@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+The left panel tab row has scroll buttons. The panel
+sits on the left edge of the window. Files lines up its
+names on the left. Project lists the files in the project
+folder, and one click opens a file. The path field, Set,
+and File folder live on Settings, Projects, with the
+CMake target and command lists.
+
 View has Left panel and Right panel. Each is checked
 while that panel is shown. Left panel is the files and
 project list. Right panel is the mini-map. Clearing a
