@@ -38,7 +38,7 @@ fi
 
 project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 build_dir="$project_root/build"
-app_target=editor
+app_target=sedit
 
 if [[ ! -f "$build_dir/CMakeCache.txt" ]]; then
     printf 'Build directory is not configured. Run scripts/setup first.\n' >&2

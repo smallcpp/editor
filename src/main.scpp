@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
     int code;
 
     command = new CommandLine(
-            "editor",
+            "sedit",
             "Opens files. With no path, an untitled buffer is shown.",
             "0.0.1");
     help = new Option();

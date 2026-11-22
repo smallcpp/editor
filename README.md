@@ -1,6 +1,6 @@
 # editor
 
-`editor` is a text editor written in scpp. It opens several files
+`sedit` is a text editor written in scpp. It opens several files
 and untitled documents, edits them, and saves them. The window is
 GTK 4, through the smallcpp wrapper.
 
@@ -21,7 +21,7 @@ scripts/setup
 build
 build test
 install
-../bin/editor --help
+../bin/sedit --help
 exit
 ```
 
@@ -29,13 +29,13 @@ exit
 and starts a project shell. `build` compiles the editor and leaves
 the test programs unbuilt. `build test` builds the editor and those
 programs, then runs the suite. `install` builds the editor and
-copies `bin/editor` into the prefix. `scripts/clean` removes the
+copies `bin/sedit` into the prefix. `scripts/clean` removes the
 build products in the checkout. It leaves an installed copy where
 it is.
 
 `install` with no argument uses the prefix selected at
 configuration. A fresh configuration installs to
-`$HOME/opt/smallcpp`. The program is `$HOME/opt/smallcpp/bin/editor`.
+`$HOME/opt/smallcpp`. The program is `$HOME/opt/smallcpp/bin/sedit`.
 `install /absolute/path` and `install --prefix /absolute/path`
 install to that prefix for this run. From the checkout root,
 `scripts/install` and `scripts/install /absolute/path` are the same

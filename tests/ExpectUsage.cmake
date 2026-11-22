@@ -2,7 +2,7 @@ if(NOT DEFINED PROGRAM)
     message(FATAL_ERROR "usage check is missing a path")
 endif()
 
-set(help_text "Usage: editor [options] [file...]\n")
+set(help_text "Usage: sedit [options] [file...]\n")
 string(APPEND help_text
     "Opens files. With no path, an untitled buffer is shown.\n")
 string(APPEND help_text "Options:\n")
