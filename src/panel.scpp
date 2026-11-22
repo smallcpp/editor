@@ -368,6 +368,7 @@ SidePanel::SidePanel() {
     rootPath[0] = 0;
     listPath[0] = 0;
     files = 0;
+    treeFiles = 0;
     cmakeOn = 0;
     targets = 0;
     commands = 0;
@@ -390,6 +391,7 @@ int SidePanel::set_root(const char *path) {
     text_copy(rootPath, EDITOR_PATH, clean);
     text_copy(listPath, EDITOR_PATH, clean);
     list_dir();
+    list_tree();
     read_project();
     return 1;
 }
@@ -429,6 +431,26 @@ int SidePanel::file_path(int index, char *dest, long cap) {
         return (int)(dest[0] != 0);
     }
     path_join(dest, cap, listPath, fileName[index]);
+    return (int)(dest[0] != 0);
+}
+
+int SidePanel::tree_count(void) {
+    return treeFiles;
+}
+
+const char *SidePanel::tree_name(int index) {
+    if (index < 0 || index >= treeFiles)
+        return "";
+    return treeName[index];
+}
+
+int SidePanel::tree_path(int index, char *dest, long cap) {
+    if (dest == nullptr || cap < 2)
+        return 0;
+    dest[0] = 0;
+    if (index < 0 || index >= treeFiles)
+        return 0;
+    path_join(dest, cap, rootPath, treeName[index]);
     return (int)(dest[0] != 0);
 }
 
@@ -1042,6 +1064,114 @@ void SidePanel::sort_files(void) {
         fileDir[j] = savedDir;
         i = i + 1;
     }
+}
+
+static int join_rel(
+        char *dest,
+        long cap,
+        const char *prefix,
+        const char *name) {
+    long n;
+    long i;
+
+    if (dest == nullptr || cap < 2)
+        return 0;
+    if (name == nullptr || name[0] == 0)
+        return 0;
+    if (prefix == nullptr || prefix[0] == 0) {
+        text_copy(dest, cap, name);
+        return 1;
+    }
+    n = text_length(prefix);
+    i = text_length(name);
+    if (n + i + 2 > cap)
+        return 0;
+    text_copy(dest, cap, prefix);
+    dest[n] = '/';
+    i = 0;
+    while (name[i] != 0) {
+        dest[n + 1 + i] = name[i];
+        i = i + 1;
+    }
+    dest[n + 1 + i] = 0;
+    return 1;
+}
+
+void SidePanel::add_tree(
+        const char *dir,
+        const char *prefix,
+        int depth) {
+    DIR *listing;
+    struct dirent *entry;
+
+    if (dir == nullptr || dir[0] == 0)
+        return;
+    if (depth > 16 || treeFiles >= PANEL_FILES)
+        return;
+    listing = opendir(dir);
+    if (listing == nullptr)
+        return;
+    entry = readdir(listing);
+    while (entry != nullptr && treeFiles < PANEL_FILES) {
+        char path[EDITOR_PATH];
+        char rel[PANEL_NAME];
+
+        if (entry->d_name[0] != '.') {
+            path_join(
+                    path,
+                    EDITOR_PATH,
+                    dir,
+                    entry->d_name);
+            if (join_rel(
+                        rel,
+                        PANEL_NAME,
+                        prefix,
+                        entry->d_name) == 1) {
+                if (file_is_dir(path) == 1)
+                    add_tree(path, rel, depth + 1);
+                else if (file_is_reg(path) == 1) {
+                    text_copy(
+                            treeName[treeFiles],
+                            PANEL_NAME,
+                            rel);
+                    treeFiles = treeFiles + 1;
+                }
+            }
+        }
+        entry = readdir(listing);
+    }
+    closedir(listing);
+}
+
+void SidePanel::sort_tree(void) {
+    int i;
+
+    i = 1;
+    while (i < treeFiles) {
+        char saved[PANEL_NAME];
+        int j;
+
+        text_copy(saved, PANEL_NAME, treeName[i]);
+        j = i;
+        while (j > 0
+                && name_less(saved, treeName[j - 1]) == 1) {
+            text_copy(
+                    treeName[j],
+                    PANEL_NAME,
+                    treeName[j - 1]);
+            j = j - 1;
+        }
+        text_copy(treeName[j], PANEL_NAME, saved);
+        i = i + 1;
+    }
+}
+
+void SidePanel::list_tree(void) {
+    treeFiles = 0;
+    if (rootPath[0] == 0)
+        return;
+    add_tree(rootPath, "", 0);
+    sort_tree();
 }
 
 void SidePanel::list_dir(void) {

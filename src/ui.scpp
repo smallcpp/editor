@@ -20,6 +20,36 @@ extern void *gtk_message_dialog_new(
 extern void gtk_window_present(void *window);
 extern void gtk_widget_set_visible(void *widget, int visible);
 extern int gtk_widget_get_visible(void *widget);
+extern void gtk_widget_set_halign(void *widget, int align);
+extern void gtk_widget_get_allocation(void *widget, int *box);
+extern void *gtk_widget_get_first_child(void *widget);
+extern void *gtk_widget_get_next_sibling(void *widget);
+extern const char *gtk_widget_get_css_name(void *widget);
+extern void gtk_label_set_xalign(void *label, float xalign);
+extern float gtk_label_get_xalign(void *label);
+extern void gtk_notebook_set_show_tabs(void *notebook, int show);
+extern void gtk_scrolled_window_set_propagate_natural_width(
+        void *window,
+        int propagate);
+extern void gtk_scrolled_window_set_min_content_width(
+        void *window,
+        int width);
+extern void *gtk_scrolled_window_get_hadjustment(void *window);
+extern double gtk_adjustment_get_value(void *adjustment);
+extern double gtk_adjustment_get_upper(void *adjustment);
+extern double gtk_adjustment_get_page_size(void *adjustment);
+extern void gtk_adjustment_set_value(
+        void *adjustment,
+        double value);
+extern void *gtk_column_view_get_columns(void *view);
+extern void *g_list_model_get_item(void *model, unsigned position);
+extern void gtk_column_view_column_set_expand(
+        void *column,
+        int expand);
+extern void gtk_column_view_set_single_click_activate(
+        void *view,
+        int single);
+extern int gtk_column_view_get_single_click_activate(void *view);
 extern unsigned long g_signal_connect_data(
         void *instance,
         const char *signal,
@@ -152,6 +182,44 @@ static void map_mapped(void *widget, void *data) {
 void ui_panel_file(void *data, long row) {
     (void)data;
     editorUi->open_panel_file((int)row);
+}
+
+void ui_project_file_row(void *data, long row) {
+    (void)data;
+    editorUi->open_project_file((int)row);
+}
+
+void ui_panel_tab_files(void *data) {
+    (void)data;
+    editorUi->show_panel_page(0);
+}
+
+void ui_panel_tab_project(void *data) {
+    (void)data;
+    editorUi->show_panel_page(1);
+}
+
+void ui_panel_tab_symbols(void *data) {
+    (void)data;
+    editorUi->show_panel_page(2);
+}
+
+void ui_panel_scroll_left(void *data) {
+    (void)data;
+    editorUi->scroll_panel_tabs(-1);
+}
+
+void ui_panel_scroll_right(void *data) {
+    (void)data;
+    editorUi->scroll_panel_tabs(1);
+}
+
+int ui_align_idle(void *data) {
+    (void)data;
+    if (editorUi == nullptr)
+        return 0;
+    editorUi->align_file_names();
+    return 0;
 }
 
 void ui_panel_command(void *data, long row) {
@@ -727,7 +795,12 @@ Ui::Ui(Editor *editor) {
     }
     panel = new SidePanel();
     panelBook = nullptr;
+    panelFrame = nullptr;
+    panelTabLeft = nullptr;
+    panelTabRight = nullptr;
+    panelTabScroll = nullptr;
     fileView = nullptr;
+    projectFiles = nullptr;
     targetView = nullptr;
     commandView = nullptr;
     symbolView = nullptr;
@@ -907,90 +980,195 @@ static void panel_digits(
     dest[i] = 0;
 }
 
+static Box *group_box(const char *title);
+static Box *labeled_field(const char *label, Widget *field);
+
+static void shrink_scroll(ScrolledWindow *scroll) {
+    if (scroll == nullptr || scroll->native == nullptr)
+        return;
+    gtk_scrolled_window_set_propagate_natural_width(
+            scroll->native,
+            0);
+    gtk_scrolled_window_set_min_content_width(
+            scroll->native,
+            48);
+}
+
+static void expand_column(ColumnView *view) {
+    void *columns;
+    void *column;
+
+    if (view == nullptr || view->native == nullptr)
+        return;
+    columns = gtk_column_view_get_columns(view->native);
+    if (columns == nullptr)
+        return;
+    column = g_list_model_get_item(columns, 0);
+    if (column == nullptr)
+        return;
+    gtk_column_view_column_set_expand(column, 1);
+    g_object_unref(column);
+}
+
+static ScrolledWindow *panel_scroll(Widget *child) {
+    ScrolledWindow *scroll;
+
+    scroll = new ScrolledWindow();
+    scroll->set_policy(
+            GTK_POLICY_AUTOMATIC,
+            GTK_POLICY_AUTOMATIC);
+    scroll->set_child(child);
+    scroll->set_v_expand(true);
+    scroll->set_h_expand(true);
+    shrink_scroll(scroll);
+    return scroll;
+}
+
 Widget *Ui::mount_panel(void) {
     Paned *split;
-    Box *projectPage;
-    Box *projectRow;
-    Button *setProject;
-    Button *fileProject;
+    Box *frame;
+    Box *tabBar;
+    Box *strip;
+    Button *filesTab;
+    Button *projectTab;
+    Button *symbolsTab;
     ScrolledWindow *fileScroll;
-    ScrolledWindow *targetScroll;
-    ScrolledWindow *commandScroll;
+    ScrolledWindow *projectScroll;
     ScrolledWindow *symbolScroll;
 
+    make_project_controls();
     panelBook = new Notebook();
     panelBook->set_scrollable(true);
     panelBook->set_v_expand(true);
-    panelBook->set_width_request(200);
+    panelBook->set_h_expand(true);
+    gtk_notebook_set_show_tabs(panelBook->native, 0);
     fileView = new ColumnView();
     fileView->append_column("Name");
     fileView->on_activate(ui_panel_file, nullptr);
-    fileScroll = new ScrolledWindow();
-    fileScroll->set_policy(
-            GTK_POLICY_AUTOMATIC,
-            GTK_POLICY_AUTOMATIC);
-    fileScroll->set_child((Widget *)fileView);
-    fileScroll->set_v_expand(true);
+    expand_column(fileView);
+    fileScroll = panel_scroll((Widget *)fileView);
     panelBook->append_page((Widget *)fileScroll, "Files");
-    projectPage = new Box(GTK_VERTICAL, 4);
-    projectLabel = new Label("");
-    projectPage->append((Widget *)projectLabel);
-    projectRow = new Box(GTK_HORIZONTAL, 4);
-    projectEntry = new Entry("");
-    projectEntry->set_width_chars(12);
-    setProject = new Button("Set");
-    setProject->on_clicked(ui_project_set, nullptr);
-    fileProject = new Button("File folder");
-    fileProject->on_clicked(ui_project_file, nullptr);
-    projectRow->append((Widget *)projectEntry);
-    projectRow->append((Widget *)setProject);
-    projectRow->append((Widget *)fileProject);
-    projectPage->append((Widget *)projectRow);
-    cmakeLabel = new Label("No CMakeLists.txt");
-    projectPage->append((Widget *)cmakeLabel);
-    targetView = new ColumnView();
-    targetView->append_column("Target");
-    targetScroll = new ScrolledWindow();
-    targetScroll->set_policy(
-            GTK_POLICY_AUTOMATIC,
-            GTK_POLICY_AUTOMATIC);
-    targetScroll->set_child((Widget *)targetView);
-    targetScroll->set_v_expand(true);
-    projectPage->append((Widget *)targetScroll);
-    commandView = new ColumnView();
-    commandView->append_column("File");
-    commandView->append_column("Command");
-    commandView->on_activate(ui_panel_command, nullptr);
-    commandScroll = new ScrolledWindow();
-    commandScroll->set_policy(
-            GTK_POLICY_AUTOMATIC,
-            GTK_POLICY_AUTOMATIC);
-    commandScroll->set_child((Widget *)commandView);
-    commandScroll->set_v_expand(true);
-    projectPage->append((Widget *)commandScroll);
+    projectFiles = new ColumnView();
+    projectFiles->append_column("File");
+    projectFiles->on_activate(ui_project_file_row, nullptr);
+    gtk_column_view_set_single_click_activate(
+            projectFiles->native,
+            1);
+    expand_column(projectFiles);
+    projectScroll = panel_scroll((Widget *)projectFiles);
     panelBook->append_page(
-            (Widget *)projectPage,
+            (Widget *)projectScroll,
             "Project");
     symbolView = new ColumnView();
     symbolView->append_column("Symbol");
     symbolView->append_column("Line");
     symbolView->on_activate(ui_panel_symbol, nullptr);
-    symbolScroll = new ScrolledWindow();
-    symbolScroll->set_policy(
-            GTK_POLICY_AUTOMATIC,
-            GTK_POLICY_AUTOMATIC);
-    symbolScroll->set_child((Widget *)symbolView);
-    symbolScroll->set_v_expand(true);
+    symbolScroll = panel_scroll((Widget *)symbolView);
     panelBook->append_page(
             (Widget *)symbolScroll,
             "Symbols");
+    frame = new Box(GTK_VERTICAL, 0);
+    frame->set_v_expand(true);
+    frame->set_width_request(200);
+    gtk_widget_set_halign(frame->native, 1);
+    tabBar = new Box(GTK_HORIZONTAL, 0);
+    tabBar->set_h_expand(true);
+    panelTabLeft = new Button("<");
+    panelTabRight = new Button(">");
+    panelTabLeft->on_clicked(ui_panel_scroll_left, nullptr);
+    panelTabRight->on_clicked(ui_panel_scroll_right, nullptr);
+    strip = new Box(GTK_HORIZONTAL, 0);
+    filesTab = new Button("Files");
+    projectTab = new Button("Project");
+    symbolsTab = new Button("Symbols");
+    filesTab->on_clicked(ui_panel_tab_files, nullptr);
+    projectTab->on_clicked(ui_panel_tab_project, nullptr);
+    symbolsTab->on_clicked(ui_panel_tab_symbols, nullptr);
+    strip->append((Widget *)filesTab);
+    strip->append((Widget *)projectTab);
+    strip->append((Widget *)symbolsTab);
+    panelTabScroll = new ScrolledWindow();
+    panelTabScroll->set_policy(
+            GTK_POLICY_EXTERNAL,
+            GTK_POLICY_NEVER);
+    panelTabScroll->set_h_expand(true);
+    panelTabScroll->set_child((Widget *)strip);
+    shrink_scroll(panelTabScroll);
+    tabBar->append((Widget *)panelTabLeft);
+    tabBar->append((Widget *)panelTabScroll);
+    tabBar->append((Widget *)panelTabRight);
+    frame->append((Widget *)tabBar);
+    frame->append((Widget *)panelBook);
+    panelFrame = (Widget *)frame;
     split = new Paned(GTK_HORIZONTAL);
-    split->set_start_child((Widget *)panelBook);
+    split->set_start_child(panelFrame);
     split->set_end_child((Widget *)book);
     split->set_position(200);
     editorSplit = split;
     split->set_v_expand(true);
     return (Widget *)split;
+}
+
+void Ui::make_project_controls(void) {
+    if (projectEntry != nullptr)
+        return;
+    projectLabel = new Label("");
+    projectEntry = new Entry("");
+    projectEntry->set_width_chars(12);
+    cmakeLabel = new Label("No CMakeLists.txt");
+    targetView = new ColumnView();
+    targetView->append_column("Target");
+    commandView = new ColumnView();
+    commandView->append_column("File");
+    commandView->append_column("Command");
+    commandView->on_activate(ui_panel_command, nullptr);
+}
+
+void Ui::place_project_controls(Box *parent) {
+    Box *folder;
+    Box *row;
+    Button *setProject;
+    Button *fileProject;
+    ScrolledWindow *targetScroll;
+    ScrolledWindow *commandScroll;
+
+    if (parent == nullptr || projectEntry == nullptr)
+        return;
+    folder = group_box("Folder");
+    folder->append((Widget *)projectLabel);
+    folder->append((Widget *)labeled_field(
+            "Path",
+            (Widget *)projectEntry));
+    row = new Box(GTK_HORIZONTAL, 8);
+    setProject = new Button("Set");
+    setProject->on_clicked(ui_project_set, nullptr);
+    fileProject = new Button("File folder");
+    fileProject->on_clicked(ui_project_file, nullptr);
+    row->append((Widget *)setProject);
+    row->append((Widget *)fileProject);
+    folder->append((Widget *)row);
+    folder->append((Widget *)cmakeLabel);
+    parent->append((Widget *)folder);
+    targetScroll = new ScrolledWindow();
+    targetScroll->set_policy(
+            GTK_POLICY_AUTOMATIC,
+            GTK_POLICY_AUTOMATIC);
+    targetScroll->set_v_expand(true);
+    targetScroll->set_min_content(240, 80);
+    targetScroll->set_child((Widget *)targetView);
+    folder = group_box("Targets");
+    folder->append((Widget *)targetScroll);
+    parent->append((Widget *)folder);
+    commandScroll = new ScrolledWindow();
+    commandScroll->set_policy(
+            GTK_POLICY_AUTOMATIC,
+            GTK_POLICY_AUTOMATIC);
+    commandScroll->set_v_expand(true);
+    commandScroll->set_min_content(240, 80);
+    commandScroll->set_child((Widget *)commandView);
+    folder = group_box("Commands");
+    folder->append((Widget *)commandScroll);
+    parent->append((Widget *)folder);
 }
 
 void Ui::fill_files(void) {
@@ -1016,6 +1194,23 @@ void Ui::fill_files(void) {
         }
         cells[0] = shown;
         fileView->append_row(cells, 1);
+        i = i + 1;
+    }
+    g_idle_add((void *)ui_align_idle, nullptr);
+}
+
+void Ui::fill_project_files(void) {
+    int i;
+
+    if (projectFiles == nullptr || panel == nullptr)
+        return;
+    projectFiles->clear_rows();
+    i = 0;
+    while (i < panel->tree_count()) {
+        const char *cells[1];
+
+        cells[0] = panel->tree_name(i);
+        projectFiles->append_row(cells, 1);
         i = i + 1;
     }
 }
@@ -1100,6 +1295,7 @@ int Ui::set_project(const char *path) {
         return 0;
     fill_files();
     fill_project();
+    fill_project_files();
     note_project(panel->root());
     return 1;
 }
@@ -1295,6 +1491,172 @@ void Ui::open_panel_file(int index) {
     if (panel->file_path(index, path, EDITOR_PATH) == 0)
         return;
     open_path(path);
+}
+
+int Ui::panel_edge(void) {
+    int box[4];
+    Widget *panelWidget;
+
+    panelWidget = panelFrame;
+    if (panelWidget == nullptr)
+        panelWidget = (Widget *)panelBook;
+    if (panelWidget == nullptr || panelWidget->native == nullptr)
+        return 0;
+    box[0] = 0;
+    box[1] = 0;
+    box[2] = 0;
+    box[3] = 0;
+    gtk_widget_get_allocation(panelWidget->native, box);
+    return box[0];
+}
+
+int Ui::panel_scrolls(void) {
+    if (panelTabLeft == nullptr || panelTabRight == nullptr)
+        return 0;
+    return 1;
+}
+
+const char *Ui::panel_scroll_mark(int side) {
+    if (side == 0 && panelTabLeft != nullptr)
+        return panelTabLeft->label();
+    if (side == 1 && panelTabRight != nullptr)
+        return panelTabRight->label();
+    return "";
+}
+
+void Ui::scroll_panel_tabs(int direction) {
+    void *adjust;
+    double value;
+    double upper;
+    double page;
+    double step;
+
+    if (panelTabScroll == nullptr
+            || panelTabScroll->native == nullptr)
+        return;
+    adjust = gtk_scrolled_window_get_hadjustment(
+            panelTabScroll->native);
+    if (adjust == nullptr)
+        return;
+    value = gtk_adjustment_get_value(adjust);
+    upper = gtk_adjustment_get_upper(adjust);
+    page = gtk_adjustment_get_page_size(adjust);
+    step = 48;
+    if (direction < 0)
+        value = value - step;
+    else
+        value = value + step;
+    if (value < 0)
+        value = 0;
+    if (page < upper && value > upper - page)
+        value = upper - page;
+    if (value < 0)
+        value = 0;
+    gtk_adjustment_set_value(adjust, value);
+}
+
+void Ui::show_panel_page(int index) {
+    if (panelBook == nullptr)
+        return;
+    if (index < 0 || index > 2)
+        return;
+    panelBook->set_current_page((long)index);
+}
+
+int Ui::panel_project_files(void) {
+    if (panel == nullptr)
+        return 0;
+    return panel->tree_count();
+}
+
+const char *Ui::panel_project_file(int index) {
+    if (panel == nullptr)
+        return "";
+    return panel->tree_name(index);
+}
+
+const char *Ui::shown_project_file(int index) {
+    if (projectFiles == nullptr)
+        return "";
+    if (index < 0 || index >= projectFiles->row_count())
+        return "";
+    return projectFiles->cell(index, 0);
+}
+
+void Ui::open_project_file(int index) {
+    char path[EDITOR_PATH];
+
+    if (panel == nullptr)
+        return;
+    if (panel->tree_path(index, path, EDITOR_PATH) == 0)
+        return;
+    open_path(path);
+}
+
+int Ui::project_clicks(void) {
+    if (projectFiles == nullptr
+            || projectFiles->native == nullptr)
+        return 0;
+    return gtk_column_view_get_single_click_activate(
+            projectFiles->native);
+}
+
+static void align_labels(void *widget) {
+    const char *name;
+    void *child;
+
+    if (widget == nullptr)
+        return;
+    name = gtk_widget_get_css_name(widget);
+    if (name != nullptr && text_same(name, "label") == 1) {
+        gtk_label_set_xalign(widget, (float)0);
+        gtk_widget_set_halign(widget, 1);
+    }
+    child = gtk_widget_get_first_child(widget);
+    while (child != nullptr) {
+        align_labels(child);
+        child = gtk_widget_get_next_sibling(child);
+    }
+}
+
+static int labels_left(void *widget, int *seen) {
+    const char *name;
+    void *child;
+    float xalign;
+
+    if (widget == nullptr)
+        return 1;
+    name = gtk_widget_get_css_name(widget);
+    if (name != nullptr && text_same(name, "label") == 1) {
+        *seen = 1;
+        xalign = gtk_label_get_xalign(widget);
+        if (xalign > (float)0.01)
+            return 0;
+    }
+    child = gtk_widget_get_first_child(widget);
+    while (child != nullptr) {
+        if (labels_left(child, seen) == 0)
+            return 0;
+        child = gtk_widget_get_next_sibling(child);
+    }
+    return 1;
+}
+
+void Ui::align_file_names(void) {
+    if (fileView == nullptr || fileView->native == nullptr)
+        return;
+    align_labels(fileView->native);
+}
+
+int Ui::files_left(void) {
+    int seen;
+
+    if (fileView == nullptr || fileView->native == nullptr)
+        return 0;
+    seen = 0;
+    if (labels_left(fileView->native, &seen) == 0)
+        return 0;
+    return seen;
 }
 
 int Ui::panel_cmake(void) {
@@ -3486,12 +3848,16 @@ int Ui::shows_stops(void) {
 
 void Ui::apply_panels(void) {
     long i;
+    Widget *panelWidget;
 
-    if (panelBook != nullptr) {
+    panelWidget = panelFrame;
+    if (panelWidget == nullptr)
+        panelWidget = (Widget *)panelBook;
+    if (panelWidget != nullptr) {
         if (showLeft == 0)
-            panelBook->set_visible(false);
+            panelWidget->set_visible(false);
         else
-            panelBook->set_visible(true);
+            panelWidget->set_visible(true);
     }
     if (editorSplit != nullptr) {
         if (showLeft == 0)
@@ -3512,9 +3878,14 @@ void Ui::apply_panels(void) {
 }
 
 int Ui::shows_left(void) {
-    if (panelBook == nullptr || panelBook->native == nullptr)
+    Widget *panelWidget;
+
+    panelWidget = panelFrame;
+    if (panelWidget == nullptr)
+        panelWidget = (Widget *)panelBook;
+    if (panelWidget == nullptr || panelWidget->native == nullptr)
         return showLeft;
-    if (gtk_widget_get_visible(panelBook->native) == 0)
+    if (gtk_widget_get_visible(panelWidget->native) == 0)
         return 0;
     return 1;
 }
@@ -5885,6 +6256,7 @@ void Ui::show_settings(void) {
             projects->append((Widget *)labeled_field(
                     "Recent projects",
                     (Widget *)projectDrop));
+            place_project_controls(projects);
             pages->append_page(
                     (Widget *)page_scroll((Widget *)projects),
                     "Projects");

@@ -272,6 +272,46 @@ static int send_ctrl_s(void) {
     return send_chord(0x73, 1);
 }
 
+void check_project_list(
+        Ui *ui,
+        Editor *editor,
+        const char *pathA) {
+    int i;
+    int saw;
+
+    saw = -1;
+    i = 0;
+    while (i < ui->panel_project_files()) {
+        if (text_same(ui->panel_project_file(i), "a.scpp") == 1)
+            saw = i;
+        i = i + 1;
+    }
+    expect(saw >= 0, "project lists a");
+    expect(text_same(
+                ui->shown_project_file(saw),
+                "a.scpp") == 1,
+            "project row");
+    expect(ui->project_clicks() == 1, "project single click");
+    ui->open_project_file(saw);
+    expect(text_same(
+                editor->active()->path(),
+                pathA) == 1,
+            "project click opens");
+}
+
+void check_panel_layout(Ui *ui) {
+    expect(ui->panel_scrolls() == 1, "panel scroll buttons");
+    expect(text_same(ui->panel_scroll_mark(0), "<") == 1,
+            "scroll left");
+    expect(text_same(ui->panel_scroll_mark(1), ">") == 1,
+            "scroll right");
+    ui->scroll_panel_tabs(1);
+    ui->scroll_panel_tabs(-1);
+    expect(ui->panel_edge() >= 0, "panel on the left edge");
+    ui->align_file_names();
+    expect(ui->files_left() == 1, "files align left");
+}
+
 void check_panels(Ui *ui) {
     expect(ui->shows_left() == 1, "left starts shown");
     expect(ui->left_checked() == 1, "left starts checked");
@@ -444,6 +484,7 @@ int main(void) {
 
             expect(ui->set_project(dir) == 1,
                     "panel project");
+            check_project_list(ui, editor, pathA);
             expect(text_same(
                         ui->project_path(),
                         dir) == 1,
@@ -831,6 +872,7 @@ int main(void) {
                 "ctrl save dirty");
         ui->show_main();
         pump(40);
+        check_panel_layout(ui);
         expect(send_ctrl_s() == 1, "ctrl s sent");
         pump(40);
         {
