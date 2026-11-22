@@ -4413,6 +4413,7 @@ void Ui::moved(long index, long line, long offset) {
     paint_brackets(index);
     paint_line(index);
     paint_status();
+    redraw_map(index);
 }
 
 void Ui::switched(long index) {

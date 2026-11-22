@@ -39,7 +39,9 @@ open focuses that document.
 The window has a menu bar, document tabs, and a status line.
 A narrow column on the right of the current buffer shows
 the shape of the file, a band for the visible lines, and
-a mark on the current line. Each line is drawn in the
+a mark on the current line. A click in the buffer moves
+the caret and that mark together, without waiting for a
+scroll. Each line is drawn in the
 mini-map font, far enough across the column that the text
 keeps its shape. A click outside the highlighted band
 scrolls the buffer. Pressing the highlighted area and

@@ -362,6 +362,49 @@ void check_map_controls(Ui *ui) {
     expect(ui->map_width() < wide + 3, "map does not resize itself");
 }
 
+void check_map_click(Ui *ui, Editor *editor) {
+    TextBuffer *view;
+    TextIter *at;
+    long before;
+    long after;
+    long y;
+    long n;
+    long height;
+
+    view = ui->view_buffer();
+    at = new TextIter(0, 0);
+    view->place_cursor(at);
+    height = ui->map_height();
+    if (height < 4)
+        height = 4;
+    ui->drag_map_mark(height / 3);
+    usleep(80000);
+    pump(20);
+    before = ui->map_mark();
+    ui->drag_map_mark(0);
+    n = 0;
+    y = -1;
+    while (n < 20) {
+        usleep(50000);
+        pump(10);
+        y = ui->gutter_line_y(0);
+        if (y >= 0)
+            break;
+        n = n + 1;
+    }
+    expect(before >= 0, "click starts with a mark");
+    expect(y >= 0, "click starts at the top");
+    at = new TextIter(12, 0);
+    view->place_cursor(at);
+    usleep(80000);
+    pump(20);
+    after = ui->map_mark();
+    expect(editor->active()->buffer()->cursor_line() == 13,
+            "click moves the caret");
+    expect(ui->gutter_line_y(0) >= 0, "click does not scroll");
+    expect(after > before, "click marks the caret line");
+}
+
 void check_map_mark(Ui *ui, Editor *editor) {
     long caret;
     long wide;
@@ -419,6 +462,7 @@ void check_map_mark(Ui *ui, Editor *editor) {
     expect(ui->map_width() > wide - 3, "map keeps its width");
     expect(ui->map_width() < wide + 3, "map width stays");
     check_map_controls(ui);
+    check_map_click(ui, editor);
 }
 
 void check_panels(Ui *ui) {
