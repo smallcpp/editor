@@ -110,6 +110,7 @@ Editor::Editor() {
     tabWidth = EDITOR_TAB;
     indentStyle = 1;
     trimOn = 0;
+    newlineOn = 0;
 }
 
 void Editor::apply_typing(Document *doc) {
@@ -221,6 +222,17 @@ void Editor::set_trim(int value) {
 
 int Editor::trims(void) {
     return trimOn;
+}
+
+void Editor::set_newline(int value) {
+    if (value == 0)
+        newlineOn = 0;
+    else
+        newlineOn = 1;
+}
+
+int Editor::ensures_newline(void) {
+    return newlineOn;
 }
 
 void Editor::set_error(const char *msg) {
@@ -368,6 +380,8 @@ int Editor::open_argument(const char *path) {
 int Editor::save_named(Document *doc) {
     if (doc == nullptr)
         return EDITOR_FAILED;
+    if (newlineOn != 0)
+        doc->buffer()->ensure_newline();
     if (trimOn != 0) {
         if (doc->save_file(true) == 0) {
             set_error(doc->error());
@@ -423,6 +437,8 @@ int Editor::save_as(const char *path) {
         return EDITOR_FAILED;
     }
     allowOverwrite = 0;
+    if (newlineOn != 0)
+        doc->buffer()->ensure_newline();
     if (trimOn != 0) {
         if (doc->save_as(path, true) == 0) {
             set_error(doc->error());

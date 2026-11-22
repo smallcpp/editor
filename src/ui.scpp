@@ -400,6 +400,9 @@ Ui::Ui(Editor *editor) {
     indentCheck = nullptr;
     indentDrop = nullptr;
     trimCheck = nullptr;
+    newlineCheck = nullptr;
+    pathCheck = nullptr;
+    pathSpin = nullptr;
     lineCheck = nullptr;
     marginCheck = nullptr;
     closeCheck = nullptr;
@@ -437,6 +440,9 @@ Ui::Ui(Editor *editor) {
     saveOnTab = 0;
     saveOnWindow = 0;
     trimOn = 0;
+    newlineOn = 0;
+    pathOn = 0;
+    pathDepth = 0;
     recoveryOn = 0;
     recoveryMinutes = 5;
     diskKind = 0;
@@ -1232,6 +1238,7 @@ void Ui::handle(int code) {
         show_choice("Overwrite the file?", 1);
         return;
     }
+    mirror_pages();
     refresh();
 }
 
@@ -1649,6 +1656,31 @@ void Ui::flush_sync(long index) {
     sync_view(index);
 }
 
+void Ui::mirror_pages(void) {
+    long i;
+
+    if (state == nullptr)
+        return;
+    i = 0;
+    while (i < pageCount && i < state->count()) {
+        Document *doc;
+        const char *shown;
+
+        doc = state->at(i);
+        if (doc != nullptr
+                && pages[i].buffer != nullptr) {
+            shown = pages[i].buffer->get_text();
+            if (shown == nullptr)
+                shown = "";
+            if (text_same(
+                        shown,
+                        doc->buffer()->text()) == 0)
+                show_buffer(i);
+        }
+        i = i + 1;
+    }
+}
+
 void Ui::sync_view(long index) {
     Document *doc;
     String *want;
@@ -1879,6 +1911,8 @@ void Ui::sync_boxes(void) {
     set_box(saveTabCheck, saveOnTab);
     set_box(saveWinCheck, saveOnWindow);
     set_box(trimCheck, trimOn);
+    set_box(newlineCheck, newlineOn);
+    set_box(pathCheck, pathOn);
     set_box(recoverCheck, recoveryOn);
     if (recoverEntry != nullptr) {
         char shown[8];
@@ -1888,6 +1922,8 @@ void Ui::sync_boxes(void) {
     }
     if (recentSpin != nullptr)
         recentSpin->set_value((double)recentCount);
+    if (pathSpin != nullptr)
+        pathSpin->set_value((double)pathDepth);
     applying = 0;
     i = 0;
     while (i < pageCount) {
@@ -1949,6 +1985,20 @@ void Ui::set_option(const char *label, int on) {
                 "Trim trailing spaces on save") == 1) {
         trimOn = value;
         state->set_trim(value);
+    }
+    if (text_same(
+                label,
+                "Ensure newline at end of file") == 1) {
+        newlineOn = value;
+        state->set_newline(value);
+    }
+    if (text_same(
+                label,
+                "Show path in file tab") == 1) {
+        if (value == 0)
+            pathOn = 0;
+        else
+            pathOn = 1;
     }
     if (text_same(label, "Write recovery files") == 1) {
         recoveryOn = value;
@@ -2602,6 +2652,14 @@ void ui_recent_spin(void *data) {
     editorUi->apply_settings();
 }
 
+void ui_path_spin(void *data) {
+    SpinButton *spin;
+
+    spin = (SpinButton *)data;
+    editorUi->set_path_depth((int)spin->value());
+    editorUi->apply_settings();
+}
+
 void ui_margin_spin(void *data) {
     SpinButton *spin;
 
@@ -2647,6 +2705,8 @@ void Ui::use_config(EditorConfig *item) {
     state->set_indent_style(item->spaces);
     state->set_trim(item->trimTrailing);
     trimOn = item->trimTrailing;
+    state->set_newline(item->ensureNewline);
+    newlineOn = item->ensureNewline;
     state->set_tab_width(item->tabWidth);
     set_line_shown(item->showLine);
     set_margin_shown(item->showMargin);
@@ -2669,6 +2729,15 @@ void Ui::use_config(EditorConfig *item) {
     saveOnTab = item->saveOnTab;
     saveOnWindow = item->saveOnWindow;
     trimOn = item->trimTrailing;
+    newlineOn = item->ensureNewline;
+    if (newlineOn != 0)
+        newlineOn = 1;
+    pathOn = item->showPath;
+    if (pathOn != 0)
+        pathOn = 1;
+    pathDepth = item->pathDepth;
+    if (pathDepth < 0 || pathDepth > 32)
+        pathDepth = 0;
     recoveryOn = item->recoveryOn;
     if (recoveryOn != 0)
         recoveryOn = 1;
@@ -2718,6 +2787,15 @@ void Ui::use_config(EditorConfig *item) {
     }
     if (mainWindow != nullptr)
         bind_keys();
+    {
+        long i;
+
+        i = 0;
+        while (i < pageCount) {
+            retitle(i);
+            i = i + 1;
+        }
+    }
     push_options();
 }
 
@@ -2745,6 +2823,9 @@ void Ui::apply_settings(void) {
     item.indent = state->uses_indent();
     item.spaces = state->indent_style();
     item.trimTrailing = state->trims();
+    item.ensureNewline = state->ensures_newline();
+    item.showPath = pathOn;
+    item.pathDepth = pathDepth;
     item.tabWidth = state->tab_width();
     item.showLine = showLine;
     item.showMargin = showMargin;
@@ -2786,6 +2867,16 @@ void Ui::apply_settings(void) {
     saveOnWindow = item.saveOnWindow;
     trimOn = item.trimTrailing;
     state->set_trim(trimOn);
+    newlineOn = item.ensureNewline;
+    if (newlineOn != 0)
+        newlineOn = 1;
+    state->set_newline(newlineOn);
+    pathOn = item.showPath;
+    if (pathOn != 0)
+        pathOn = 1;
+    pathDepth = item.pathDepth;
+    if (pathDepth < 0 || pathDepth > 32)
+        pathDepth = 0;
     state->set_indent_style(item.spaces);
     if (recentCount < 1)
         recentCount = 1;
@@ -2796,6 +2887,9 @@ void Ui::apply_settings(void) {
     item.saveOnTab = saveOnTab;
     item.saveOnWindow = saveOnWindow;
     item.trimTrailing = trimOn;
+    item.ensureNewline = newlineOn;
+    item.showPath = pathOn;
+    item.pathDepth = pathDepth;
     item.spaces = state->indent_style();
     item.recentUsed = recentUsed;
     if (item.recentUsed > item.recentCount)
@@ -3436,6 +3530,8 @@ void Ui::show_settings(void) {
                 "Close button on file tabs");
         trimCheck = new CheckButton(
                 "Trim trailing spaces on save");
+        newlineCheck = new CheckButton(
+                "Ensure newline at end of file");
         tabSpin = new SpinButton(1, 32, 4);
         marginSpin = new SpinButton(1, 400, 80);
         lineEntry = new Entry(lineColor);
@@ -3456,6 +3552,7 @@ void Ui::show_settings(void) {
         marginCheck->set_active(false);
         closeCheck->set_active(true);
         trimCheck->set_active(false);
+        newlineCheck->set_active(false);
         bracketCheck->on_toggled(ui_brackets, nullptr);
         indentCheck->on_toggled(ui_indent, nullptr);
         indentDrop->on_changed(
@@ -3467,6 +3564,9 @@ void Ui::show_settings(void) {
         trimCheck->on_toggled(
                 ui_option,
                 (void *)"Trim trailing spaces on save");
+        newlineCheck->on_toggled(
+                ui_option,
+                (void *)"Ensure newline at end of file");
         tabSpin->on_changed(ui_tab_spin, (void *)tabSpin);
         marginSpin->on_changed(
                 ui_margin_spin,
@@ -3554,6 +3654,21 @@ void Ui::show_settings(void) {
                     (Widget *)recentSpin));
             fileGroup->append((Widget *)rememberCheck);
             fileGroup->append((Widget *)closeCheck);
+            pathCheck = new CheckButton(
+                    "Show path in file tab");
+            pathCheck->on_toggled(
+                    ui_option,
+                    (void *)"Show path in file tab");
+            pathCheck->set_active(false);
+            pathSpin = new SpinButton(0, 32, 0);
+            pathSpin->set_width_chars(12);
+            pathSpin->on_changed(
+                    ui_path_spin,
+                    (void *)pathSpin);
+            fileGroup->append((Widget *)pathCheck);
+            fileGroup->append((Widget *)labeled_field(
+                    "Depth",
+                    (Widget *)pathSpin));
             fileGroup->append((Widget *)recoverCheck);
             fileGroup->append((Widget *)labeled_field(
                     "Minutes",
@@ -3572,6 +3687,7 @@ void Ui::show_settings(void) {
                 (void *)"Save when the window loses focus");
         saveGroup = group_box("Saving");
         saveGroup->append((Widget *)trimCheck);
+        saveGroup->append((Widget *)newlineCheck);
         saveGroup->append((Widget *)saveTabCheck);
         saveGroup->append((Widget *)saveWinCheck);
         box->append((Widget *)saveGroup);
@@ -3743,6 +3859,10 @@ void Ui::show_settings(void) {
                 state->indent_style());
     if (trimCheck != nullptr)
         set_box(trimCheck, trimOn);
+    if (newlineCheck != nullptr)
+        set_box(newlineCheck, newlineOn);
+    if (pathCheck != nullptr)
+        set_box(pathCheck, pathOn);
     if (showLine == 0)
         lineCheck->set_active(false);
     else
@@ -3773,6 +3893,8 @@ void Ui::show_settings(void) {
     tabSpin->set_value((double)state->tab_width());
     if (recentSpin != nullptr)
         recentSpin->set_value((double)recentCount);
+    if (pathSpin != nullptr)
+        pathSpin->set_value((double)pathDepth);
     marginSpin->set_value((double)marginCols);
     n = 0;
     while (n < EDITOR_KEY_COUNT) {
@@ -3940,8 +4062,8 @@ void Ui::mount_tab(long index, const char *title) {
 
 void Ui::retitle(long index) {
     Document *doc;
-    char title[256];
-    char shown[260];
+    char title[EDITOR_PATH];
+    char shown[EDITOR_PATH];
     long n;
 
     if (index < 0 || index >= pageCount)
@@ -3949,7 +4071,15 @@ void Ui::retitle(long index) {
     doc = state->at(index);
     if (doc == nullptr)
         return;
-    text_copy(title, 256, doc->title());
+    title[0] = 0;
+    if (doc->untitled() == 0 && pathOn != 0)
+        path_tail(
+                title,
+                EDITOR_PATH,
+                doc->path(),
+                pathDepth);
+    if (title[0] == 0)
+        text_copy(title, EDITOR_PATH, doc->title());
     shown[0] = 0;
     if (doc->buffer() != nullptr
             && doc->buffer()->dirty() == true) {
@@ -3962,7 +4092,7 @@ void Ui::retitle(long index) {
     n = 0;
     while (shown[n] != 0)
         n = n + 1;
-    text_copy(shown + n, 260 - n, title);
+    text_copy(shown + n, EDITOR_PATH - n, title);
     if (tabTitle[index] != nullptr)
         tabTitle[index]->set_text(shown);
     else
@@ -4241,6 +4371,9 @@ void Ui::store_session(void) {
     item.saveOnTab = saveOnTab;
     item.saveOnWindow = saveOnWindow;
     item.trimTrailing = trimOn;
+    item.ensureNewline = newlineOn;
+    item.showPath = pathOn;
+    item.pathDepth = pathDepth;
     item.spaces = state->indent_style();
     item.recentCount = recentCount;
     if (item.recentCount < 1)
@@ -4335,6 +4468,25 @@ void Ui::set_recent_count(int value) {
 
 int Ui::recent_count(void) {
     return recentCount;
+}
+
+void Ui::set_path_depth(int value) {
+    long i;
+
+    if (value < 0)
+        value = 0;
+    if (value > 32)
+        value = 32;
+    pathDepth = value;
+    i = 0;
+    while (i < pageCount) {
+        retitle(i);
+        i = i + 1;
+    }
+}
+
+int Ui::path_depth(void) {
+    return pathDepth;
 }
 
 const char *Ui::recent_at(int index) {
@@ -4492,6 +4644,7 @@ void Ui::save_quiet(long index) {
         return;
     if (state->save_at(index) != EDITOR_OK)
         return;
+    mirror_pages();
     retitle(index);
     paint_status();
 }
@@ -4661,6 +4814,7 @@ void Ui::answer_disk(int response) {
     if (response == 2) {
         state->set_index(index);
         state->save_active();
+        mirror_pages();
         retitle(index);
         paint_status();
         return;

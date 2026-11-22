@@ -59,6 +59,11 @@ void path_join(
         const char *dir,
         const char *name);
 const char *path_base(const char *path);
+void path_tail(
+        char *dest,
+        long cap,
+        const char *path,
+        int depth);
 void path_dir(char *dest, long cap, const char *path);
 int path_normalize(char *dest, long cap, const char *path);
 int file_is_dir(const char *path);

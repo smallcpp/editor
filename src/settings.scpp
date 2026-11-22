@@ -363,6 +363,9 @@ void config_defaults(EditorConfig *item) {
     item->saveOnTab = 0;
     item->saveOnWindow = 0;
     item->trimTrailing = 0;
+    item->ensureNewline = 0;
+    item->showPath = 0;
+    item->pathDepth = 0;
     item->recoveryOn = 0;
     item->recoveryMinutes = 5;
     item->recentCount = 10;
@@ -608,6 +611,18 @@ static void take_line(EditorConfig *item, const char *line) {
         item->trimTrailing = read_int(
                 value,
                 item->trimTrailing);
+    if (key_is(line, "ensure-newline") == 1)
+        item->ensureNewline = read_int(
+                value,
+                item->ensureNewline);
+    if (key_is(line, "show-path") == 1)
+        item->showPath = read_int(
+                value,
+                item->showPath);
+    if (key_is(line, "path-depth") == 1)
+        item->pathDepth = read_int(
+                value,
+                item->pathDepth);
     if (key_is(line, "recovery") == 1)
         item->recoveryOn = read_int(
                 value,
@@ -698,6 +713,12 @@ int config_read(const char *path, EditorConfig *item) {
         item->recentCount = 10;
     if (item->recoveryOn != 0)
         item->recoveryOn = 1;
+    if (item->ensureNewline != 0)
+        item->ensureNewline = 1;
+    if (item->showPath != 0)
+        item->showPath = 1;
+    if (item->pathDepth < 0 || item->pathDepth > 32)
+        item->pathDepth = 0;
     if (item->recoveryMinutes < 1
             || item->recoveryMinutes > 1440)
         item->recoveryMinutes = 5;
@@ -826,6 +847,9 @@ int config_write(
     add_flag(text, "save-on-tab", item->saveOnTab);
     add_flag(text, "save-on-window", item->saveOnWindow);
     add_flag(text, "trim-trailing", item->trimTrailing);
+    add_flag(text, "ensure-newline", item->ensureNewline);
+    add_flag(text, "show-path", item->showPath);
+    add_num(text, "path-depth", item->pathDepth);
     add_flag(text, "recovery", item->recoveryOn);
     add_num(text, "recovery-minutes", item->recoveryMinutes);
     add_num(text, "recent-count", item->recentCount);

@@ -796,6 +796,21 @@ void EditBuffer::strip_trailing(void) {
     clamp_point();
 }
 
+void EditBuffer::ensure_newline(void) {
+    const char *raw;
+    long n;
+
+    raw = body->c_str();
+    n = body->size();
+    if (n > 0 && raw[n - 1] == '\n')
+        return;
+    push_undo();
+    body->add('\n');
+    dirtyFlag = true;
+    hasMatch = false;
+    clamp_point();
+}
+
 void EditBuffer::line_range(long *first, long *last) {
     long line;
     long column;

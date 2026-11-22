@@ -572,6 +572,24 @@ int main(void) {
                 "other file remains");
         expect(text_has(ui->tab_text(0), "b.scpp") == 1,
                 "named tab");
+        expect(text_same(ui->tab_text(0), "b.scpp") == 1,
+                "tab is the file name");
+        expect(ui->path_depth() == 0, "depth starts at zero");
+        ui->set_option("Show path in file tab", 1);
+        ui->set_path_depth(0);
+        expect(text_same(ui->tab_text(0), "b.scpp") == 1,
+                "depth zero stays the name");
+        ui->set_path_depth(2);
+        {
+            char tail[EDITOR_PATH];
+
+            path_tail(tail, EDITOR_PATH, pathB, 2);
+            expect(text_same(ui->tab_text(0), tail) == 1,
+                    "tab shows two directories");
+        }
+        ui->set_option("Show path in file tab", 0);
+        expect(text_same(ui->tab_text(0), "b.scpp") == 1,
+                "path off is the name");
         expect(ui->tab_marks() == 1, "close marks");
         expect(ui->shows_line() == 1, "current line");
         expect(ui->shows_margin() == 0, "margin off");
@@ -588,6 +606,14 @@ int main(void) {
         ui->set_option(
                 "Trim trailing spaces on save",
                 1);
+        ui->set_option(
+                "Ensure newline at end of file",
+                1);
+        ui->set_option("Show path in file tab", 1);
+        ui->set_path_depth(2);
+        expect(editor->ensures_newline() == 1,
+                "newline on");
+        expect(ui->path_depth() == 2, "depth two");
         expect(ui->recovery_on() == 0, "recovery off");
         expect(ui->recovery_minutes() == 5, "five minutes");
         ui->set_option("Write recovery files", 1);
@@ -660,6 +686,14 @@ int main(void) {
                         "saved trim");
                 expect(text_has(
                             raw,
+                            "ensure-newline=1") == 1,
+                        "saved newline");
+                expect(text_has(raw, "show-path=1") == 1,
+                        "saved path");
+                expect(text_has(raw, "path-depth=2") == 1,
+                        "saved depth");
+                expect(text_has(
+                            raw,
                             "indent-with=both") == 1,
                         "saved both");
                 expect(text_has(raw, pathA) == 1,
@@ -671,6 +705,11 @@ int main(void) {
         ui->set_option(
                 "Trim trailing spaces on save",
                 0);
+        ui->set_option(
+                "Ensure newline at end of file",
+                0);
+        ui->set_option("Show path in file tab", 0);
+        ui->set_path_depth(0);
         ui->on_menu("Close");
         expect(text_has(ui->tab_text(0), "untitled") == 1,
                 "fresh tab");

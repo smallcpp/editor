@@ -49,6 +49,9 @@ public:
     int saveOnTab;
     int saveOnWindow;
     int trimTrailing;
+    int ensureNewline;
+    int showPath;
+    int pathDepth;
     int recoveryOn;
     int recoveryMinutes;
     int recentCount;

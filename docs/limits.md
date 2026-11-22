@@ -55,7 +55,10 @@ whole words only, and exact word case. Appearance holds
 Whitespace, Line ends, Indent stops, and Font. General
 holds the recent-file count, which starts at 10, Remember
 files, which is off until turned on, and trim trailing
-spaces, which is off. Autoclose pairs are an edit box.
+spaces, which is off. Ensure newline at end of file is
+off. Show path in file tab is off, and its depth starts
+at 0. Depth 0 shows only the file name. Autoclose pairs
+are an edit box.
 The default is `()[]{}""''`, saved as `bracket-pairs`.
 Close button on file tabs is on General. It is not on
 the dialog frame. Appearance opens a dialog that sets

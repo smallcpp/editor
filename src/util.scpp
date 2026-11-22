@@ -328,6 +328,45 @@ void path_join(
     dest[n] = 0;
 }
 
+void path_tail(
+        char *dest,
+        long cap,
+        const char *path,
+        int depth) {
+    long n;
+    long i;
+    long seen;
+    long need;
+    long start;
+
+    if (dest == nullptr || cap < 1)
+        return;
+    dest[0] = 0;
+    if (path == nullptr || path[0] == 0)
+        return;
+    if (depth < 0)
+        depth = 0;
+    n = 0;
+    while (path[n] != 0)
+        n = n + 1;
+    need = (long)depth + 1;
+    seen = 0;
+    start = 0;
+    i = n;
+    while (i > 0 && seen < need) {
+        i = i - 1;
+        if (path[i] == '/') {
+            seen = seen + 1;
+            start = i + 1;
+        }
+    }
+    if (seen < need)
+        start = 0;
+    if (path[start] == '/')
+        start = start + 1;
+    text_copy(dest, cap, path + start);
+}
+
 const char *path_base(const char *path) {
     long i;
     long slash;
