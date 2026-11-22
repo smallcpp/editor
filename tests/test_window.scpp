@@ -919,6 +919,46 @@ int main(void) {
                 "pick default");
         expect(text_same(ui->theme_choice(), "default") == 1,
                 "back to default");
+        expect(ui->language_total() == 8,
+                "language count");
+        expect(text_same(
+                    ui->language_choice(),
+                    "scpp") == 1,
+                "language list");
+        expect(ui->language_define(
+                    "demo",
+                    ".demo",
+                    "",
+                    "",
+                    "#",
+                    "",
+                    "alpha") == 1,
+                "define language");
+        expect(text_same(
+                    language_of("z.demo"),
+                    "demo") == 1,
+                "window suffix");
+        expect(ui->language_drop("demo") == 1,
+                "drop language");
+        expect(text_same(
+                    language_of("z.demo"),
+                    "plain") == 1,
+                "dropped suffix");
+        expect(ui->language_define(
+                    "scpp",
+                    ".scpp",
+                    "",
+                    "",
+                    "#",
+                    "",
+                    "int") == 1,
+                "change built-in");
+        expect(ui->language_builtin_reset("scpp") == 1,
+                "reset built-in");
+        expect(text_same(
+                    comment_leader("scpp"),
+                    "//") == 1,
+                "reset line comment");
         ui->on_menu("Quit");
         expect(ui->is_leaving() == 1, "quit left");
         unlink(pathA);

@@ -1,5 +1,7 @@
 #include "../src/editor.shpp"
+#include "../src/language.shpp"
 #include "../src/settings.shpp"
+#include "../src/syntax.shpp"
 
 extern int setenv(
         const char *name,
@@ -1121,6 +1123,131 @@ int main(void) {
                 "missing theme");
         expect(theme_save("default", &part) == 0,
                 "default is not a file");
+    }
+    {
+        Highlighter *light;
+        char saved[EDITOR_PATH];
+        int index;
+
+        languages_load();
+        expect(language_count() == 8, "eight languages");
+        expect(text_same(
+                    language_of("a.scpp"),
+                    "scpp") == 1,
+                "scpp suffix");
+        expect(text_same(
+                    language_of("Makefile"),
+                    "shell") == 1,
+                "makefile name");
+        expect(text_same(
+                    language_of("Dockerfile.cpp"),
+                    "cpp") == 1,
+                "suffix wins");
+        expect(text_same(
+                    language_of("notes.txt"),
+                    "plain") == 1,
+                "plain file");
+        expect(language_insert(
+                    "demo",
+                    ".demo",
+                    "Demofile",
+                    "demo*",
+                    "#",
+                    "",
+                    "alpha beta") == 1,
+                "add demo");
+        expect(text_same(
+                    language_of("a.demo"),
+                    "demo") == 1,
+                "demo suffix");
+        expect(text_same(
+                    language_of("Demofile"),
+                    "demo") == 1,
+                "demo name");
+        style_is(
+                "plain",
+                "tool",
+                "#!/usr/bin/demo3\nx\n",
+                "#",
+                0,
+                "demo shebang");
+        light = new Highlighter();
+        light->scan("# note\nalpha\n", "demo");
+        expect(light->count() >= 2, "demo spans");
+        expect(light->at(0)->kind == SPAN_COMMENT,
+                "demo comment");
+        expect(light->at(1)->kind == SPAN_KEYWORD,
+                "demo keyword");
+        index = language_find("scpp");
+        expect(language_store(
+                    index,
+                    "scpp",
+                    ".scpp .shpp",
+                    "",
+                    "scpp",
+                    "#",
+                    "",
+                    "int") == 1,
+                "change scpp");
+        style_is(
+                "scpp",
+                "a.scpp",
+                "int a;\n",
+                "#",
+                0,
+                "changed line comment");
+        expect(language_restore("scpp") == 1,
+                "reset scpp");
+        style_is(
+                "scpp",
+                "a.scpp",
+                "int a;\n",
+                "//",
+                1,
+                "reset comments");
+        expect(language_remove(
+                    language_find("demo")) == 1,
+                "delete demo");
+        expect(text_same(
+                    language_of("a.demo"),
+                    "plain") == 1,
+                "deleted suffix");
+        expect(language_remove(
+                    language_find("scpp")) == 1,
+                "delete scpp");
+        expect(text_same(
+                    language_of("a.scpp"),
+                    "plain") == 1,
+                "missing scpp");
+        expect(language_restore("scpp") == 1,
+                "restore scpp");
+        expect(text_same(
+                    language_of("a.scpp"),
+                    "scpp") == 1,
+                "scpp is back");
+        path_join(
+                saved,
+                EDITOR_PATH,
+                dir,
+                ".config/smallcpp/languages.ini");
+        n = 0;
+        raw = read_file(saved, &n, &io);
+        expect(raw != nullptr, "languages file");
+        if (raw != nullptr) {
+            expect(text_has(raw, "languages=1") == 1,
+                    "languages marker");
+            expect(text_has(raw, "name=scpp") == 1,
+                    "saved scpp");
+            expect(text_has(raw, "name=demo") == 0,
+                    "demo is not saved");
+        }
+        languages_load();
+        expect(language_find("demo") < 0,
+                "demo stays deleted");
+        expect(text_same(
+                    language_of("CMakeLists.txt"),
+                    "shell") == 1,
+                "cmake name");
     }
     unlink(pathA);
     unlink(pathB);

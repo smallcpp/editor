@@ -1,4 +1,5 @@
 #include "syntax.shpp"
+#include "language.shpp"
 
 SpanVec::SpanVec() : Array((long)sizeof(Span *)) {
 }
@@ -310,100 +311,29 @@ int Highlighter::is_word(
 }
 
 int Highlighter::keyword(const char *language, const char *word) {
-    const char *code[48];
-    const char *py[16];
-    long i;
-    long n;
-
-    code[0] = "class";
-    code[1] = "public";
-    code[2] = "private";
-    code[3] = "if";
-    code[4] = "else";
-    code[5] = "for";
-    code[6] = "while";
-    code[7] = "return";
-    code[8] = "new";
-    code[9] = "delete";
-    code[10] = "int";
-    code[11] = "long";
-    code[12] = "char";
-    code[13] = "bool";
-    code[14] = "void";
-    code[15] = "const";
-    code[16] = "struct";
-    code[17] = "enum";
-    code[18] = "true";
-    code[19] = "false";
-    code[20] = "nullptr";
-    code[21] = "namespace";
-    code[22] = "using";
-    code[23] = "virtual";
-    code[24] = "throw";
-    code[25] = "catch";
-    code[26] = "try";
-    n = 27;
-    py[0] = "class";
-    py[1] = "def";
-    py[2] = "if";
-    py[3] = "else";
-    py[4] = "for";
-    py[5] = "while";
-    py[6] = "return";
-    py[7] = "import";
-    py[8] = "True";
-    py[9] = "False";
-    py[10] = "None";
-    if (text_same(language, "python") == 1) {
-        i = 0;
-        while (i < 11) {
-            if (text_same(word, py[i]) == 1)
-                return 1;
-            i = i + 1;
-        }
-        return 0;
-    }
-    if (text_same(language, "plain") == 1)
-        return 0;
-    if (text_same(language, "markdown") == 1)
-        return 0;
-    if (text_same(language, "toml") == 1)
-        return 0;
-    i = 0;
-    while (i < n) {
-        if (text_same(word, code[i]) == 1)
-            return 1;
-        i = i + 1;
-    }
-    return 0;
+    return language_keyword(language, word);
 }
 
 static int same_word(const char *word, const char *want) {
     return text_same(word, want);
 }
 
-static int scpp_extra(const char *word) {
-    if (same_word(word, "static") == 1)
-        return 1;
-    if (same_word(word, "break") == 1)
-        return 1;
-    if (same_word(word, "continue") == 1)
-        return 1;
-    if (same_word(word, "switch") == 1)
-        return 1;
-    if (same_word(word, "case") == 1)
-        return 1;
-    if (same_word(word, "default") == 1)
-        return 1;
-    if (same_word(word, "do") == 1)
-        return 1;
-    if (same_word(word, "sizeof") == 1)
-        return 1;
-    if (same_word(word, "this") == 1)
-        return 1;
-    if (same_word(word, "protected") == 1)
-        return 1;
-    return 0;
+static int marker_at(
+        const char *text,
+        long n,
+        long at,
+        const char *mark) {
+    long i;
+
+    if (mark == nullptr || mark[0] == 0)
+        return 0;
+    i = 0;
+    while (mark[i] != 0) {
+        if (at + i >= n || text[at + i] != mark[i])
+            return 0;
+        i = i + 1;
+    }
+    return 1;
 }
 
 static int is_operator(int ch) {
@@ -445,60 +375,73 @@ void Highlighter::scan(const char *text, const char *language) {
     long n;
     long start;
     int ch;
-    int hash;
     int scpp;
+    const char *lineMark;
+    const char *openMark;
+    const char *closeMark;
     String *word;
+    Language *item;
+    int known;
 
     spans = new SpanVec();
     if (text == nullptr || language == nullptr)
         return;
-    if (text_same(language, "plain") == 1)
+    known = language_find(language);
+    item = language_at(known);
+    if (item == nullptr)
         return;
-    if (text_same(language, "markdown") == 1)
+    if (item->line[0] == 0
+            && item->block[0] == 0
+            && item->keywords[0] == 0)
         return;
-    hash = 0;
+    lineMark = "";
+    openMark = "";
+    closeMark = "";
+    language_comment(
+            language,
+            &lineMark,
+            &openMark,
+            &closeMark);
     scpp = 0;
     if (text_same(language, "scpp") == 1)
         scpp = 1;
-    if (text_same(language, "python") == 1
-            || text_same(language, "shell") == 1
-            || text_same(language, "toml") == 1)
-        hash = 1;
     n = text_length(text);
     i = 0;
     while (i < n) {
         ch = byte_at(text, i);
-        if (ch == '/' && i + 1 < n && text[i + 1] == '/') {
+        if (marker_at(text, n, i, lineMark) == 1) {
             start = i;
             while (i < n && text[i] != '\n')
                 i = i + 1;
             add_span(start, i, SPAN_COMMENT);
             continue;
         }
-        if (scpp == 1 && ch == '#') {
+        if (scpp == 1 && ch == '#' && lineMark[0] != '#') {
             start = i;
             while (i < n && text[i] != '\n')
                 i = i + 1;
             add_span(start, i, SPAN_PREPROC);
             continue;
         }
-        if (hash == 1 && ch == '#') {
+        if (openMark[0] != 0
+                && closeMark[0] != 0
+                && marker_at(text, n, i, openMark) == 1) {
+            long openLen;
+            long closeLen;
+
             start = i;
-            while (i < n && text[i] != '\n')
+            openLen = text_length(openMark);
+            closeLen = text_length(closeMark);
+            i = i + openLen;
+            while (i < n
+                    && marker_at(
+                            text,
+                            n,
+                            i,
+                            closeMark) == 0)
                 i = i + 1;
-            add_span(start, i, SPAN_COMMENT);
-            continue;
-        }
-        if (ch == '/' && i + 1 < n && text[i + 1] == '*') {
-            start = i;
-            i = i + 2;
-            while (i + 1 < n
-                    && (text[i] != '*' || text[i + 1] != '/'))
-                i = i + 1;
-            if (i + 1 < n)
-                i = i + 2;
-            else
-                i = n;
+            if (i < n)
+                i = i + closeLen;
             add_span(start, i, SPAN_COMMENT);
             continue;
         }
@@ -541,9 +484,6 @@ void Highlighter::scan(const char *text, const char *language) {
                 i = i + 1;
             }
             if (keyword(language, word->c_str()) == 1)
-                add_span(start, i, SPAN_KEYWORD);
-            else if (scpp == 1
-                    && scpp_extra(word->c_str()) == 1)
                 add_span(start, i, SPAN_KEYWORD);
             else if (scpp == 1
                     && scpp_type(word->c_str()) == 1)

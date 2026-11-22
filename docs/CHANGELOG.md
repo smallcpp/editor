@@ -30,6 +30,13 @@ column marker, syntax colors and bold, bracket match and
 unmatched colors, and the font. The tag map in
 `editor.ini` is the default theme. A theme file that
 omits a color keeps that default.
+Settings has a Languages page. A language has a name,
+suffixes, special filenames, a shebang, a line comment,
+an optional block comment, and keywords. Add, Save, and
+Delete change the list. Reset restores a built-in.
+Commenting and coloring both use that list. A file
+with no language stays plain. CMakeLists.txt, Makefile,
+and Dockerfile stay special names.
 Python, shell, and toml use `#` on each line.
 CMakeLists.txt, Makefile, makefile, GNUmakefile,
 Dockerfile, dockerfile, and Containerfile do too. A

@@ -9,6 +9,7 @@
 #include "editor.shpp"
 #include "settings.shpp"
 #include "syntax.shpp"
+#include "language.shpp"
 #include <exceptions>
 #include <gtk>
 
@@ -131,6 +132,23 @@ public:
     int theme_store(const char *name);
     void choose_theme_list(void);
     void save_theme_entry(void);
+    int language_total(void);
+    const char *language_choice(void);
+    int language_define(
+            const char *name,
+            const char *suffixes,
+            const char *names,
+            const char *shebang,
+            const char *line,
+            const char *block,
+            const char *keywords);
+    int language_drop(const char *name);
+    int language_builtin_reset(const char *name);
+    void show_language_fields(void);
+    void add_language(void);
+    void save_language(void);
+    void delete_language(void);
+    void reset_language(void);
     int write_recovery_files(void);
     void tick(void);
     void save_listed(long index);
@@ -297,6 +315,15 @@ private:
     CheckButton *recoverCheck;
     Entry *recoverEntry;
     Entry *keepEntry;
+    DropDown *langDrop;
+    Entry *langName;
+    Entry *langSuffix;
+    Entry *langNames;
+    Entry *langShebang;
+    Entry *langLine;
+    Entry *langBlock;
+    Entry *langKeys;
+    int langIndex;
     int listedCount;
     int dirtyOpen;
     long dirtySlot[EDITOR_PAGES];
@@ -336,6 +363,15 @@ private:
     void fill_themes(void);
     void keep_theme_base(const EditorConfig *item);
     void give_theme_base(EditorConfig *item);
+    void fill_languages(void);
+    void read_language_fields(
+            const char **name,
+            const char **suffixes,
+            const char **names,
+            const char **shebang,
+            const char **line,
+            const char **block,
+            const char **keywords);
     void retitle(long index);
     void mount_tab(long index, const char *title);
     void fill_documents(void);

@@ -25,6 +25,7 @@ public:
     int untitled(void);
     const char *title(void);
     const char *language(void);
+    void apply_language(void);
     EditBuffer *buffer(void);
     const char *error(void);
     void rename_untitled(void);

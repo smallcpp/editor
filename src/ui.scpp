@@ -331,6 +331,36 @@ void ui_keep_text(void *data) {
         editorUi->take_recovery_keep();
 }
 
+void ui_language_pick(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->show_language_fields();
+}
+
+void ui_language_add(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->add_language();
+}
+
+void ui_language_save(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->save_language();
+}
+
+void ui_language_delete(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->delete_language();
+}
+
+void ui_language_reset(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->reset_language();
+}
+
 void ui_disk_response(void *data, int response) {
     (void)data;
     if (editorUi != nullptr)
@@ -385,6 +415,7 @@ void ui_replace_response(void *data, int response) {
 }
 
 Ui::Ui(Editor *editor) {
+    languages_load();
     long i;
 
     state = editor;
@@ -485,6 +516,15 @@ Ui::Ui(Editor *editor) {
     recoverCheck = nullptr;
     recoverEntry = nullptr;
     keepEntry = nullptr;
+    langDrop = nullptr;
+    langName = nullptr;
+    langSuffix = nullptr;
+    langNames = nullptr;
+    langShebang = nullptr;
+    langLine = nullptr;
+    langBlock = nullptr;
+    langKeys = nullptr;
+    langIndex = 0;
     listedCount = 0;
     dirtyOpen = 0;
     recentCount = 10;
@@ -973,6 +1013,7 @@ void Ui::highlight(long index) {
     doc = state->at(index);
     if (doc == nullptr)
         return;
+    doc->apply_language();
     text = pages[index].buffer->get_text();
     n = text_length(text);
     if (n > 200000)
@@ -3804,6 +3845,267 @@ void Ui::save_theme_entry(void) {
     theme_store(name);
 }
 
+static const char *field_text(Entry *entry) {
+    const char *text;
+
+    if (entry == nullptr)
+        return "";
+    text = entry->text();
+    if (text == nullptr)
+        return "";
+    return text;
+}
+
+void Ui::read_language_fields(
+        const char **name,
+        const char **suffixes,
+        const char **names,
+        const char **shebang,
+        const char **line,
+        const char **block,
+        const char **keywords) {
+    if (name != nullptr)
+        *name = field_text(langName);
+    if (suffixes != nullptr)
+        *suffixes = field_text(langSuffix);
+    if (names != nullptr)
+        *names = field_text(langNames);
+    if (shebang != nullptr)
+        *shebang = field_text(langShebang);
+    if (line != nullptr)
+        *line = field_text(langLine);
+    if (block != nullptr)
+        *block = field_text(langBlock);
+    if (keywords != nullptr)
+        *keywords = field_text(langKeys);
+}
+
+void Ui::show_language_fields(void) {
+    Language *item;
+    long picked;
+
+    if (langName == nullptr)
+        return;
+    if (settingsHold == 0 && langDrop != nullptr) {
+        picked = langDrop->selected();
+        if (picked >= 0)
+            langIndex = (int)picked;
+    }
+    item = language_at(langIndex);
+    if (item == nullptr)
+        return;
+    langName->set_text(item->name);
+    langSuffix->set_text(item->suffixes);
+    langNames->set_text(item->names);
+    langShebang->set_text(item->shebang);
+    langLine->set_text(item->line);
+    langBlock->set_text(item->block);
+    langKeys->set_text(item->keywords);
+}
+
+void Ui::fill_languages(void) {
+    const char *items[EDITOR_LANG_MAX];
+    int n;
+    int i;
+
+    if (langDrop == nullptr)
+        return;
+    n = language_count();
+    if (n > EDITOR_LANG_MAX)
+        n = EDITOR_LANG_MAX;
+    i = 0;
+    while (i < n) {
+        items[i] = language_at(i)->name;
+        i = i + 1;
+    }
+    if (n == 0)
+        langIndex = 0;
+    else if (langIndex < 0 || langIndex >= n)
+        langIndex = 0;
+    langDrop->set_items(items, n);
+    if (n > 0)
+        langDrop->set_selected((long)langIndex);
+    show_language_fields();
+}
+
+void Ui::add_language(void) {
+    const char *name;
+    const char *suffixes;
+    const char *names;
+    const char *shebang;
+    const char *line;
+    const char *block;
+    const char *keywords;
+    int index;
+
+    read_language_fields(
+            &name,
+            &suffixes,
+            &names,
+            &shebang,
+            &line,
+            &block,
+            &keywords);
+    if (language_insert(
+                name,
+                suffixes,
+                names,
+                shebang,
+                line,
+                block,
+                keywords) == 0)
+        return;
+    index = language_find(name);
+    if (index >= 0)
+        langIndex = index;
+    fill_languages();
+    refresh();
+}
+
+void Ui::save_language(void) {
+    const char *name;
+    const char *suffixes;
+    const char *names;
+    const char *shebang;
+    const char *line;
+    const char *block;
+    const char *keywords;
+    int index;
+
+    read_language_fields(
+            &name,
+            &suffixes,
+            &names,
+            &shebang,
+            &line,
+            &block,
+            &keywords);
+    if (language_store(
+                langIndex,
+                name,
+                suffixes,
+                names,
+                shebang,
+                line,
+                block,
+                keywords) == 0)
+        return;
+    index = language_find(name);
+    if (index >= 0)
+        langIndex = index;
+    fill_languages();
+    refresh();
+}
+
+void Ui::delete_language(void) {
+    if (language_remove(langIndex) == 0)
+        return;
+    if (langIndex >= language_count())
+        langIndex = 0;
+    fill_languages();
+    refresh();
+}
+
+void Ui::reset_language(void) {
+    const char *name;
+    Language *item;
+    int index;
+
+    name = field_text(langName);
+    if (language_restore(name) == 0) {
+        item = language_at(langIndex);
+        if (item == nullptr)
+            return;
+        if (language_restore(item->origin) == 0)
+            return;
+        name = item->origin;
+    }
+    index = language_find(name);
+    if (index >= 0)
+        langIndex = index;
+    fill_languages();
+    refresh();
+}
+
+int Ui::language_total(void) {
+    return language_count();
+}
+
+const char *Ui::language_choice(void) {
+    if (langDrop == nullptr)
+        return "";
+    return langDrop->selected_string();
+}
+
+int Ui::language_define(
+        const char *name,
+        const char *suffixes,
+        const char *names,
+        const char *shebang,
+        const char *line,
+        const char *block,
+        const char *keywords) {
+    int index;
+
+    index = language_find(name);
+    if (index >= 0) {
+        if (language_store(
+                    index,
+                    name,
+                    suffixes,
+                    names,
+                    shebang,
+                    line,
+                    block,
+                    keywords) == 0)
+            return 0;
+    }
+    else if (language_insert(
+                    name,
+                    suffixes,
+                    names,
+                    shebang,
+                    line,
+                    block,
+                    keywords) == 0)
+        return 0;
+    index = language_find(name);
+    if (index >= 0)
+        langIndex = index;
+    if (langDrop != nullptr)
+        fill_languages();
+    refresh();
+    return 1;
+}
+
+int Ui::language_drop(const char *name) {
+    int index;
+
+    index = language_find(name);
+    if (language_remove(index) == 0)
+        return 0;
+    if (langIndex >= language_count())
+        langIndex = 0;
+    if (langDrop != nullptr)
+        fill_languages();
+    refresh();
+    return 1;
+}
+
+int Ui::language_builtin_reset(const char *name) {
+    int index;
+
+    if (language_restore(name) == 0)
+        return 0;
+    index = language_find(name);
+    if (index >= 0)
+        langIndex = index;
+    if (langDrop != nullptr)
+        fill_languages();
+    refresh();
+    return 1;
+}
+
 void Ui::show_settings(void) {
     Box *box;
     Box *search;
@@ -4152,6 +4454,82 @@ void Ui::show_settings(void) {
         pages->append_page(
                 (Widget *)page_scroll((Widget *)view),
                 "Appearance");
+        {
+            Box *langs;
+            Box *row;
+            Button *addButton;
+            Button *saveButton;
+            Button *deleteButton;
+            Button *resetButton;
+
+            langs = new Box(GTK_VERTICAL, 8);
+            langs->set_h_expand(true);
+            langDrop = new DropDown();
+            langDrop->on_changed(
+                    ui_language_pick,
+                    nullptr);
+            langName = new Entry("");
+            langSuffix = new Entry("");
+            langNames = new Entry("");
+            langShebang = new Entry("");
+            langLine = new Entry("");
+            langBlock = new Entry("");
+            langKeys = new Entry("");
+            langName->set_width_chars(24);
+            langSuffix->set_width_chars(24);
+            langNames->set_width_chars(24);
+            langShebang->set_width_chars(24);
+            langLine->set_width_chars(12);
+            langBlock->set_width_chars(12);
+            langKeys->set_width_chars(24);
+            langs->append((Widget *)labeled_field(
+                    "Language",
+                    (Widget *)langDrop));
+            langs->append((Widget *)labeled_field(
+                    "Name",
+                    (Widget *)langName));
+            langs->append((Widget *)labeled_field(
+                    "Suffixes",
+                    (Widget *)langSuffix));
+            langs->append((Widget *)labeled_field(
+                    "Names",
+                    (Widget *)langNames));
+            langs->append((Widget *)labeled_field(
+                    "Shebang",
+                    (Widget *)langShebang));
+            langs->append((Widget *)labeled_field(
+                    "Line",
+                    (Widget *)langLine));
+            langs->append((Widget *)labeled_field(
+                    "Block",
+                    (Widget *)langBlock));
+            langs->append((Widget *)labeled_field(
+                    "Keywords",
+                    (Widget *)langKeys));
+            row = new Box(GTK_HORIZONTAL, 8);
+            addButton = new Button("Add");
+            saveButton = new Button("Save");
+            deleteButton = new Button("Delete");
+            resetButton = new Button("Reset");
+            addButton->on_clicked(ui_language_add, nullptr);
+            saveButton->on_clicked(
+                    ui_language_save,
+                    nullptr);
+            deleteButton->on_clicked(
+                    ui_language_delete,
+                    nullptr);
+            resetButton->on_clicked(
+                    ui_language_reset,
+                    nullptr);
+            row->append((Widget *)addButton);
+            row->append((Widget *)saveButton);
+            row->append((Widget *)deleteButton);
+            row->append((Widget *)resetButton);
+            langs->append((Widget *)row);
+            pages->append_page(
+                    (Widget *)page_scroll((Widget *)langs),
+                    "Languages");
+        }
         pages->append_page(
                 (Widget *)page_scroll((Widget *)keys),
                 "Keyboard");
@@ -4239,6 +4617,7 @@ void Ui::show_settings(void) {
         n = n + 1;
     }
     fill_themes();
+    fill_languages();
     settingsHold = 0;
     push_options();
     settingsDialog->present();
