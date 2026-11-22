@@ -408,6 +408,17 @@ int main(void) {
                             "brackets-unmatched-back"),
                     "#c03030") == 1,
                 "default unmatched back");
+        expect(text_same(
+                    theme_color(&item, "c", "background"),
+                    "#ffffff") == 1,
+                "default background");
+        expect(theme_bold(&item, "c", "keyword") == 0,
+                "default bold off");
+        expect(theme_bold(
+                    &item,
+                    "c",
+                    "brackets-unmatched") == 0,
+                "default unmatched plain");
         expect(theme_set(
                     &item,
                     "python",
@@ -468,6 +479,24 @@ int main(void) {
                 item.activePath,
                 EDITOR_PATH,
                 "/tmp/a.scpp");
+        expect(theme_set(
+                    &item,
+                    "",
+                    "background",
+                    "#f8f8f8") == 1,
+                "set background");
+        expect(theme_set(
+                    &item,
+                    "python",
+                    "keyword-bold",
+                    "1") == 1,
+                "set python bold");
+        expect(theme_set(
+                    &item,
+                    "python",
+                    "background",
+                    "#101010") == 1,
+                "set python background");
         expect(config_path(path, EDITOR_PATH) == 1,
                 "config path");
         expect(config_write(path, &item) == 1,
@@ -489,6 +518,21 @@ int main(void) {
                     theme_color(&back, "python", "keyword"),
                     "#010203") == 1,
                 "saved python keyword");
+        expect(text_same(
+                    theme_color(&back, "c", "background"),
+                    "#f8f8f8") == 1,
+                "saved background");
+        expect(text_same(
+                    theme_color(
+                            &back,
+                            "python",
+                            "background"),
+                    "#101010") == 1,
+                "saved python background");
+        expect(theme_bold(&back, "python", "keyword") == 1,
+                "saved python bold");
+        expect(theme_bold(&back, "c", "keyword") == 0,
+                "saved c stays plain");
         expect(text_same(
                     theme_color(&back, "c", "keyword"),
                     "#2040c0") == 1,

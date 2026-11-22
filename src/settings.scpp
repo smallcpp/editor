@@ -79,6 +79,28 @@ const char *theme_name(int slot) {
         return "brackets-unmatched";
     if (slot == 11)
         return "brackets-unmatched-back";
+    if (slot == 12)
+        return "background";
+    if (slot == 13)
+        return "keyword-bold";
+    if (slot == 14)
+        return "type-bold";
+    if (slot == 15)
+        return "string-bold";
+    if (slot == 16)
+        return "comment-bold";
+    if (slot == 17)
+        return "number-bold";
+    if (slot == 18)
+        return "preprocessor-bold";
+    if (slot == 19)
+        return "call-bold";
+    if (slot == 20)
+        return "operator-bold";
+    if (slot == 21)
+        return "brackets-bold";
+    if (slot == 22)
+        return "brackets-unmatched-bold";
     return "";
 }
 
@@ -204,6 +226,47 @@ const char *theme_color(
     return item->themeColor[slot];
 }
 
+int theme_bold_slot(int slot) {
+    if (slot >= 0 && slot < THEME_TAGS)
+        return 13 + slot;
+    if (slot == 8)
+        return 21;
+    if (slot == 10)
+        return 22;
+    return -1;
+}
+
+int theme_bold(
+        const EditorConfig *item,
+        const char *language,
+        const char *tag) {
+    char name[40];
+    const char *value;
+    long i;
+    long n;
+    const char *suffix;
+
+    if (tag == nullptr)
+        return 0;
+    i = 0;
+    while (tag[i] != 0 && i < 30) {
+        name[i] = tag[i];
+        i = i + 1;
+    }
+    suffix = "-bold";
+    n = 0;
+    while (suffix[n] != 0 && i < 39) {
+        name[i] = suffix[n];
+        i = i + 1;
+        n = n + 1;
+    }
+    name[i] = 0;
+    value = theme_color(item, language, name);
+    if (value[0] == '1' && value[1] == 0)
+        return 1;
+    return 0;
+}
+
 void theme_copy(
         EditorConfig *dest,
         const EditorConfig *src) {
@@ -241,6 +304,8 @@ void theme_copy(
 }
 
 static void theme_defaults(EditorConfig *item) {
+    int slot;
+
     item->themeUsed = 0;
     theme_set(item, "", "keyword", "#2040c0");
     theme_set(item, "", "type", "#6030a0");
@@ -262,6 +327,12 @@ static void theme_defaults(EditorConfig *item) {
             "",
             "brackets-unmatched-back",
             "#c03030");
+    theme_set(item, "", "background", "#ffffff");
+    slot = 13;
+    while (slot < THEME_ALL) {
+        theme_set(item, "", theme_name(slot), "0");
+        slot = slot + 1;
+    }
 }
 
 void config_defaults(EditorConfig *item) {

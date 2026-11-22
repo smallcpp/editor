@@ -274,6 +274,18 @@ void ui_settings_response(void *data, int response) {
     editorUi->hide_settings();
 }
 
+void ui_settings_close(void *data) {
+    (void)data;
+    editorUi->hide_settings();
+}
+
+static int ui_settings_stop(void *widget, void *data) {
+    (void)widget;
+    (void)data;
+    editorUi->hide_settings();
+    return 1;
+}
+
 void ui_search_response(void *data, int response) {
     (void)data;
     if (response == 2) {
@@ -861,6 +873,19 @@ void Ui::highlight(long index) {
         pages[index].buffer->set_tag_foreground(
                 name,
                 color);
+        {
+            bool heavy;
+
+            heavy = false;
+            if (theme_bold(
+                    themeConfig,
+                    doc->language(),
+                    name) == 1)
+                heavy = true;
+            pages[index].buffer->set_tag_bold(
+                    name,
+                    heavy);
+        }
         if (n > 0)
             pages[index].buffer->remove_tag(
                     name,
@@ -944,6 +969,14 @@ static void prepare_bracket_tag(
     buffer->set_tag_foreground(
             name,
             theme_color(theme, language, name));
+    {
+        bool heavy;
+
+        heavy = false;
+        if (theme_bold(theme, language, name) == 1)
+            heavy = true;
+        buffer->set_tag_bold(name, heavy);
+    }
     buffer->set_tag_text_background(
             name,
             theme_color(theme, language, back));
@@ -2369,6 +2402,39 @@ static Box *color_field(Entry *entry, Button *button) {
     return row;
 }
 
+static Box *centered_close(void (*action)(void *)) {
+    Box *row;
+    Box *left;
+    Box *right;
+    Button *button;
+
+    row = new Box(GTK_HORIZONTAL, 8);
+    row->set_h_expand(true);
+    left = new Box(GTK_HORIZONTAL, 0);
+    right = new Box(GTK_HORIZONTAL, 0);
+    left->set_h_expand(true);
+    right->set_h_expand(true);
+    button = new Button("Close");
+    button->on_clicked(action, nullptr);
+    row->append((Widget *)left);
+    row->append((Widget *)button);
+    row->append((Widget *)right);
+    return row;
+}
+
+static Box *ruled_close(void (*action)(void *)) {
+    Box *box;
+
+    box = new Box(GTK_VERTICAL, 0);
+    box->set_h_expand(true);
+    box->add_css(
+            "box { border-top: 1px solid #222222; }");
+    box->add_css("box { padding-top: 8px; }");
+    box->add_css("box { margin-top: 8px; }");
+    box->append((Widget *)centered_close(action));
+    return box;
+}
+
 static int themeSlots[THEME_ALL];
 
 static Box *theme_field(
@@ -2475,6 +2541,29 @@ void ui_theme_response(void *data, int response) {
     editorUi->hide_theme();
 }
 
+void ui_theme_close(void *data) {
+    (void)data;
+    editorUi->hide_theme();
+}
+
+static int ui_theme_stop(void *widget, void *data) {
+    (void)widget;
+    (void)data;
+    editorUi->hide_theme();
+    return 1;
+}
+
+void ui_theme_bold(void *data, bool on) {
+    int slot;
+    int flag;
+
+    slot = *(int *)data;
+    flag = 0;
+    if (on == true)
+        flag = 1;
+    editorUi->take_theme_bold(slot, flag);
+}
+
 void Ui::hide_theme(void) {
     if (themeDialog == nullptr)
         return;
@@ -2490,6 +2579,9 @@ void Ui::show_theme(void) {
     Document *doc;
     Entry *entry;
     Button *button;
+    CheckButton *bold;
+    Box *shell;
+    int slot;
 
     if (themeDialog == nullptr) {
         themeDialog = new Dialog("Syntax colors");
@@ -2514,17 +2606,11 @@ void Ui::show_theme(void) {
                 (Widget *)themeDrop,
                 1,
                 0,
-                2,
+                3,
                 1);
         grid->attach(
-                (Widget *)new Label("Foreground"),
-                1,
-                1,
-                1,
-                1);
-        grid->attach(
-                (Widget *)new Label("Background"),
-                2,
+                (Widget *)new Label("Buffer background"),
+                0,
                 1,
                 1,
                 1);
@@ -2537,11 +2623,52 @@ void Ui::show_theme(void) {
             themeSlotsReady = 1;
         }
         i = 0;
+        while (i < THEME_ALL) {
+            themeEntry[i] = nullptr;
+            themeColorButton[i] = nullptr;
+            i = i + 1;
+        }
+        i = 0;
+        while (i < 10) {
+            themeBold[i] = nullptr;
+            i = i + 1;
+        }
+        grid->attach(
+                (Widget *)theme_field(
+                        12,
+                        &entry,
+                        &button),
+                1,
+                1,
+                1,
+                1);
+        themeEntry[12] = entry;
+        themeColorButton[12] = button;
+        grid->attach(
+                (Widget *)new Label("Foreground"),
+                1,
+                2,
+                1,
+                1);
+        grid->attach(
+                (Widget *)new Label("Background"),
+                2,
+                2,
+                1,
+                1);
+        grid->attach(
+                (Widget *)new Label("Bold"),
+                3,
+                2,
+                1,
+                1);
+        i = 0;
         while (i < THEME_TAGS) {
+            row = i + 3;
             grid->attach(
                     (Widget *)new Label(span_tag(i + 1)),
                     0,
-                    i + 2,
+                    row,
                     1,
                     1);
             grid->attach(
@@ -2550,14 +2677,21 @@ void Ui::show_theme(void) {
                             &entry,
                             &button),
                     1,
-                    i + 2,
+                    row,
                     1,
                     1);
             themeEntry[i] = entry;
             themeColorButton[i] = button;
+            slot = theme_bold_slot(i);
+            bold = new CheckButton("Bold");
+            bold->on_toggled(
+                    ui_theme_bold,
+                    (void *)&themeSlots[slot]);
+            grid->attach((Widget *)bold, 3, row, 1, 1);
+            themeBold[i] = bold;
             i = i + 1;
         }
-        row = THEME_TAGS + 2;
+        row = THEME_TAGS + 3;
         grid->attach(
                 (Widget *)new Label(theme_name(8)),
                 0,
@@ -2580,6 +2714,13 @@ void Ui::show_theme(void) {
                 1);
         themeEntry[9] = entry;
         themeColorButton[9] = button;
+        slot = theme_bold_slot(8);
+        bold = new CheckButton("Bold");
+        bold->on_toggled(
+                ui_theme_bold,
+                (void *)&themeSlots[slot]);
+        grid->attach((Widget *)bold, 3, row, 1, 1);
+        themeBold[8] = bold;
         row = row + 1;
         grid->attach(
                 (Widget *)new Label(theme_name(10)),
@@ -2609,12 +2750,29 @@ void Ui::show_theme(void) {
                 1);
         themeEntry[11] = entry;
         themeColorButton[11] = button;
-        themeDialog->set_content((Widget *)grid);
-        themeDialog->add_button("Close", 1);
+        slot = theme_bold_slot(10);
+        bold = new CheckButton("Bold");
+        bold->on_toggled(
+                ui_theme_bold,
+                (void *)&themeSlots[slot]);
+        grid->attach((Widget *)bold, 3, row, 1, 1);
+        themeBold[9] = bold;
+        shell = new Box(GTK_VERTICAL, 8);
+        shell->append((Widget *)grid);
+        shell->append(
+                (Widget *)ruled_close(ui_theme_close));
+        themeDialog->set_content((Widget *)shell);
         themeDialog->on_response(
                 ui_theme_response,
                 nullptr);
-        themeDialog->set_default_size(780, 640);
+        g_signal_connect_data(
+                themeDialog->native,
+                "close-request",
+                (void *)ui_theme_stop,
+                nullptr,
+                nullptr,
+                0);
+        themeDialog->set_default_size(960, 760);
     }
     pick = 0;
     doc = nullptr;
@@ -2640,6 +2798,7 @@ void Ui::show_theme(void) {
 void Ui::fill_theme(void) {
     int which;
     int i;
+    int slot;
     const char *language;
     const char *color;
 
@@ -2658,6 +2817,27 @@ void Ui::fill_theme(void) {
                     language,
                     theme_name(i));
             themeEntry[i]->set_text(color);
+        }
+        i = i + 1;
+    }
+    i = 0;
+    while (i < 10) {
+        if (themeBold[i] != nullptr) {
+            slot = 0;
+            if (i < 8)
+                slot = theme_bold_slot(i);
+            if (i == 8)
+                slot = theme_bold_slot(8);
+            if (i == 9)
+                slot = theme_bold_slot(10);
+            color = theme_color(
+                    themeConfig,
+                    language,
+                    theme_name(slot));
+            if (color[0] == '1' && color[1] == 0)
+                themeBold[i]->set_active(true);
+            else
+                themeBold[i]->set_active(false);
         }
         i = i + 1;
     }
@@ -2687,6 +2867,51 @@ void Ui::take_theme_entry(int slot) {
             language,
             theme_name(slot),
             color) == 0)
+        return;
+    paint_theme(language);
+    if (text_same(
+            theme_name(slot),
+            "background") == 1) {
+        long n;
+        Document *doc;
+
+        n = 0;
+        while (n < pageCount) {
+            doc = state->at(n);
+            if (doc != nullptr
+                    && text_same(
+                            doc->language(),
+                            language) == 1)
+                paint_paper(n);
+            n = n + 1;
+        }
+    }
+    apply_settings();
+}
+
+void Ui::take_theme_bold(int slot, int on) {
+    int which;
+    const char *language;
+    const char *flag;
+
+    if (themeFill != 0)
+        return;
+    if (slot < 0 || slot >= THEME_ALL)
+        return;
+    which = 0;
+    if (themeDrop != nullptr)
+        which = (int)themeDrop->selected();
+    if (which < 0 || which >= theme_type_count())
+        which = 0;
+    language = theme_type_name(which);
+    flag = "0";
+    if (on != 0)
+        flag = "1";
+    if (theme_set(
+            themeConfig,
+            language,
+            theme_name(slot),
+            flag) == 0)
         return;
     paint_theme(language);
     apply_settings();
@@ -3025,12 +3250,26 @@ void Ui::show_settings(void) {
                 (Widget *)page_scroll((Widget *)keys),
                 "Keyboard");
         settingsDialog->set_default_size(760, 560);
-        settingsDialog->set_content((Widget *)pages);
+        {
+            Box *shell;
+
+            shell = new Box(GTK_VERTICAL, 8);
+            shell->append((Widget *)pages);
+            shell->append((Widget *)centered_close(
+                    ui_settings_close));
+            settingsDialog->set_content((Widget *)shell);
+        }
         settingsDialog->on_key(ui_key_press, nullptr);
-        settingsDialog->add_button("Close", 1);
         settingsDialog->on_response(
                 ui_settings_response,
                 nullptr);
+        g_signal_connect_data(
+                settingsDialog->native,
+                "close-request",
+                (void *)ui_settings_stop,
+                nullptr,
+                nullptr,
+                0);
     }
     settingsHold = 1;
     if (state->uses_brackets() == 0)
@@ -3359,6 +3598,63 @@ void Ui::paint_line(long index) {
     pages[index].view->set_line_shade(on, lineColor);
 }
 
+static void paper_css(
+        char *css,
+        long cap,
+        const char *color) {
+    const char *prefix;
+    const char *suffix;
+    long i;
+    long n;
+
+    prefix = "textview text { background-color: ";
+    suffix = "; }";
+    i = 0;
+    n = 0;
+    while (prefix[n] != 0 && i + 1 < cap) {
+        css[i] = prefix[n];
+        i = i + 1;
+        n = n + 1;
+    }
+    n = 0;
+    while (color[n] != 0 && i + 1 < cap) {
+        css[i] = color[n];
+        i = i + 1;
+        n = n + 1;
+    }
+    n = 0;
+    while (suffix[n] != 0 && i + 1 < cap) {
+        css[i] = suffix[n];
+        i = i + 1;
+        n = n + 1;
+    }
+    css[i] = 0;
+}
+
+void Ui::paint_paper(long index) {
+    Document *doc;
+    const char *color;
+    char css[96];
+
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].view == nullptr)
+        return;
+    if (state == nullptr)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr)
+        return;
+    color = theme_color(
+            themeConfig,
+            doc->language(),
+            "background");
+    if (color == nullptr || color[0] == 0)
+        return;
+    paper_css(css, 96, color);
+    pages[index].view->add_css(css);
+}
+
 void Ui::apply_view(long index) {
     if (index < 0 || index >= pageCount)
         return;
@@ -3380,6 +3676,7 @@ void Ui::apply_view(long index) {
             showEnds,
             showStops,
             state->tab_width());
+    paint_paper(index);
 }
 
 void Ui::arm_dialog(void) {

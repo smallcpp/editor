@@ -123,8 +123,10 @@ public:
     void show_theme(void);
     void fill_theme(void);
     void take_theme_entry(int slot);
+    void take_theme_bold(int slot, int on);
     void open_theme_color(int slot);
     void paint_theme(const char *language);
+    void paint_paper(long index);
 private:
     Editor *state;
     Application *app;
@@ -164,6 +166,7 @@ private:
     DropDown *themeDrop;
     Entry *themeEntry[THEME_ALL];
     Button *themeColorButton[THEME_ALL];
+    CheckButton *themeBold[10];
     CheckButton *bracketCheck;
     CheckButton *indentCheck;
     DropDown *indentDrop;

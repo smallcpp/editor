@@ -66,6 +66,11 @@ Those overrides are `theme-` lines, such as
 such as `()` and `{}`. `brackets` paints a matching pair,
 and `brackets-unmatched` paints a bracket with no mate.
 Each of those has a foreground and a background.
+The dialog also sets the buffer background. The
+default is `#ffffff`. Each tag has a Bold checkbox,
+off until it is turned on. A line separates the grid
+from Close. Close is centered on this dialog and on
+the setup dialog.
 A Color button sets the current-line color and another
 sets the column-marker color. Indent width is a character count. Keyboard
 is a grid of command and shortcut. Click a shortcut, press
