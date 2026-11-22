@@ -1042,6 +1042,74 @@ int main(void) {
             expect(ui->window_width() < 1100,
                     "tabs do not widen the window");
         }
+        ui->show_settings();
+        expect(text_same(ui->theme_choice(), "default") == 1,
+                "theme starts default");
+        expect(ui->theme_store("night") == 1,
+                "store theme");
+        expect(text_same(ui->theme_choice(), "night") == 1,
+                "theme is night");
+        ui->apply_settings();
+        {
+            char path[EDITOR_PATH];
+            char *raw;
+            long n;
+            const char *err;
+
+            err = "";
+            n = 0;
+            expect(config_path(path, EDITOR_PATH) == 1,
+                    "theme ini path");
+            raw = read_file(path, &n, &err);
+            expect(raw != nullptr, "theme ini");
+            if (raw != nullptr)
+                expect(text_has(raw, "theme=night") == 1,
+                        "saved theme name");
+        }
+        expect(ui->theme_pick("default") == 1,
+                "pick default");
+        expect(text_same(ui->theme_choice(), "default") == 1,
+                "back to default");
+        expect(ui->language_total() == 8,
+                "language count");
+        expect(text_same(
+                    ui->language_choice(),
+                    "scpp") == 1,
+                "language list");
+        expect(ui->language_define(
+                    "demo",
+                    ".demo",
+                    "",
+                    "",
+                    "#",
+                    "",
+                    "alpha") == 1,
+                "define language");
+        expect(text_same(
+                    language_of("z.demo"),
+                    "demo") == 1,
+                "window suffix");
+        expect(ui->language_drop("demo") == 1,
+                "drop language");
+        expect(text_same(
+                    language_of("z.demo"),
+                    "plain") == 1,
+                "dropped suffix");
+        expect(ui->language_define(
+                    "scpp",
+                    ".scpp",
+                    "",
+                    "",
+                    "#",
+                    "",
+                    "int") == 1,
+                "change built-in");
+        expect(ui->language_builtin_reset("scpp") == 1,
+                "reset built-in");
+        expect(text_same(
+                    comment_leader("scpp"),
+                    "//") == 1,
+                "reset line comment");
         ui->on_menu("Quit");
         expect(ui->is_leaving() == 1, "quit left");
         unlink(pathA);

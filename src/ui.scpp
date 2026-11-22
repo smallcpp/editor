@@ -29,6 +29,15 @@ extern unsigned long g_signal_connect_data(
 extern void *gtk_text_buffer_get_insert(void *buffer);
 extern int gtk_text_iter_get_line(void *iter);
 extern int gtk_text_iter_get_line_offset(void *iter);
+extern void *gtk_css_provider_new(void);
+extern void gtk_css_provider_load_from_string(
+        void *provider,
+        const char *css);
+extern void *gdk_display_get_default(void);
+extern void gtk_style_context_add_provider_for_display(
+        void *display,
+        void *provider,
+        int priority);
 extern int unlink(const char *path);
 
 Ui *editorUi;
@@ -347,6 +356,36 @@ void ui_keep_text(void *data) {
         editorUi->take_recovery_keep();
 }
 
+void ui_language_pick(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->show_language_fields();
+}
+
+void ui_language_add(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->add_language();
+}
+
+void ui_language_save(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->save_language();
+}
+
+void ui_language_delete(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->delete_language();
+}
+
+void ui_language_reset(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->reset_language();
+}
+
 void ui_disk_response(void *data, int response) {
     (void)data;
     if (editorUi != nullptr)
@@ -401,6 +440,7 @@ void ui_replace_response(void *data, int response) {
 }
 
 Ui::Ui(Editor *editor) {
+    languages_load();
     long i;
 
     state = editor;
@@ -501,6 +541,15 @@ Ui::Ui(Editor *editor) {
     recoverCheck = nullptr;
     recoverEntry = nullptr;
     keepEntry = nullptr;
+    langDrop = nullptr;
+    langName = nullptr;
+    langSuffix = nullptr;
+    langNames = nullptr;
+    langShebang = nullptr;
+    langLine = nullptr;
+    langBlock = nullptr;
+    langKeys = nullptr;
+    langIndex = 0;
     listedCount = 0;
     dirtyOpen = 0;
     recentCount = 10;
@@ -536,8 +585,14 @@ Ui::Ui(Editor *editor) {
     building = 0;
     text_copy(lineColor, 32, "#d6e4f5");
     text_copy(marginColor, 32, "#c8c8c8");
+    text_copy(themeName, THEME_NAME, "default");
     themeConfig = new EditorConfig();
+    themeBase = new EditorConfig();
     config_defaults(themeConfig);
+    config_defaults(themeBase);
+    themeCss = nullptr;
+    themePick = nullptr;
+    themeSaveEntry = nullptr;
     fontDesc[0] = 0;
     i = 0;
     while (i < EDITOR_KEY_COUNT) {
@@ -679,10 +734,10 @@ void Ui::build(void) {
     outer->append((Widget *)menuBar);
     book = new Notebook();
     book->set_scrollable(true);
+    book->add_css_class("editor-book");
+    mainWindow->add_css_class("editor");
     book->add_css("tab { border: 1px solid #222222; }");
     book->add_css("tab { margin: 2px; padding: 2px 6px; }");
-    book->add_css("tab { background-color: #f4f4f4; }");
-    book->add_css("tab:checked { background-color: #ffffff; }");
     book->on_switch_page(ui_switched, nullptr);
     book->set_v_expand(true);
     book->set_h_expand(true);
@@ -691,6 +746,7 @@ void Ui::build(void) {
     outer->append((Widget *)status);
     mainWindow->set_child((Widget *)outer);
     bind_keys();
+    paint_frame();
     push_options();
     files = new FileDialog();
     files->set_parent(mainWindow);
@@ -1397,6 +1453,7 @@ void Ui::highlight(long index) {
     doc = state->at(index);
     if (doc == nullptr)
         return;
+    doc->apply_language();
     text = pages[index].buffer->get_text();
     n = text_length(text);
     if (n > 200000)
@@ -1426,6 +1483,32 @@ void Ui::highlight(long index) {
             pages[index].buffer->set_tag_bold(
                     name,
                     heavy);
+        }
+        {
+            char backName[40];
+            const char *back;
+            long at;
+
+            at = 0;
+            while (name[at] != 0 && at < 30) {
+                backName[at] = name[at];
+                at = at + 1;
+            }
+            backName[at] = '-';
+            backName[at + 1] = 'b';
+            backName[at + 2] = 'a';
+            backName[at + 3] = 'c';
+            backName[at + 4] = 'k';
+            backName[at + 5] = 0;
+            back = theme_color(
+                    themeConfig,
+                    doc->language(),
+                    backName);
+            if (back[0] != 0
+                    && text_same(back, "none") == 0)
+                pages[index].buffer->set_tag_text_background(
+                        name,
+                        back);
         }
         if (n > 0)
             pages[index].buffer->remove_tag(
@@ -3164,6 +3247,18 @@ void ui_font_button(void *data) {
     editorUi->open_font();
 }
 
+void ui_theme_pick(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->choose_theme_list();
+}
+
+void ui_theme_save(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->save_theme_entry();
+}
+
 void Ui::use_config(EditorConfig *item) {
     if (item == nullptr)
         return;
@@ -3286,6 +3381,12 @@ void Ui::load_settings(void) {
         return;
     if (config_read(path, &item) == 0)
         return;
+    keep_theme_base(&item);
+    text_copy(themeName, THEME_NAME, item.themeName);
+    if (theme_is_default(themeName) == 0) {
+        if (theme_load(&item, themeName) == 0)
+            text_copy(themeName, THEME_NAME, "default");
+    }
     use_config(&item);
 }
 
@@ -3392,7 +3493,14 @@ void Ui::apply_settings(void) {
     item.recoveryMinutes = recoveryMinutes;
     item.recoveryKeep = recoveryKeep;
     theme_copy(&item, themeConfig);
+    text_copy(item.themeName, THEME_NAME, themeName);
+    if (theme_is_default(themeName) == 1)
+        keep_theme_base(&item);
+    else
+        theme_save(themeName, &item);
     use_config(&item);
+    if (theme_is_default(themeName) == 0)
+        give_theme_base(&item);
     if (config_path(path, EDITOR_PATH) == 1)
         config_write(path, &item);
     settingsHold = 0;
@@ -3977,6 +4085,471 @@ void Ui::paint_theme(const char *language) {
     }
 }
 
+static void css_rule(
+        String *css,
+        const char *selector,
+        const char *prop,
+        const char *color) {
+    if (css == nullptr || selector == nullptr || prop == nullptr)
+        return;
+    if (color == nullptr || color[0] == 0)
+        return;
+    if (text_same(color, "none") == 1)
+        return;
+    css->append(selector);
+    css->append(" { ");
+    css->append(prop);
+    css->append(": ");
+    css->append(color);
+    css->append("; }\n");
+}
+
+void Ui::keep_theme_base(const EditorConfig *item) {
+    if (themeBase == nullptr || item == nullptr)
+        return;
+    theme_copy(themeBase, item);
+    text_copy(themeBase->lineColor, 32, item->lineColor);
+    text_copy(themeBase->marginColor, 32, item->marginColor);
+    text_copy(themeBase->font, 128, item->font);
+}
+
+void Ui::give_theme_base(EditorConfig *item) {
+    if (themeBase == nullptr || item == nullptr)
+        return;
+    theme_copy(item, themeBase);
+    text_copy(item->lineColor, 32, themeBase->lineColor);
+    text_copy(item->marginColor, 32, themeBase->marginColor);
+    text_copy(item->font, 128, themeBase->font);
+    text_copy(item->themeName, THEME_NAME, themeName);
+}
+
+void Ui::paint_frame(void) {
+    String *css;
+    void *display;
+    const char *ink;
+    const char *paper;
+    const char *menu;
+    const char *menuText;
+    const char *tab;
+    const char *tabText;
+    const char *current;
+
+    if (themeConfig == nullptr)
+        return;
+    ink = theme_color(themeConfig, "", "text");
+    paper = theme_color(themeConfig, "", "background");
+    menu = theme_color(themeConfig, "", "menu");
+    menuText = theme_color(themeConfig, "", "menu-text");
+    tab = theme_color(themeConfig, "", "tab");
+    tabText = theme_color(themeConfig, "", "tab-text");
+    current = theme_color(themeConfig, "", "tab-current");
+    css = new String();
+    css_rule(css, "window.editor", "background-color", paper);
+    css_rule(css, "window.editor", "color", ink);
+    css_rule(css, "menubar", "background-color", menu);
+    css_rule(css, "menubar", "color", menuText);
+    css_rule(css, "menubar item", "color", menuText);
+    css_rule(css, "popover.menu", "background-color", menu);
+    css_rule(css, "popover.menu", "color", menuText);
+    css_rule(
+            css,
+            "notebook.editor-book tab",
+            "background-color",
+            tab);
+    css_rule(
+            css,
+            "notebook.editor-book tab",
+            "color",
+            tabText);
+    css_rule(
+            css,
+            "notebook.editor-book tab:checked",
+            "background-color",
+            current);
+    css_rule(
+            css,
+            "notebook.editor-book tab:checked",
+            "color",
+            tabText);
+    css_rule(css, "textview", "color", ink);
+    if (themeCss == nullptr) {
+        display = gdk_display_get_default();
+        if (display == nullptr)
+            return;
+        themeCss = gtk_css_provider_new();
+        if (themeCss == nullptr)
+            return;
+        gtk_style_context_add_provider_for_display(
+                display,
+                themeCss,
+                600);
+    }
+    gtk_css_provider_load_from_string(
+            themeCss,
+            css->c_str());
+}
+
+void Ui::fill_themes(void) {
+    char listed[THEME_LIST][THEME_NAME];
+    const char *items[THEME_LIST];
+    int n;
+    int i;
+    int sel;
+
+    if (themePick == nullptr)
+        return;
+    n = theme_list(listed, THEME_LIST);
+    i = 0;
+    while (i < n) {
+        items[i] = listed[i];
+        i = i + 1;
+    }
+    themePick->set_items(items, n);
+    sel = 0;
+    i = 0;
+    while (i < n) {
+        if (text_same(listed[i], themeName) == 1)
+            sel = i;
+        i = i + 1;
+    }
+    if (n > 0)
+        themePick->set_selected((long)sel);
+}
+
+const char *Ui::theme_choice(void) {
+    return themeName;
+}
+
+int Ui::theme_pick(const char *name) {
+    EditorConfig item;
+
+    if (themeBase == nullptr || name == nullptr)
+        return 0;
+    config_defaults(&item);
+    give_theme_base(&item);
+    if (theme_is_default(name) == 0) {
+        if (theme_load(&item, name) == 0)
+            return 0;
+        text_copy(themeName, THEME_NAME, name);
+    }
+    else
+        text_copy(themeName, THEME_NAME, "default");
+    theme_copy(themeConfig, &item);
+    set_line_color(item.lineColor);
+    set_margin_color(item.marginColor);
+    if (item.font[0] != 0)
+        choose_font(item.font);
+    else
+        fontDesc[0] = 0;
+    paint_frame();
+    refresh();
+    apply_settings();
+    return 1;
+}
+
+int Ui::theme_store(const char *name) {
+    EditorConfig item;
+
+    if (theme_is_default(name) == 1)
+        return 0;
+    config_defaults(&item);
+    theme_copy(&item, themeConfig);
+    text_copy(item.lineColor, 32, lineColor);
+    text_copy(item.marginColor, 32, marginColor);
+    text_copy(item.font, 128, fontDesc);
+    if (theme_save(name, &item) == 0)
+        return 0;
+    text_copy(themeName, THEME_NAME, name);
+    apply_settings();
+    settingsHold = 1;
+    fill_themes();
+    settingsHold = 0;
+    return 1;
+}
+
+void Ui::choose_theme_list(void) {
+    const char *name;
+
+    if (settingsHold != 0 || themePick == nullptr)
+        return;
+    name = themePick->selected_string();
+    if (name == nullptr || text_same(name, themeName) == 1)
+        return;
+    theme_pick(name);
+}
+
+void Ui::save_theme_entry(void) {
+    const char *name;
+
+    if (themeSaveEntry == nullptr)
+        return;
+    name = themeSaveEntry->text();
+    if (name == nullptr)
+        return;
+    theme_store(name);
+}
+
+static const char *field_text(Entry *entry) {
+    const char *text;
+
+    if (entry == nullptr)
+        return "";
+    text = entry->text();
+    if (text == nullptr)
+        return "";
+    return text;
+}
+
+void Ui::read_language_fields(
+        const char **name,
+        const char **suffixes,
+        const char **names,
+        const char **shebang,
+        const char **line,
+        const char **block,
+        const char **keywords) {
+    if (name != nullptr)
+        *name = field_text(langName);
+    if (suffixes != nullptr)
+        *suffixes = field_text(langSuffix);
+    if (names != nullptr)
+        *names = field_text(langNames);
+    if (shebang != nullptr)
+        *shebang = field_text(langShebang);
+    if (line != nullptr)
+        *line = field_text(langLine);
+    if (block != nullptr)
+        *block = field_text(langBlock);
+    if (keywords != nullptr)
+        *keywords = field_text(langKeys);
+}
+
+void Ui::show_language_fields(void) {
+    Language *item;
+    long picked;
+
+    if (langName == nullptr)
+        return;
+    if (settingsHold == 0 && langDrop != nullptr) {
+        picked = langDrop->selected();
+        if (picked >= 0)
+            langIndex = (int)picked;
+    }
+    item = language_at(langIndex);
+    if (item == nullptr)
+        return;
+    langName->set_text(item->name);
+    langSuffix->set_text(item->suffixes);
+    langNames->set_text(item->names);
+    langShebang->set_text(item->shebang);
+    langLine->set_text(item->line);
+    langBlock->set_text(item->block);
+    langKeys->set_text(item->keywords);
+}
+
+void Ui::fill_languages(void) {
+    const char *items[EDITOR_LANG_MAX];
+    int n;
+    int i;
+
+    if (langDrop == nullptr)
+        return;
+    n = language_count();
+    if (n > EDITOR_LANG_MAX)
+        n = EDITOR_LANG_MAX;
+    i = 0;
+    while (i < n) {
+        items[i] = language_at(i)->name;
+        i = i + 1;
+    }
+    if (n == 0)
+        langIndex = 0;
+    else if (langIndex < 0 || langIndex >= n)
+        langIndex = 0;
+    langDrop->set_items(items, n);
+    if (n > 0)
+        langDrop->set_selected((long)langIndex);
+    show_language_fields();
+}
+
+void Ui::add_language(void) {
+    const char *name;
+    const char *suffixes;
+    const char *names;
+    const char *shebang;
+    const char *line;
+    const char *block;
+    const char *keywords;
+    int index;
+
+    read_language_fields(
+            &name,
+            &suffixes,
+            &names,
+            &shebang,
+            &line,
+            &block,
+            &keywords);
+    if (language_insert(
+                name,
+                suffixes,
+                names,
+                shebang,
+                line,
+                block,
+                keywords) == 0)
+        return;
+    index = language_find(name);
+    if (index >= 0)
+        langIndex = index;
+    fill_languages();
+    refresh();
+}
+
+void Ui::save_language(void) {
+    const char *name;
+    const char *suffixes;
+    const char *names;
+    const char *shebang;
+    const char *line;
+    const char *block;
+    const char *keywords;
+    int index;
+
+    read_language_fields(
+            &name,
+            &suffixes,
+            &names,
+            &shebang,
+            &line,
+            &block,
+            &keywords);
+    if (language_store(
+                langIndex,
+                name,
+                suffixes,
+                names,
+                shebang,
+                line,
+                block,
+                keywords) == 0)
+        return;
+    index = language_find(name);
+    if (index >= 0)
+        langIndex = index;
+    fill_languages();
+    refresh();
+}
+
+void Ui::delete_language(void) {
+    if (language_remove(langIndex) == 0)
+        return;
+    if (langIndex >= language_count())
+        langIndex = 0;
+    fill_languages();
+    refresh();
+}
+
+void Ui::reset_language(void) {
+    const char *name;
+    Language *item;
+    int index;
+
+    name = field_text(langName);
+    if (language_restore(name) == 0) {
+        item = language_at(langIndex);
+        if (item == nullptr)
+            return;
+        if (language_restore(item->origin) == 0)
+            return;
+        name = item->origin;
+    }
+    index = language_find(name);
+    if (index >= 0)
+        langIndex = index;
+    fill_languages();
+    refresh();
+}
+
+int Ui::language_total(void) {
+    return language_count();
+}
+
+const char *Ui::language_choice(void) {
+    if (langDrop == nullptr)
+        return "";
+    return langDrop->selected_string();
+}
+
+int Ui::language_define(
+        const char *name,
+        const char *suffixes,
+        const char *names,
+        const char *shebang,
+        const char *line,
+        const char *block,
+        const char *keywords) {
+    int index;
+
+    index = language_find(name);
+    if (index >= 0) {
+        if (language_store(
+                    index,
+                    name,
+                    suffixes,
+                    names,
+                    shebang,
+                    line,
+                    block,
+                    keywords) == 0)
+            return 0;
+    }
+    else if (language_insert(
+                    name,
+                    suffixes,
+                    names,
+                    shebang,
+                    line,
+                    block,
+                    keywords) == 0)
+        return 0;
+    index = language_find(name);
+    if (index >= 0)
+        langIndex = index;
+    if (langDrop != nullptr)
+        fill_languages();
+    refresh();
+    return 1;
+}
+
+int Ui::language_drop(const char *name) {
+    int index;
+
+    index = language_find(name);
+    if (language_remove(index) == 0)
+        return 0;
+    if (langIndex >= language_count())
+        langIndex = 0;
+    if (langDrop != nullptr)
+        fill_languages();
+    refresh();
+    return 1;
+}
+
+int Ui::language_builtin_reset(const char *name) {
+    int index;
+
+    if (language_restore(name) == 0)
+        return 0;
+    index = language_find(name);
+    if (index >= 0)
+        langIndex = index;
+    if (langDrop != nullptr)
+        fill_languages();
+    refresh();
+    return 1;
+}
+
 void Ui::show_settings(void) {
     Box *box;
     Box *search;
@@ -4230,6 +4803,26 @@ void Ui::show_settings(void) {
             view->append((Widget *)fontGroup);
         }
         {
+            Box *themeGroup;
+            Button *saveTheme;
+
+            themeGroup = group_box("Theme");
+            themePick = new DropDown();
+            themePick->on_changed(ui_theme_pick, nullptr);
+            themeSaveEntry = new Entry("");
+            themeSaveEntry->set_width_chars(16);
+            saveTheme = new Button("Save theme");
+            saveTheme->on_clicked(ui_theme_save, nullptr);
+            themeGroup->append((Widget *)labeled_field(
+                    "Theme",
+                    (Widget *)themePick));
+            themeGroup->append((Widget *)labeled_field(
+                    "Name",
+                    (Widget *)themeSaveEntry));
+            themeGroup->append((Widget *)saveTheme);
+            view->append((Widget *)themeGroup);
+        }
+        {
             Box *syntaxGroup;
             Button *syntaxButton;
 
@@ -4305,6 +4898,82 @@ void Ui::show_settings(void) {
         pages->append_page(
                 (Widget *)page_scroll((Widget *)view),
                 "Appearance");
+        {
+            Box *langs;
+            Box *row;
+            Button *addButton;
+            Button *saveButton;
+            Button *deleteButton;
+            Button *resetButton;
+
+            langs = new Box(GTK_VERTICAL, 8);
+            langs->set_h_expand(true);
+            langDrop = new DropDown();
+            langDrop->on_changed(
+                    ui_language_pick,
+                    nullptr);
+            langName = new Entry("");
+            langSuffix = new Entry("");
+            langNames = new Entry("");
+            langShebang = new Entry("");
+            langLine = new Entry("");
+            langBlock = new Entry("");
+            langKeys = new Entry("");
+            langName->set_width_chars(24);
+            langSuffix->set_width_chars(24);
+            langNames->set_width_chars(24);
+            langShebang->set_width_chars(24);
+            langLine->set_width_chars(12);
+            langBlock->set_width_chars(12);
+            langKeys->set_width_chars(24);
+            langs->append((Widget *)labeled_field(
+                    "Language",
+                    (Widget *)langDrop));
+            langs->append((Widget *)labeled_field(
+                    "Name",
+                    (Widget *)langName));
+            langs->append((Widget *)labeled_field(
+                    "Suffixes",
+                    (Widget *)langSuffix));
+            langs->append((Widget *)labeled_field(
+                    "Names",
+                    (Widget *)langNames));
+            langs->append((Widget *)labeled_field(
+                    "Shebang",
+                    (Widget *)langShebang));
+            langs->append((Widget *)labeled_field(
+                    "Line",
+                    (Widget *)langLine));
+            langs->append((Widget *)labeled_field(
+                    "Block",
+                    (Widget *)langBlock));
+            langs->append((Widget *)labeled_field(
+                    "Keywords",
+                    (Widget *)langKeys));
+            row = new Box(GTK_HORIZONTAL, 8);
+            addButton = new Button("Add");
+            saveButton = new Button("Save");
+            deleteButton = new Button("Delete");
+            resetButton = new Button("Reset");
+            addButton->on_clicked(ui_language_add, nullptr);
+            saveButton->on_clicked(
+                    ui_language_save,
+                    nullptr);
+            deleteButton->on_clicked(
+                    ui_language_delete,
+                    nullptr);
+            resetButton->on_clicked(
+                    ui_language_reset,
+                    nullptr);
+            row->append((Widget *)addButton);
+            row->append((Widget *)saveButton);
+            row->append((Widget *)deleteButton);
+            row->append((Widget *)resetButton);
+            langs->append((Widget *)row);
+            pages->append_page(
+                    (Widget *)page_scroll((Widget *)langs),
+                    "Languages");
+        }
         pages->append_page(
                 (Widget *)page_scroll((Widget *)keys),
                 "Keyboard");
@@ -4391,6 +5060,8 @@ void Ui::show_settings(void) {
         }
         n = n + 1;
     }
+    fill_themes();
+    fill_languages();
     settingsHold = 0;
     push_options();
     settingsDialog->present();
@@ -4714,6 +5385,39 @@ static void paper_css(
     css[i] = 0;
 }
 
+static void paper_ink(
+        char *css,
+        long cap,
+        const char *color) {
+    const char *prefix;
+    const char *suffix;
+    long i;
+    long n;
+
+    prefix = "textview { color: ";
+    suffix = "; }";
+    i = 0;
+    n = 0;
+    while (prefix[n] != 0 && i + 1 < cap) {
+        css[i] = prefix[n];
+        i = i + 1;
+        n = n + 1;
+    }
+    n = 0;
+    while (color[n] != 0 && i + 1 < cap) {
+        css[i] = color[n];
+        i = i + 1;
+        n = n + 1;
+    }
+    n = 0;
+    while (suffix[n] != 0 && i + 1 < cap) {
+        css[i] = suffix[n];
+        i = i + 1;
+        n = n + 1;
+    }
+    css[i] = 0;
+}
+
 void Ui::paint_paper(long index) {
     Document *doc;
     const char *color;
@@ -4736,6 +5440,11 @@ void Ui::paint_paper(long index) {
         return;
     paper_css(css, 96, color);
     pages[index].view->add_css(css);
+    color = theme_color(themeConfig, "", "text");
+    if (color != nullptr && color[0] != 0) {
+        paper_ink(css, 96, color);
+        pages[index].view->add_css(css);
+    }
 }
 
 void Ui::apply_view(long index) {
@@ -4872,6 +5581,7 @@ void Ui::store_session(void) {
     item.recoveryOn = recoveryOn;
     item.recoveryMinutes = recoveryMinutes;
     item.recoveryKeep = recoveryKeep;
+    text_copy(item.themeName, THEME_NAME, themeName);
     item.spaces = state->indent_style();
     item.recentCount = recentCount;
     if (item.recentCount < 1)
