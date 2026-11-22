@@ -6,6 +6,14 @@ A narrow column on the right of the current buffer
 shows the shape of the file and a band for the lines
 in view. A click in that column scrolls the buffer.
 The column reads the buffer the editor already has.
+A panel on the left lists files, the project, and
+symbols. The project is a folder. When that folder
+contains `CMakeLists.txt`, the project page lists
+targets from that file and compile lines from
+`compile_commands.json` when that file is present.
+The panel does not keep its own buffer. Opening a
+file uses the same path as File, Open. A symbol
+moves the cursor in the current buffer.
 The top of the window is a menu bar. File, Edit, Search, View,
 and Documents are submenus. File has New, Open, Save, Save As,
 Save All, Close, and Quit. Edit has Undo, Redo, Cut, Copy,
@@ -26,6 +34,21 @@ is its key. Block comment is Alt+/, and it adds a
 multi-line comment without removing one. A language
 whose only marker is `#` uses that marker on each line.
 The shortcut list shows `/` instead of the name slash.
+Appearance picks a named theme and can save the current
+settings as a new one. A theme is a file under
+`$HOME/.config/smallcpp/themes`. It sets the window
+background and text, menus, tabs, the current line, the
+column marker, syntax colors and bold, bracket match and
+unmatched colors, and the font. The tag map in
+`editor.ini` is the default theme. A theme file that
+omits a color keeps that default.
+Settings has a Languages page. A language has a name,
+suffixes, special filenames, a shebang, a line comment,
+an optional block comment, and keywords. Add, Save, and
+Delete change the list. Reset restores a built-in.
+Commenting and coloring both use that list. A file
+with no language stays plain. CMakeLists.txt, Makefile,
+and Dockerfile stay special names.
 Python, shell, and toml use `#` on each line.
 CMakeLists.txt, Makefile, makefile, GNUmakefile,
 Dockerfile, dockerfile, and Containerfile do too. A

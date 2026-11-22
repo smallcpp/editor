@@ -42,6 +42,18 @@ const char *Document::language(void) {
     return lang->c_str();
 }
 
+void Document::apply_language(void) {
+    const char *next;
+
+    if (isUntitled == 1)
+        return;
+    next = language_of(filePath->c_str());
+    if (next == nullptr)
+        next = "plain";
+    lang->truncate(0, lang->size());
+    lang->append(next);
+}
+
 EditBuffer *Document::buffer(void) {
     return body;
 }

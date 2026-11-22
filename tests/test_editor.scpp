@@ -1,6 +1,9 @@
 #include "../src/editor.shpp"
 #include "../src/minimap.shpp"
+#include "../src/panel.shpp"
+#include "../src/language.shpp"
 #include "../src/settings.shpp"
+#include "../src/syntax.shpp"
 
 extern int setenv(
         const char *name,
@@ -773,6 +776,16 @@ int main(void) {
                     theme_color(&item, "c", "background"),
                     "#ffffff") == 1,
                 "default background");
+        expect(text_same(
+                    theme_color(&item, "", "text"),
+                    "#1a1a1a") == 1,
+                "default text");
+        expect(text_same(
+                    theme_color(&item, "", "menu"),
+                    "#f4f4f4") == 1,
+                "default menu");
+        expect(text_same(item.themeName, "default") == 1,
+                "default theme");
         expect(theme_bold(&item, "c", "keyword") == 0,
                 "default bold off");
         expect(theme_bold(
@@ -1081,6 +1094,393 @@ int main(void) {
         map_place(4, 40, 0, 4, &top, &band);
         expect(top == 0, "short file starts at the top");
         expect(band == 40, "short file fills the column");
+    }
+    {
+        SidePanel *panel;
+        String *json;
+        char folder[EDITOR_PATH];
+        char sub[EDITOR_PATH];
+        char path[EDITOR_PATH];
+        char listed[EDITOR_PATH];
+        int i;
+        int saw;
+        int row;
+
+        panel = new SidePanel();
+        json = new String();
+        json->append("# add_executable(nope x)\n");
+        json->append("add_executable(yes a.c)\n");
+        json->append(
+                "add_library(\"quoted\" STATIC a.c)\n");
+        panel->read_lists(json->c_str());
+        expect(panel->target_count() == 2,
+                "two targets");
+        expect(text_same(
+                    panel->target_name(0),
+                    "yes") == 1,
+                "skips a comment");
+        expect(text_same(
+                    panel->target_name(1),
+                    "quoted") == 1,
+                "quoted target");
+        json = new String();
+        json->append("[\n{ \"file\": \"/tmp/a.scpp\", ");
+        json->append(
+                "\"arguments\": [\"gcc\", \"-c\", ");
+        json->append("\"a.scpp\"] }\n]\n");
+        panel->read_commands(json->c_str());
+        expect(panel->command_count() == 1,
+                "arguments line");
+        expect(text_same(
+                    panel->command_file(0),
+                    "/tmp/a.scpp") == 1,
+                "command file");
+        expect(text_same(
+                    panel->command_line(0),
+                    "gcc -c a.scpp") == 1,
+                "joined arguments");
+        json = new String();
+        json->append("class Box {\n};\n\n");
+        json->append("int work(void) {\n");
+        json->append("    call(1);\n}\n");
+        panel->scan_symbols(json->c_str(), "scpp");
+        expect(panel->symbol_count() == 2,
+                "two symbols");
+        expect(text_same(
+                    panel->symbol_name(0),
+                    "Box") == 1,
+                "class symbol");
+        expect(panel->symbol_line(0) == 1,
+                "class line");
+        expect(text_same(
+                    panel->symbol_name(1),
+                    "work") == 1,
+                "function symbol");
+        expect(panel->symbol_line(1) == 4,
+                "function line");
+        json = new String();
+        json->append("def run():\n    return 1\n");
+        json->append("class Bag:\n    pass\n");
+        panel->scan_symbols(json->c_str(), "python");
+        expect(panel->symbol_count() == 2,
+                "python symbols");
+        expect(text_same(
+                    panel->symbol_name(0),
+                    "run") == 1,
+                "def name");
+        panel->scan_symbols(
+                "if (ready()) {\n    return 1;\n}\n",
+                "c");
+        expect(panel->symbol_count() == 0,
+                "skips if");
+        panel->scan_symbols(
+                "void Ui::build(void) {\n}\n",
+                "scpp");
+        expect(text_same(
+                    panel->symbol_name(0),
+                    "Ui::build") == 1,
+                "qualified name");
+        panel->scan_symbols("hello\n", "plain");
+        expect(panel->symbol_count() == 0,
+                "plain has none");
+        path_join(folder, EDITOR_PATH, dir, "proj");
+        expect(mkdir(folder, 448) == 0, "project dir");
+        path_join(path, EDITOR_PATH, folder, "a.scpp");
+        expect(write_file(path, "int a;\n", &io) == 1,
+                "project source");
+        path_join(sub, EDITOR_PATH, folder, "sub");
+        expect(mkdir(sub, 448) == 0, "sub dir");
+        path_join(path, EDITOR_PATH, sub, "inside.txt");
+        expect(write_file(path, "in\n", &io) == 1,
+                "nested file");
+        path_join(
+                path,
+                EDITOR_PATH,
+                folder,
+                "CMakeLists.txt");
+        expect(write_file(
+                    path,
+                    "add_library(core STATIC a.scpp)\n",
+                    &io) == 1,
+                "lists file");
+        expect(panel->set_root(folder) == 1,
+                "set project");
+        expect(text_same(panel->root(), folder) == 1,
+                "project folder");
+        expect(panel->cmake_project() == 1,
+                "cmake project");
+        expect(panel->target_count() == 1,
+                "library target");
+        expect(text_same(
+                    panel->target_name(0),
+                    "core") == 1,
+                "core target");
+        expect(panel->command_count() == 0,
+                "no compile file");
+        expect(panel->set_root(path) == 1,
+                "file selects its folder");
+        expect(text_same(panel->root(), folder) == 1,
+                "folder of the file");
+        saw = 0;
+        row = -1;
+        i = 0;
+        while (i < panel->file_count()) {
+            if (text_same(
+                        panel->file_name(i),
+                        "a.scpp") == 1)
+                saw = 1;
+            if (text_same(
+                        panel->file_name(i),
+                        "sub") == 1) {
+                row = i;
+                expect(panel->row_dir(i) == 1,
+                        "sub is a directory");
+            }
+            i = i + 1;
+        }
+        expect(saw == 1, "lists source");
+        expect(row >= 0, "lists sub");
+        expect(panel->enter(row) == 1, "enter sub");
+        text_copy(listed, EDITOR_PATH, panel->listed());
+        expect(text_same(listed, sub) == 1,
+                "listed sub");
+        saw = 0;
+        row = -1;
+        i = 0;
+        while (i < panel->file_count()) {
+            if (text_same(
+                        panel->file_name(i),
+                        "inside.txt") == 1)
+                saw = 1;
+            if (text_same(
+                        panel->file_name(i),
+                        "..") == 1)
+                row = i;
+            i = i + 1;
+        }
+        expect(saw == 1, "lists nested");
+        expect(panel->enter(row) == 1, "leave sub");
+        expect(text_same(
+                    panel->listed(),
+                    folder) == 1,
+                "back at the project");
+        expect(panel->set_root(sub) == 1,
+                "plain folder");
+        expect(panel->cmake_project() == 0,
+                "not cmake");
+        expect(panel->target_count() == 0,
+                "no targets");
+        expect(panel->set_root("missing-dir") == 0,
+                "missing folder");
+        expect(text_same(panel->root(), sub) == 1,
+                "keeps the folder");
+        path_join(path, EDITOR_PATH, sub, "inside.txt");
+        unlink(path);
+        rmdir(sub);
+        path_join(path, EDITOR_PATH, folder, "a.scpp");
+        unlink(path);
+        path_join(
+                path,
+                EDITOR_PATH,
+                folder,
+                "CMakeLists.txt");
+        unlink(path);
+        rmdir(folder);
+    }
+    {
+        EditorConfig part;
+        String *body;
+        char listed[THEME_LIST][THEME_NAME];
+        char folder[EDITOR_PATH];
+        char dest[EDITOR_PATH];
+        int n;
+        int seen;
+        int i;
+
+        config_defaults(&part);
+        text_copy(part.font, 128, "Monospace 12");
+        expect(theme_save("night", &part) == 1,
+                "save theme");
+        path_join(
+                folder,
+                EDITOR_PATH,
+                dir,
+                ".config/smallcpp/themes");
+        path_join(dest, EDITOR_PATH, folder, "part.ini");
+        body = new String();
+        body->append("theme-keyword=#010101\n");
+        body->append("line-color=#abcdef\n");
+        expect(write_file(
+                    dest,
+                    body->c_str(),
+                    &io) == 1,
+                "copy theme in");
+        config_defaults(&part);
+        expect(theme_load(&part, "part") == 1,
+                "load partial");
+        expect(text_same(
+                    theme_color(&part, "", "keyword"),
+                    "#010101") == 1,
+                "theme keyword");
+        expect(text_same(
+                    theme_color(&part, "", "comment"),
+                    "#808080") == 1,
+                "missing comment stays");
+        expect(text_same(part.lineColor, "#abcdef") == 1,
+                "theme line color");
+        expect(text_same(
+                    part.marginColor,
+                    "#c8c8c8") == 1,
+                "missing margin stays");
+        expect(text_same(
+                    theme_color(&part, "", "text"),
+                    "#1a1a1a") == 1,
+                "missing text stays");
+        config_defaults(&part);
+        expect(theme_load(&part, "night") == 1,
+                "load saved theme");
+        expect(text_same(part.font, "Monospace 12") == 1,
+                "theme font");
+        n = theme_list(listed, THEME_LIST);
+        seen = 0;
+        i = 0;
+        while (i < n) {
+            if (text_same(listed[i], "part") == 1)
+                seen = seen + 1;
+            if (text_same(listed[i], "night") == 1)
+                seen = seen + 1;
+            i = i + 1;
+        }
+        expect(seen == 2, "lists themes");
+        expect(theme_load(&part, "missing") == 0,
+                "missing theme");
+        expect(theme_save("default", &part) == 0,
+                "default is not a file");
+    }
+    {
+        Highlighter *light;
+        char saved[EDITOR_PATH];
+        int index;
+
+        languages_load();
+        expect(language_count() == 8, "eight languages");
+        expect(text_same(
+                    language_of("a.scpp"),
+                    "scpp") == 1,
+                "scpp suffix");
+        expect(text_same(
+                    language_of("Makefile"),
+                    "shell") == 1,
+                "makefile name");
+        expect(text_same(
+                    language_of("Dockerfile.cpp"),
+                    "cpp") == 1,
+                "suffix wins");
+        expect(text_same(
+                    language_of("notes.txt"),
+                    "plain") == 1,
+                "plain file");
+        expect(language_insert(
+                    "demo",
+                    ".demo",
+                    "Demofile",
+                    "demo*",
+                    "#",
+                    "",
+                    "alpha beta") == 1,
+                "add demo");
+        expect(text_same(
+                    language_of("a.demo"),
+                    "demo") == 1,
+                "demo suffix");
+        expect(text_same(
+                    language_of("Demofile"),
+                    "demo") == 1,
+                "demo name");
+        style_is(
+                "plain",
+                "tool",
+                "#!/usr/bin/demo3\nx\n",
+                "#",
+                0,
+                "demo shebang");
+        light = new Highlighter();
+        light->scan("# note\nalpha\n", "demo");
+        expect(light->count() >= 2, "demo spans");
+        expect(light->at(0)->kind == SPAN_COMMENT,
+                "demo comment");
+        expect(light->at(1)->kind == SPAN_KEYWORD,
+                "demo keyword");
+        index = language_find("scpp");
+        expect(language_store(
+                    index,
+                    "scpp",
+                    ".scpp .shpp",
+                    "",
+                    "scpp",
+                    "#",
+                    "",
+                    "int") == 1,
+                "change scpp");
+        style_is(
+                "scpp",
+                "a.scpp",
+                "int a;\n",
+                "#",
+                0,
+                "changed line comment");
+        expect(language_restore("scpp") == 1,
+                "reset scpp");
+        style_is(
+                "scpp",
+                "a.scpp",
+                "int a;\n",
+                "//",
+                1,
+                "reset comments");
+        expect(language_remove(
+                    language_find("demo")) == 1,
+                "delete demo");
+        expect(text_same(
+                    language_of("a.demo"),
+                    "plain") == 1,
+                "deleted suffix");
+        expect(language_remove(
+                    language_find("scpp")) == 1,
+                "delete scpp");
+        expect(text_same(
+                    language_of("a.scpp"),
+                    "plain") == 1,
+                "missing scpp");
+        expect(language_restore("scpp") == 1,
+                "restore scpp");
+        expect(text_same(
+                    language_of("a.scpp"),
+                    "scpp") == 1,
+                "scpp is back");
+        path_join(
+                saved,
+                EDITOR_PATH,
+                dir,
+                ".config/smallcpp/languages.ini");
+        n = 0;
+        raw = read_file(saved, &n, &io);
+        expect(raw != nullptr, "languages file");
+        if (raw != nullptr) {
+            expect(text_has(raw, "languages=1") == 1,
+                    "languages marker");
+            expect(text_has(raw, "name=scpp") == 1,
+                    "saved scpp");
+            expect(text_has(raw, "name=demo") == 0,
+                    "demo is not saved");
+        }
+        languages_load();
+        expect(language_find("demo") < 0,
+                "demo stays deleted");
+        expect(text_same(
+                    language_of("CMakeLists.txt"),
+                    "shell") == 1,
+                "cmake name");
     }
     unlink(pathA);
     unlink(pathB);

@@ -1,4 +1,5 @@
 #include "editor.shpp"
+#include "language.shpp"
 
 DocVec::DocVec() : Array((long)sizeof(Document *)) {
 }
@@ -801,8 +802,18 @@ int Editor::run(const char *command) {
                 doc->buffer()->text(),
                 &leader,
                 &block);
-        if (block != 0)
-            doc->buffer()->add_block_comment();
+        if (block != 0) {
+            CommentMarks marks;
+
+            comment_style_of(
+                    doc->language(),
+                    doc->path(),
+                    doc->buffer()->text(),
+                    &marks);
+            doc->buffer()->add_block_comment(
+                    marks.open,
+                    marks.close);
+        }
         else if (leader != nullptr && leader[0] != 0)
             doc->buffer()->add_line_comment(leader);
         return EDITOR_OK;
