@@ -31,6 +31,14 @@ view keeps GTK's own navigation keys. Copy, cut, indent, and
 unindent read the view's selection and then run on the editor
 buffer, which also owns undo.
 
+GTK 4 cannot build a key event, so a macro stores the key
+name and plays the effect. The text view records keys that
+reach it. A shortcut handled by the window is not in that
+list. Playback inserts text, deletes one character, or moves
+the cursor. A shifted letter plays as a capital. Control
+and Alt keys are played as editor
+commands when they match a binding. One view keeps 64 keys.
+
 FileDialog open can return several paths. Save still picks
 one path. It has no folder mode. The first dialog starts in the
 process current directory, and later dialogs start in the

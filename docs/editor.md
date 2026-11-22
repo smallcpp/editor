@@ -69,9 +69,14 @@ a fresh untitled buffer. A modified tab draws a dot before
 the file name. The dot is removed when the buffer is clean.
 
 Edit covers Undo, Redo, Cut, Copy, Paste, Indent,
-Unindent, Comment, Block comment, and Settings. Comment
-toggles a line comment on every selected line. Ctrl+/
-runs it. Block comment is Alt+/, and it adds a
+Unindent, Comment, Block comment, Record, Stop, Play,
+and Settings. Comment toggles a line comment on every
+selected line. Ctrl+/ runs it. Record stores the
+keystrokes that reach the text view. Stop keeps that
+list. Play performs it: typing, Enter, Tab, Backspace,
+Delete, and the arrow keys run in the view, and a
+shortcut runs its command. Block comment is Alt+/,
+and it adds a
 multi-line comment without removing one. Python, shell,
 and toml put `#` on each line.
 CMakeLists.txt, Makefile, and Dockerfile do too, as do
