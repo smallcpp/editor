@@ -69,7 +69,15 @@ a fresh untitled buffer. A modified tab draws a dot before
 the file name. The dot is removed when the buffer is clean.
 
 Edit covers Undo, Redo, Cut, Copy, Paste, Indent,
-Unindent, and Settings.
+Unindent, Comment, and Settings. Comment toggles a
+comment. Ctrl+/ runs it. One line uses the line marker.
+Several lines use a block comment when the language has
+one. Python, shell, and toml put `#` on each line.
+CMakeLists.txt, Makefile, and Dockerfile do too, as do
+makefile, GNUmakefile, dockerfile, and Containerfile. A
+highlighted suffix wins over those names. A shebang on
+the first line selects the language. Markdown and plain
+text do nothing.
 Search has Search, Replace, Reverse, Whole word, Match
 case, and Wrap. The last four are check items. Wrap is on
 by default. Search and Replace open

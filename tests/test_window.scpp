@@ -315,6 +315,17 @@ int main(void) {
                     ui->page_text(editor->index()),
                     "howdy\n") == 1,
                 "opened howdy");
+        ui->on_menu("Comment");
+        expect(text_same(
+                    ui->page_text(editor->index()),
+                    "// howdy\n") == 1,
+                "menu comment");
+        ui->on_menu("Comment");
+        expect(text_same(
+                    ui->page_text(editor->index()),
+                    "howdy\n") == 1,
+                "menu uncomment");
+        editor->active()->buffer()->mark_clean();
         ui->on_menu("Close");
         expect(editor->count() == 2, "closed howdy");
         unlink(pathC);

@@ -5,7 +5,8 @@
 The top of the window is a menu bar. File, Edit, Search, View,
 and Documents are submenus. File has New, Open, Save, Save As,
 Save All, Close, and Quit. Edit has Undo, Redo, Cut, Copy,
-Paste, Indent, Unindent, and Settings. Search has Search, Replace,
+Paste, Indent, Unindent, Comment, and Settings. Search has
+Search, Replace,
 Reverse, Whole word, Match case, and Wrap. The last four are
 check items. A selection that covers more than one line
 limits the search to those lines. Wrap is on unless it is
@@ -15,7 +16,17 @@ lists the open files. Menus place a separator between
 groups: File separates new and open, the saves, the closes,
 and Quit. Edit separates undo, the clipboard, and indent.
 Search separates the commands from the options. Edit
-separates Settings from the other commands. File also has
+separates Settings from the other commands. Comment
+toggles a comment, and Ctrl+/ is its key. No selection,
+or one selected line, uses the line marker. Several
+selected lines use a block comment when the language has
+one. Python, shell, and toml use `#` on each line.
+CMakeLists.txt, Makefile, makefile, GNUmakefile,
+Dockerfile, dockerfile, and Containerfile do too. A
+suffix the editor already highlights keeps that language,
+so `Dockerfile.cpp` stays C++. A shebang on the first
+line picks the language. Markdown and plain text ignore
+the command. File also has
 Close All. Open can select
 several files. Each one is opened, and the last one is the
 active tab. A new line shows its gutter number when Enter

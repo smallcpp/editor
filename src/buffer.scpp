@@ -1657,6 +1657,16 @@ bool EditBuffer::auto_indent(void) {
     return indentOn;
 }
 
+bool EditBuffer::several_lines(void) {
+    long first;
+    long last;
+
+    line_range(&first, &last);
+    if (last > first)
+        return true;
+    return false;
+}
+
 bool EditBuffer::selection_one_line(void) {
     long line;
     long column;

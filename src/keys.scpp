@@ -67,9 +67,12 @@ void key_info(
     key_row(index, 14, "Unindent", "unindent",
             "key-unindent", "<Control>bracketleft",
             label, command, config, accel);
-    key_row(index, 15, "Search", "search", "key-search",
+    key_row(index, 15, "Comment", "comment",
+            "key-comment", "<Control>slash",
+            label, command, config, accel);
+    key_row(index, 16, "Search", "search", "key-search",
             "<Control>f", label, command, config, accel);
-    key_row(index, 16, "Replace", "replace",
+    key_row(index, 17, "Replace", "replace",
             "key-replace", "<Control>h",
             label, command, config, accel);
 }
@@ -113,12 +116,12 @@ int key_place(int index, long *menu, long *item) {
         *item = index + 1;
         return 1;
     }
-    if (index < 15) {
+    if (index < 16) {
         *menu = 1;
         *item = index - 8;
         return 1;
     }
     *menu = 2;
-    *item = index - 15;
+    *item = index - 16;
     return 1;
 }

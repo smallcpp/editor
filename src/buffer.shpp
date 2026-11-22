@@ -116,6 +116,7 @@ public:
     bool auto_indent(void);
     int note_external(const char *value);
     bool selection_one_line(void);
+    bool several_lines(void);
 private:
     String *body;
     long cursor;
