@@ -633,6 +633,7 @@ Ui::Ui(Editor *editor) {
     recoverEntry = nullptr;
     keepEntry = nullptr;
     langDrop = nullptr;
+    projectDrop = nullptr;
     langName = nullptr;
     langSuffix = nullptr;
     langNames = nullptr;
@@ -645,6 +646,8 @@ Ui::Ui(Editor *editor) {
     dirtyOpen = 0;
     recentCount = 10;
     recentUsed = 0;
+    projectUsed = 0;
+    choosingProject = 0;
     openCount = 0;
     activePath[0] = 0;
     wrapCheck = nullptr;
@@ -1089,6 +1092,7 @@ int Ui::set_project(const char *path) {
         return 0;
     fill_files();
     fill_project();
+    note_project(panel->root());
     return 1;
 }
 
@@ -1096,6 +1100,135 @@ const char *Ui::project_path(void) {
     if (panel == nullptr)
         return "";
     return panel->root();
+}
+
+void Ui::note_project(const char *path) {
+    char saved[EDITOR_PATH];
+    int found;
+    int i;
+
+    if (path == nullptr || path[0] == 0)
+        return;
+    text_copy(saved, EDITOR_PATH, path);
+    found = -1;
+    i = 0;
+    while (i < projectUsed) {
+        if (text_same(projectPath[i], saved) == 1)
+            found = i;
+        i = i + 1;
+    }
+    if (found == 0) {
+        fill_projects();
+        store_session();
+        return;
+    }
+    i = found;
+    if (found < 0) {
+        i = projectUsed;
+        if (i >= EDITOR_RECENT_MAX)
+            i = EDITOR_RECENT_MAX - 1;
+        if (projectUsed < EDITOR_RECENT_MAX)
+            projectUsed = projectUsed + 1;
+    }
+    while (i > 0) {
+        text_copy(
+                projectPath[i],
+                EDITOR_PATH,
+                projectPath[i - 1]);
+        i = i - 1;
+    }
+    text_copy(projectPath[0], EDITOR_PATH, saved);
+    fill_projects();
+    store_session();
+}
+
+void Ui::fill_projects(void) {
+    const char *items[EDITOR_RECENT_MAX];
+    int n;
+    int i;
+    int sel;
+    int held;
+
+    if (projectDrop == nullptr || choosingProject != 0)
+        return;
+    n = projectUsed;
+    if (n > EDITOR_RECENT_MAX)
+        n = EDITOR_RECENT_MAX;
+    if (n < 0)
+        n = 0;
+    i = 0;
+    while (i < n) {
+        items[i] = projectPath[i];
+        i = i + 1;
+    }
+    held = settingsHold;
+    settingsHold = 1;
+    projectDrop->set_items(items, n);
+    sel = 0;
+    i = 0;
+    while (i < n) {
+        if (text_same(projectPath[i], project_path()) == 1)
+            sel = i;
+        i = i + 1;
+    }
+    if (n > 0)
+        projectDrop->set_selected((long)sel);
+    settingsHold = held;
+}
+
+int Ui::recent_projects(void) {
+    return projectUsed;
+}
+
+const char *Ui::recent_project(int index) {
+    if (index < 0 || index >= projectUsed)
+        return "";
+    return projectPath[index];
+}
+
+const char *Ui::shown_project(void) {
+    if (projectDrop == nullptr)
+        return "";
+    return projectDrop->selected_string();
+}
+
+int Ui::open_recent_project(int index) {
+    if (index < 0 || index >= projectUsed)
+        return 0;
+    return set_project(projectPath[index]);
+}
+
+int Ui::pick_recent_project(int index) {
+    if (projectDrop == nullptr)
+        return 0;
+    if (index < 0 || index >= projectUsed)
+        return 0;
+    projectDrop->set_selected((long)index);
+    return 1;
+}
+
+void Ui::choose_project_list(void) {
+    long index;
+
+    if (settingsHold != 0 || projectDrop == nullptr)
+        return;
+    index = projectDrop->selected();
+    if (index < 0 || index >= projectUsed)
+        return;
+    if (text_same(projectPath[index], project_path()) == 1)
+        return;
+    choosingProject = 1;
+    set_project(projectPath[index]);
+    choosingProject = 0;
+}
+
+int Ui::recovery_place(char *dest, long cap) {
+    const char *root;
+
+    root = project_path();
+    if (root != nullptr && root[0] != 0)
+        return project_home(dest, cap, root);
+    return recovery_dir(dest, cap);
 }
 
 int Ui::project_from_file(void) {
@@ -2639,7 +2772,7 @@ void Ui::queue_recover(const char *path) {
     }
     if (recovery_leaf_for(path, leaf, 128) == 0)
         return;
-    if (recovery_dir(dir, EDITOR_PATH) == 0)
+    if (recovery_place(dir, EDITOR_PATH) == 0)
         return;
     path_join(full, EDITOR_PATH, dir, leaf);
     if (full[0] == 0 || file_exists(full) == 0)
@@ -2745,14 +2878,14 @@ void Ui::offer_recovery(void) {
     show_next_recover();
 }
 
-static void drop_recovery_copy(const char *path) {
+void Ui::drop_recovery_copy(const char *path) {
     char dir[EDITOR_PATH];
     char leaf[128];
     char full[EDITOR_PATH];
 
     if (path == nullptr || path[0] == 0)
         return;
-    if (recovery_dir(dir, EDITOR_PATH) == 0)
+    if (recovery_place(dir, EDITOR_PATH) == 0)
         return;
     if (recovery_leaf_for(path, leaf, 128) == 0)
         return;
@@ -2793,7 +2926,7 @@ void Ui::answer_recovery(int response) {
     io = "";
     n = 0;
     raw = nullptr;
-    if (recovery_dir(dir, EDITOR_PATH) == 1
+    if (recovery_place(dir, EDITOR_PATH) == 1
             && recovery_leaf_for(path, leaf, 128) == 1) {
         path_join(full, EDITOR_PATH, dir, leaf);
         if (full[0] != 0)
@@ -4005,6 +4138,12 @@ void ui_theme_pick(void *data) {
         editorUi->choose_theme_list();
 }
 
+void ui_project_pick(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->choose_project_list();
+}
+
 void ui_theme_save(void *data) {
     (void)data;
     if (editorUi != nullptr)
@@ -4131,6 +4270,10 @@ void Ui::load_settings(void) {
     config_defaults(&item);
     if (config_path(path, EDITOR_PATH) == 0)
         return;
+    projectUsed = project_lines(
+            path,
+            projectPath,
+            EDITOR_RECENT_MAX);
     if (config_read(path, &item) == 0)
         return;
     keep_theme_base(&item);
@@ -4254,7 +4397,7 @@ void Ui::apply_settings(void) {
     if (theme_is_default(themeName) == 0)
         give_theme_base(&item);
     if (config_path(path, EDITOR_PATH) == 1)
-        config_write(path, &item);
+        write_config(path, &item);
     settingsHold = 0;
 }
 
@@ -5644,6 +5787,20 @@ void Ui::show_settings(void) {
         pages->append_page(
                 (Widget *)page_scroll((Widget *)box),
                 "General");
+        {
+            Box *projects;
+
+            projects = new Box(GTK_VERTICAL, 8);
+            projects->set_h_expand(true);
+            projectDrop = new DropDown();
+            projectDrop->on_changed(ui_project_pick, nullptr);
+            projects->append((Widget *)labeled_field(
+                    "Recent projects",
+                    (Widget *)projectDrop));
+            pages->append_page(
+                    (Widget *)page_scroll((Widget *)projects),
+                    "Projects");
+        }
         pages->append_page(
                 (Widget *)page_scroll((Widget *)search),
                 "Search");
@@ -5814,6 +5971,7 @@ void Ui::show_settings(void) {
     }
     fill_themes();
     fill_languages();
+    fill_projects();
     settingsHold = 0;
     push_options();
     settingsDialog->present();
@@ -6332,6 +6490,20 @@ void Ui::collect_open(EditorConfig *item) {
     item->openCount = n;
 }
 
+void Ui::write_config(const char *path, EditorConfig *item) {
+    if (path == nullptr || item == nullptr)
+        return;
+    if (config_write(path, item) == 0)
+        return;
+    settings_note(path, nullptr, projectPath, projectUsed);
+    if (project_path()[0] != 0)
+        project_store(
+                project_path(),
+                item,
+                projectPath,
+                projectUsed);
+}
+
 void Ui::store_session(void) {
     EditorConfig item;
     char path[EDITOR_PATH];
@@ -6375,7 +6547,7 @@ void Ui::store_session(void) {
     item.activePath[0] = 0;
     if (rememberFiles == 1)
         collect_open(&item);
-    config_write(path, &item);
+    write_config(path, &item);
 }
 
 void Ui::show_recent(void) {
@@ -6844,7 +7016,7 @@ void Ui::set_recovery_keep(int value) {
     recoveryKeep = value;
     if (applying == 1 || settingsHold != 0)
         return;
-    if (recovery_dir(dir, EDITOR_PATH) == 1)
+    if (recovery_place(dir, EDITOR_PATH) == 1)
         trim_recovery_dir(dir, recoveryKeep);
     apply_settings();
 }
@@ -6906,7 +7078,7 @@ int Ui::write_recovery_files(void) {
 
     if (state == nullptr)
         return 0;
-    if (recovery_dir(dir, EDITOR_PATH) == 0)
+    if (recovery_place(dir, EDITOR_PATH) == 0)
         return 0;
     n = 0;
     i = 0;
