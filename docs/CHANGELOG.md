@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+Edit can record keystrokes and play them back. Record
+starts a list on the current text view. Stop keeps it.
+Play inserts typing, Enter, Tab, Backspace, Delete, and
+arrow keys into the view. A Control or Alt key that
+matches a command runs that command. GTK 4 has no
+key-event constructor, so playback performs the key.
+The list holds 64 keys.
 Edit can keep several carets in one buffer. Add caret
 puts another caret on the next line, in the same column.
 Clear carets removes the extras. Typing, Backspace,
@@ -25,7 +32,7 @@ The top of the window is a menu bar. File, Edit, Search, View,
 and Documents are submenus. File has New, Open, Save, Save As,
 Save All, Close, and Quit. Edit has Undo, Redo, Cut, Copy,
 Paste, Indent, Unindent, Comment, Add caret, Clear
-carets, and Settings. Search has
+carets, Record, Stop, Play, and Settings. Search has
 Search, Replace,
 Reverse, Whole word, Match case, and Wrap. The last four are
 check items. A selection that covers more than one line

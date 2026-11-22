@@ -83,12 +83,17 @@ the file name. The dot is removed when the buffer is clean.
 
 Edit covers Undo, Redo, Cut, Copy, Paste, Indent,
 Unindent, Comment, Block comment, Add caret, Clear
-carets, and Settings. Comment toggles a line comment on
-every selected line. Ctrl+/ runs it. Add caret puts
-another caret on the next line, in the same column.
-Typing, Backspace, Delete, and Comment then apply at
-each caret. Clear carets removes the extras. An arrow
-key or a click clears them too. Block comment is Alt+/,
+carets, Record, Stop, Play, and Settings. Comment
+toggles a line comment on every selected line. Ctrl+/
+runs it. Add caret puts another caret on the next line,
+in the same column. Typing, Backspace, Delete, and
+Comment then apply at each caret. Clear carets removes
+the extras. An arrow key or a click clears them too.
+Record stores the keystrokes that reach the text view.
+Stop keeps that list. Play performs it: typing, Enter,
+Tab, Backspace, Delete, and the arrow keys run in the
+view, and a shortcut runs its command. Block comment
+is Alt+/,
 and it adds a
 multi-line comment without removing one. Python, shell,
 and toml put `#` on each line.

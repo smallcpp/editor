@@ -174,7 +174,7 @@ static void pump(int count) {
     }
 }
 
-static int send_ctrl_s(void) {
+static int send_chord(unsigned long keysym, int ctrl) {
     void *display;
     unsigned long root;
     unsigned long parent;
@@ -182,7 +182,7 @@ static int send_ctrl_s(void) {
     unsigned int count;
     unsigned long win;
     unsigned int i;
-    unsigned int ctrl;
+    unsigned int mod;
     unsigned int key;
     int clickX;
     int clickY;
@@ -249,19 +249,27 @@ static int send_ctrl_s(void) {
     XTestFakeButtonEvent(display, 1, 0, 0);
     XFlush(display);
     usleep(80000);
-    ctrl = XKeysymToKeycode(display, 0xffe3);
-    key = XKeysymToKeycode(display, 0x73);
-    XTestFakeKeyEvent(display, ctrl, 1, 0);
-    XFlush(display);
-    usleep(20000);
+    key = XKeysymToKeycode(display, keysym);
+    mod = 0;
+    if (ctrl != 0) {
+        mod = XKeysymToKeycode(display, 0xffe3);
+        XTestFakeKeyEvent(display, mod, 1, 0);
+        XFlush(display);
+        usleep(20000);
+    }
     XTestFakeKeyEvent(display, key, 1, 0);
     XFlush(display);
     usleep(40000);
     XTestFakeKeyEvent(display, key, 0, 0);
-    XTestFakeKeyEvent(display, ctrl, 0, 0);
+    if (mod != 0)
+        XTestFakeKeyEvent(display, mod, 0, 0);
     XFlush(display);
     XCloseDisplay(display);
     return 1;
+}
+
+static int send_ctrl_s(void) {
+    return send_chord(0x73, 1);
 }
 
 int main(void) {
@@ -665,6 +673,18 @@ int main(void) {
         ui->on_menu("Unindent");
         expect(text_same(ui->page_text(0), "line\n") == 1,
                 "view unindent");
+        view->set_text("hi");
+        ui->on_menu("Record");
+        ui->record_key("<Shift>q");
+        ui->record_key("<Control>slash");
+        ui->on_menu("Stop");
+        expect(ui->recorded_keys() == 2, "two keys recorded");
+        view->set_text("hi");
+        start = new TextIter(0, 0);
+        view->place_cursor(start);
+        ui->on_menu("Play");
+        expect(text_same(ui->page_text(0), "// Qhi") == 1,
+                "played the macro");
         view->set_text("one\ntwo\n");
         pump(4);
         start = new TextIter(0, 0);
@@ -762,6 +782,18 @@ int main(void) {
             y = ui->gutter_line_y(0);
             expect(y >= 0 && y < 40,
                     "line 1 sits on the first text line");
+            view->set_text("");
+            ui->on_menu("Record");
+            expect(send_chord(0x71, 0) == 1, "letter sent");
+            pump(20);
+            ui->on_menu("Stop");
+            expect(ui->recorded_keys() >= 1, "heard the letter");
+            expect(text_has(ui->page_text(0), "q") == 1,
+                    "letter reached the buffer");
+            view->set_text("");
+            ui->on_menu("Play");
+            expect(text_same(ui->page_text(0), "q") == 1,
+                    "played the letter");
             i = 0;
             while (i + 2 < 256) {
                 many[i] = 'x';

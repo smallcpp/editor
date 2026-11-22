@@ -737,7 +737,7 @@ Editor *Ui::editor(void) {
 
 void Ui::build(void) {
     const char *fileLabels[9];
-    const char *editLabels[12];
+    const char *editLabels[15];
     const char *searchLabels[6];
     const char *viewLabels[4];
     long fileMenu;
@@ -786,7 +786,10 @@ void Ui::build(void) {
     editLabels[8] = "Block comment";
     editLabels[9] = "Add caret";
     editLabels[10] = "Clear carets";
-    editLabels[11] = "Settings";
+    editLabels[11] = "Record";
+    editLabels[12] = "Stop";
+    editLabels[13] = "Play";
+    editLabels[14] = "Settings";
     fileMenu = menuBar->add_menu(
             "File",
             fileLabels,
@@ -796,7 +799,7 @@ void Ui::build(void) {
     editMenu = menuBar->add_menu(
             "Edit",
             editLabels,
-            12,
+            15,
             ui_menu,
             nullptr);
     searchMenu = menuBar->add_menu(
@@ -818,6 +821,7 @@ void Ui::build(void) {
     menuBar->set_separator(editMenu, 5);
     menuBar->set_separator(editMenu, 9);
     menuBar->set_separator(editMenu, 11);
+    menuBar->set_separator(editMenu, 14);
     menuBar->set_separator(searchMenu, 2);
     documentsMenu = menuBar->add_menu(
             "Documents",
@@ -1809,6 +1813,94 @@ void Ui::place_cursor(long index) {
             &column);
     if (pages[index].view != nullptr)
         pages[index].view->scroll_to(line, column);
+}
+
+TextView *Ui::current_view(void) {
+    long index;
+
+    if (state == nullptr)
+        return nullptr;
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return nullptr;
+    return pages[index].view;
+}
+
+void Ui::record_macro(int on) {
+    TextView *view;
+
+    view = current_view();
+    if (view == nullptr)
+        return;
+    view->record(on);
+}
+
+void Ui::record_key(const char *accel) {
+    TextView *view;
+
+    view = current_view();
+    if (view == nullptr || accel == nullptr)
+        return;
+    view->record_key(accel);
+}
+
+int Ui::recorded_keys(void) {
+    TextView *view;
+
+    view = current_view();
+    if (view == nullptr)
+        return 0;
+    return view->recorded();
+}
+
+void Ui::play_macro(void) {
+    TextView *view;
+    int n;
+    int i;
+
+    view = current_view();
+    if (view == nullptr)
+        return;
+    view->record(0);
+    n = view->recorded();
+    i = 0;
+    while (i < n) {
+        char key[64];
+        const char *raw;
+        int handled;
+        int slot;
+
+        raw = view->recorded_key(i);
+        if (raw == nullptr)
+            raw = "";
+        text_copy(key, 64, raw);
+        handled = view->play_key(key);
+        if (handled == 0 && state != nullptr) {
+            slot = 0;
+            while (slot < EDITOR_KEY_COUNT) {
+                const char *label;
+                const char *command;
+                const char *config;
+                const char *accel;
+
+                key_info(
+                        slot,
+                        &label,
+                        &command,
+                        &config,
+                        &accel);
+                (void)label;
+                (void)config;
+                (void)accel;
+                if (text_same(keyAccel[slot], key) == 1) {
+                    handle(state->run(command));
+                    break;
+                }
+                slot = slot + 1;
+            }
+        }
+        i = i + 1;
+    }
 }
 
 void Ui::take_carets(long index) {
@@ -5865,6 +5957,18 @@ void Ui::on_menu(const char *label) {
     }
     if (text_same(label, "Block comment") == 1) {
         handle(state->run("block-comment"));
+        return;
+    }
+    if (text_same(label, "Record") == 1) {
+        record_macro(1);
+        return;
+    }
+    if (text_same(label, "Stop") == 1) {
+        record_macro(0);
+        return;
+    }
+    if (text_same(label, "Play") == 1) {
+        play_macro();
         return;
     }
 }
