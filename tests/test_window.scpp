@@ -321,6 +321,10 @@ int main(void) {
         ui->open_recent(pathC);
         expect(ui->missing_prompt() == 1,
                 "recent says missing");
+        expect(text_same(
+                    ui->missing_text(),
+                    "File \"how_dy.scpp\" not found.") == 1,
+                "missing text");
         expect(editor->count() == 2,
                 "missing file stays closed");
         expect(text_same(ui->page_text(0), "one\n") == 1,

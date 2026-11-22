@@ -10,6 +10,15 @@ extern unsigned g_timeout_add(
         unsigned interval,
         void *func,
         void *data);
+extern void *gtk_message_dialog_new(
+        void *parent,
+        int flags,
+        int type,
+        int buttons,
+        const char *text,
+        ...);
+extern void gtk_window_present(void *window);
+extern void gtk_widget_set_visible(void *widget, int visible);
 extern unsigned long g_signal_connect_data(
         void *instance,
         const char *signal,
@@ -59,10 +68,15 @@ void ui_recent(void *data, const char *path) {
     editorUi->open_recent(path);
 }
 
-void ui_missing_response(void *data, int response) {
+void ui_message_response(
+        void *dialog,
+        int response,
+        void *data) {
+    (void)dialog;
+    (void)response;
     (void)data;
     if (editorUi != nullptr)
-        editorUi->answer_missing(response);
+        editorUi->answer_missing(0);
 }
 
 void ui_resized(void *data, long width, long height) {
@@ -414,10 +428,10 @@ Ui::Ui(Editor *editor) {
     recoveryMark = 0;
     diskDialog = nullptr;
     goneDialog = nullptr;
-    missingDialog = nullptr;
+    missingNative = nullptr;
     diskLabel = nullptr;
     goneLabel = nullptr;
-    missingLabel = nullptr;
+    missingNote[0] = 0;
     missingOpen = 0;
     recoverCheck = nullptr;
     recoverEntry = nullptr;
@@ -1194,11 +1208,40 @@ void Ui::handle(int code) {
     refresh();
 }
 
-static void join_note(
+static void missing_line(
         char *dest,
         long cap,
-        const char *title,
-        const char *tail);
+        const char *name) {
+    const char *prefix;
+    const char *suffix;
+    long n;
+    long i;
+
+    prefix = "File \"";
+    suffix = "\" not found.";
+    n = 0;
+    i = 0;
+    if (name == nullptr)
+        name = "";
+    while (prefix[i] != 0 && n + 1 < cap) {
+        dest[n] = prefix[i];
+        n = n + 1;
+        i = i + 1;
+    }
+    i = 0;
+    while (name[i] != 0 && n + 1 < cap) {
+        dest[n] = name[i];
+        n = n + 1;
+        i = i + 1;
+    }
+    i = 0;
+    while (suffix[i] != 0 && n + 1 < cap) {
+        dest[n] = suffix[i];
+        n = n + 1;
+        i = i + 1;
+    }
+    dest[n] = 0;
+}
 
 void Ui::open_recent(const char *path) {
     if (leaving == 1)
@@ -1213,7 +1256,8 @@ void Ui::open_recent(const char *path) {
 }
 
 void Ui::show_missing(const char *path) {
-    char text[160];
+    void *parent;
+    void (*typed)(void *, int, void *);
     const char *base;
 
     if (path == nullptr || path[0] == 0)
@@ -1221,31 +1265,48 @@ void Ui::show_missing(const char *path) {
     base = path_base(path);
     if (base == nullptr || base[0] == 0)
         base = path;
-    if (missingDialog == nullptr) {
-        missingDialog = new Dialog("File missing");
-        missingDialog->set_transient(mainWindow);
-        missingLabel = new Label("");
-        missingDialog->set_content((Widget *)missingLabel);
-        missingDialog->add_button("Close", 1);
-        missingDialog->on_response(
-                ui_missing_response,
-                nullptr);
-    }
-    join_note(text, 160, base, " is missing.");
-    missingLabel->set_text(text);
+    missing_line(missingNote, EDITOR_PATH, base);
+    parent = nullptr;
+    if (mainWindow != nullptr)
+        parent = mainWindow->native;
+    missingNative = gtk_message_dialog_new(
+            parent,
+            3,
+            3,
+            2,
+            "%s",
+            missingNote);
+    if (missingNative == nullptr)
+        return;
+    typed = ui_message_response;
+    g_signal_connect_data(
+            missingNative,
+            "response",
+            (void *)typed,
+            nullptr,
+            nullptr,
+            0);
     missingOpen = 1;
-    missingDialog->present();
+    gtk_window_present(missingNative);
 }
 
 void Ui::answer_missing(int response) {
+    void *dialog;
+
     (void)response;
     missingOpen = 0;
-    if (missingDialog != nullptr)
-        missingDialog->set_visible(false);
+    dialog = missingNative;
+    missingNative = nullptr;
+    if (dialog != nullptr)
+        gtk_widget_set_visible(dialog, 0);
 }
 
 int Ui::missing_prompt(void) {
     return missingOpen;
+}
+
+const char *Ui::missing_text(void) {
+    return missingNote;
 }
 
 void Ui::open_path(const char *path) {
@@ -4495,8 +4556,6 @@ void Ui::leave(void) {
         diskDialog->set_visible(false);
     if (goneDialog != nullptr)
         goneDialog->set_visible(false);
-    if (missingDialog != nullptr)
-        missingDialog->set_visible(false);
     if (choiceDialog != nullptr)
         choiceDialog->set_visible(false);
     if (dirtyDialog != nullptr) {
