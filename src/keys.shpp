@@ -5,7 +5,7 @@
  * index matches the order File, Edit, Search.
  */
 enum {
-    EDITOR_KEY_COUNT = 18
+    EDITOR_KEY_COUNT = 19
 };
 
 void key_info(
@@ -16,5 +16,9 @@ void key_info(
         const char **accel);
 int key_index(const char *line);
 int key_place(int index, long *menu, long *item);
+void accel_shown(
+        char *dest,
+        long cap,
+        const char *accel);
 
 #endif

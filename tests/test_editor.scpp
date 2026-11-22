@@ -498,17 +498,32 @@ int main(void) {
         notes->active()->buffer()->set_text("alpha\nbeta\n");
         notes->active()->buffer()->select_span(1, 1, 3, 1);
         expect(notes->run("comment") == EDITOR_OK,
+                "several lines");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "// alpha\n// beta\n") == 1,
+                "each selected line is commented");
+        notes->active()->buffer()->select_span(1, 1, 3, 1);
+        expect(notes->run("comment") == EDITOR_OK,
+                "uncomment lines");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "alpha\nbeta\n") == 1,
+                "each selected line toggles off");
+        notes->active()->buffer()->set_text("alpha\nbeta\n");
+        notes->active()->buffer()->select_span(1, 1, 3, 1);
+        expect(notes->run("block-comment") == EDITOR_OK,
                 "block comment");
         expect(text_same(
                     notes->active()->buffer()->text(),
                     "/*alpha\nbeta\n*/") == 1,
                 "several lines use a block");
-        expect(notes->run("comment") == EDITOR_OK,
-                "remove block");
+        expect(notes->run("block-comment") == EDITOR_OK,
+                "block again");
         expect(text_same(
                     notes->active()->buffer()->text(),
-                    "alpha\nbeta\n") == 1,
-                "block toggles off");
+                    "/*/*alpha\nbeta\n*/*/") == 1,
+                "block does not toggle");
         path_join(path, EDITOR_PATH, dir, "widget.py");
         expect(write_file(
                     path,
@@ -524,6 +539,22 @@ int main(void) {
                     notes->active()->buffer()->text(),
                     "# print(1)\n# print(2)\n") == 1,
                 "hash marks each line");
+        notes->active()->buffer()->set_text(
+                "print(1)\nprint(2)\n");
+        notes->active()->buffer()->select_span(1, 1, 3, 1);
+        expect(notes->run("block-comment") == EDITOR_OK,
+                "python add");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "# print(1)\n# print(2)\n") == 1,
+                "hash block adds a marker");
+        notes->active()->buffer()->select_span(1, 1, 3, 1);
+        expect(notes->run("block-comment") == EDITOR_OK,
+                "python add again");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "# # print(1)\n# # print(2)\n") == 1,
+                "hash block does not toggle");
         path_join(path, EDITOR_PATH, dir, "notes.md");
         expect(write_file(path, "hello\n", &err) == 1,
                 "md seed");
@@ -543,8 +574,16 @@ int main(void) {
                 "suffix comment");
         expect(text_same(
                     notes->active()->buffer()->text(),
+                    "// int a;\n// int b;\n") == 1,
+                "highlighted suffix uses line comments");
+        notes->active()->buffer()->set_text("int a;\nint b;\n");
+        notes->active()->buffer()->select_span(1, 1, 3, 1);
+        expect(notes->run("block-comment") == EDITOR_OK,
+                "suffix block");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
                     "/*int a;\nint b;\n*/") == 1,
-                "highlighted suffix uses a block");
+                "highlighted suffix can add a block");
         path_join(path, EDITOR_PATH, dir, "CMakeLists.txt");
         expect(write_file(path, "set(A 1)\n", &err) == 1,
                 "cmake seed");
@@ -583,6 +622,31 @@ int main(void) {
         expect(key_place(which, &menu, &item) == 1,
                 "comment place");
         expect(menu == 1 && item == 7, "comment menu");
+        {
+            char shown[64];
+
+            accel_shown(shown, 64, accel);
+            expect(text_same(shown, "<Control>/") == 1,
+                    "slash shows as /");
+            accel_shown(shown, 64, "<Alt>slash");
+            expect(text_same(shown, "<Alt>/") == 1,
+                    "alt slash shows as /");
+            accel_shown(shown, 64, "<Control>n");
+            expect(text_same(shown, "<Control>n") == 1,
+                    "letter shortcut stays");
+        }
+        which = key_index("key-block-comment=");
+        expect(which == 16, "block key");
+        key_info(which, &label, &command, &config, &accel);
+        expect(text_same(label, "Block comment") == 1,
+                "block label");
+        expect(text_same(command, "block-comment") == 1,
+                "block command");
+        expect(text_same(accel, "<Alt>slash") == 1,
+                "alt slash");
+        expect(key_place(which, &menu, &item) == 1,
+                "block place");
+        expect(menu == 1 && item == 8, "block menu");
     }
     {
         char folder[EDITOR_PATH];

@@ -60,10 +60,12 @@ off. Show path in file tab is off, and its depth starts
 at 0. Depth 0 shows only the file name. Autoclose pairs
 are an edit box.
 The default is `()[]{}""''`, saved as `bracket-pairs`.
-Comment is Ctrl+/. One line uses the line marker, and
-several lines use a block comment when the language has
-one. `#` languages, CMakeLists.txt, Makefile, and
-Dockerfile comment each line. A highlighted suffix wins.
+Comment is Ctrl+/ and toggles a line comment on every
+selected line. Block comment is Alt+/ and adds a
+multi-line comment without removing one. The shortcut
+list shows `/` instead of the name slash. `#` languages,
+CMakeLists.txt, Makefile, and Dockerfile comment each
+line. A highlighted suffix wins.
 A shebang selects the language. Markdown and plain text
 ignore it. Close button on file tabs is on General. It
 is not on

@@ -17,10 +17,12 @@ groups: File separates new and open, the saves, the closes,
 and Quit. Edit separates undo, the clipboard, and indent.
 Search separates the commands from the options. Edit
 separates Settings from the other commands. Comment
-toggles a comment, and Ctrl+/ is its key. No selection,
-or one selected line, uses the line marker. Several
-selected lines use a block comment when the language has
-one. Python, shell, and toml use `#` on each line.
+toggles a line comment on every selected line. Ctrl+/
+is its key. Block comment is Alt+/, and it adds a
+multi-line comment without removing one. A language
+whose only marker is `#` uses that marker on each line.
+The shortcut list shows `/` instead of the name slash.
+Python, shell, and toml use `#` on each line.
 CMakeLists.txt, Makefile, makefile, GNUmakefile,
 Dockerfile, dockerfile, and Containerfile do too. A
 suffix the editor already highlights keeps that language,

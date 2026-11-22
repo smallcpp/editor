@@ -547,7 +547,7 @@ Editor *Ui::editor(void) {
 
 void Ui::build(void) {
     const char *fileLabels[9];
-    const char *editLabels[9];
+    const char *editLabels[10];
     const char *searchLabels[6];
     const char *viewLabels[4];
     long fileMenu;
@@ -593,7 +593,8 @@ void Ui::build(void) {
     editLabels[5] = "Indent";
     editLabels[6] = "Unindent";
     editLabels[7] = "Comment";
-    editLabels[8] = "Settings";
+    editLabels[8] = "Block comment";
+    editLabels[9] = "Settings";
     fileMenu = menuBar->add_menu(
             "File",
             fileLabels,
@@ -603,7 +604,7 @@ void Ui::build(void) {
     editMenu = menuBar->add_menu(
             "Edit",
             editLabels,
-            9,
+            10,
             ui_menu,
             nullptr);
     searchMenu = menuBar->add_menu(
@@ -623,7 +624,7 @@ void Ui::build(void) {
     menuBar->set_separator(fileMenu, 8);
     menuBar->set_separator(editMenu, 2);
     menuBar->set_separator(editMenu, 5);
-    menuBar->set_separator(editMenu, 8);
+    menuBar->set_separator(editMenu, 9);
     menuBar->set_separator(searchMenu, 2);
     documentsMenu = menuBar->add_menu(
             "Documents",
@@ -2117,10 +2118,7 @@ static void add_dot(char *buf, long cap) {
 }
 
 static void button_text(const char *accel, char *buf, long cap) {
-    if (accel == nullptr || accel[0] == 0)
-        text_copy(buf, cap, "none");
-    else
-        text_copy(buf, cap, accel);
+    accel_shown(buf, cap, accel);
 }
 
 void Ui::show_key_note(void) {
@@ -4013,7 +4011,8 @@ void Ui::on_menu(const char *label) {
             || text_same(label, "Copy") == 1
             || text_same(label, "Indent") == 1
             || text_same(label, "Unindent") == 1
-            || text_same(label, "Comment") == 1)
+            || text_same(label, "Comment") == 1
+            || text_same(label, "Block comment") == 1)
         take_selection();
     if (text_same(label, "Cut") == 1) {
         handle(state->run("cut"));
@@ -4037,6 +4036,10 @@ void Ui::on_menu(const char *label) {
     }
     if (text_same(label, "Comment") == 1) {
         handle(state->run("comment"));
+        return;
+    }
+    if (text_same(label, "Block comment") == 1) {
+        handle(state->run("block-comment"));
         return;
     }
 }
