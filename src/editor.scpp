@@ -779,13 +779,32 @@ int Editor::run(const char *command) {
                 doc->buffer()->text(),
                 &leader,
                 &block);
+        (void)block;
         if (leader == nullptr || leader[0] == 0)
             return EDITOR_OK;
-        if (block != 0
-                && doc->buffer()->several_lines() == true)
-            doc->buffer()->toggle_block_comment();
-        else
-            doc->buffer()->toggle_line_comment(leader);
+        doc->buffer()->toggle_line_comment(leader);
+        return EDITOR_OK;
+    }
+    if (text_same(command, "block-comment") == 1) {
+        Document *doc;
+        const char *leader;
+        int block;
+
+        doc = active();
+        if (doc == nullptr || doc->buffer() == nullptr)
+            return EDITOR_OK;
+        leader = "";
+        block = 0;
+        comment_style(
+                doc->language(),
+                doc->path(),
+                doc->buffer()->text(),
+                &leader,
+                &block);
+        if (block != 0)
+            doc->buffer()->add_block_comment();
+        else if (leader != nullptr && leader[0] != 0)
+            doc->buffer()->add_line_comment(leader);
         return EDITOR_OK;
     }
     set_error("unknown command");

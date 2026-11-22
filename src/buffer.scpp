@@ -836,6 +836,14 @@ void EditBuffer::line_range(long *first, long *last) {
 }
 
 void EditBuffer::toggle_line_comment(const char *leader) {
+    line_comment(leader, 1);
+}
+
+void EditBuffer::add_line_comment(const char *leader) {
+    line_comment(leader, 0);
+}
+
+void EditBuffer::line_comment(const char *leader, int toggle) {
     long first;
     long last;
     long line;
@@ -854,8 +862,10 @@ void EditBuffer::toggle_line_comment(const char *leader) {
     lead = text_length(leader);
     line_range(&first, &last);
     all = 1;
+    if (toggle == 0)
+        all = 0;
     line = first;
-    while (line <= last) {
+    while (toggle != 0 && line <= last) {
         start = byte_at_line(line, 0);
         at = start;
         raw = body->c_str();
@@ -963,6 +973,32 @@ void EditBuffer::toggle_block_comment(void) {
         anchor = lo;
         return;
     }
+    push_undo();
+    inner = new String();
+    inner->append("/*");
+    inner->append(slice_text(raw, lo, hi));
+    inner->append("*/");
+    splice(lo, hi, inner->c_str());
+    anchor = lo;
+    cursor = lo + inner->size();
+}
+
+void EditBuffer::add_block_comment(void) {
+    long lo;
+    long hi;
+    String *inner;
+    const char *raw;
+
+    if (has_selection() == false) {
+        push_undo();
+        splice(cursor, cursor, "/*  */");
+        cursor = cursor - 3;
+        anchor = cursor;
+        return;
+    }
+    lo = sel_lo();
+    hi = sel_hi();
+    raw = body->c_str();
     push_undo();
     inner = new String();
     inner->append("/*");

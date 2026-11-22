@@ -1,4 +1,5 @@
 #include "keys.shpp"
+#include "util.shpp"
 
 static void key_row(
         int index,
@@ -70,11 +71,45 @@ void key_info(
     key_row(index, 15, "Comment", "comment",
             "key-comment", "<Control>slash",
             label, command, config, accel);
-    key_row(index, 16, "Search", "search", "key-search",
+    key_row(index, 16, "Block comment", "block-comment",
+            "key-block-comment", "<Alt>slash",
+            label, command, config, accel);
+    key_row(index, 17, "Search", "search", "key-search",
             "<Control>f", label, command, config, accel);
-    key_row(index, 17, "Replace", "replace",
+    key_row(index, 18, "Replace", "replace",
             "key-replace", "<Control>h",
             label, command, config, accel);
+}
+
+void accel_shown(
+        char *dest,
+        long cap,
+        const char *accel) {
+    long i;
+    long n;
+
+    if (dest == nullptr || cap < 1)
+        return;
+    dest[0] = 0;
+    if (accel == nullptr || accel[0] == 0) {
+        text_copy(dest, cap, "none");
+        return;
+    }
+    i = 0;
+    n = 0;
+    while (accel[i] != 0 && n + 1 < cap) {
+        if (text_starts(accel + i, "slash") == 1) {
+            dest[n] = '/';
+            n = n + 1;
+            i = i + 5;
+        }
+        else {
+            dest[n] = accel[i];
+            n = n + 1;
+            i = i + 1;
+        }
+    }
+    dest[n] = 0;
 }
 
 int key_index(const char *line) {
@@ -116,12 +151,12 @@ int key_place(int index, long *menu, long *item) {
         *item = index + 1;
         return 1;
     }
-    if (index < 16) {
+    if (index < 17) {
         *menu = 1;
         *item = index - 8;
         return 1;
     }
     *menu = 2;
-    *item = index - 16;
+    *item = index - 17;
     return 1;
 }

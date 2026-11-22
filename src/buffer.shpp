@@ -78,7 +78,9 @@ public:
     void strip_trailing(void);
     void ensure_newline(void);
     void toggle_line_comment(const char *leader);
+    void add_line_comment(const char *leader);
     void toggle_block_comment(void);
+    void add_block_comment(void);
     void indent_lines(long width, int style);
     void outdent_lines(long width, int style);
     void insert_column(const char *value);
@@ -167,6 +169,7 @@ private:
             long oldFrom,
             long oldTo);
     void line_range(long *first, long *last);
+    void line_comment(const char *leader, int toggle);
     bool spans_lines(void);
     int leading_indent(long lineStart, long *indentEnd);
 };

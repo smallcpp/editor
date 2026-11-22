@@ -69,10 +69,11 @@ a fresh untitled buffer. A modified tab draws a dot before
 the file name. The dot is removed when the buffer is clean.
 
 Edit covers Undo, Redo, Cut, Copy, Paste, Indent,
-Unindent, Comment, and Settings. Comment toggles a
-comment. Ctrl+/ runs it. One line uses the line marker.
-Several lines use a block comment when the language has
-one. Python, shell, and toml put `#` on each line.
+Unindent, Comment, Block comment, and Settings. Comment
+toggles a line comment on every selected line. Ctrl+/
+runs it. Block comment is Alt+/, and it adds a
+multi-line comment without removing one. Python, shell,
+and toml put `#` on each line.
 CMakeLists.txt, Makefile, and Dockerfile do too, as do
 makefile, GNUmakefile, dockerfile, and Containerfile. A
 highlighted suffix wins over those names. A shebang on
