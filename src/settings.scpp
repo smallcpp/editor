@@ -368,6 +368,7 @@ void config_defaults(EditorConfig *item) {
     item->pathDepth = 0;
     item->recoveryOn = 0;
     item->recoveryMinutes = 5;
+    item->recoveryKeep = 20;
     item->recentCount = 10;
     item->openCount = 0;
     item->recentUsed = 0;
@@ -631,6 +632,10 @@ static void take_line(EditorConfig *item, const char *line) {
         item->recoveryMinutes = read_int(
                 value,
                 item->recoveryMinutes);
+    if (key_is(line, "recovery-keep") == 1)
+        item->recoveryKeep = read_int(
+                value,
+                item->recoveryKeep);
     if (key_is(line, "indent-with") == 1) {
         if (text_same(value, "tabs") == 1)
             item->spaces = 0;
@@ -722,6 +727,8 @@ int config_read(const char *path, EditorConfig *item) {
     if (item->recoveryMinutes < 1
             || item->recoveryMinutes > 1440)
         item->recoveryMinutes = 5;
+    if (item->recoveryKeep < 0 || item->recoveryKeep > 500)
+        item->recoveryKeep = 20;
     if (item->recentUsed > item->recentCount)
         item->recentUsed = item->recentCount;
     return 1;
@@ -852,6 +859,7 @@ int config_write(
     add_num(text, "path-depth", item->pathDepth);
     add_flag(text, "recovery", item->recoveryOn);
     add_num(text, "recovery-minutes", item->recoveryMinutes);
+    add_num(text, "recovery-keep", item->recoveryKeep);
     add_num(text, "recent-count", item->recentCount);
     if (item->windowWidth >= 100
             && item->windowHeight >= 100) {

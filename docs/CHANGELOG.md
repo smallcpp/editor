@@ -38,7 +38,9 @@ When a buffer's file changes on disk, a dialog offers
 Reload, Save, or Ignore. A saved file that disappears
 is reported once. General can write recovery copies.
 That checkbox is off. The minutes box starts at 5.
-Copies go in `$HOME/.config/smallcpp/recovery`. A settings
+Copies go in `$HOME/.config/smallcpp/recovery`. Keep
+starts at 20 and is `recovery-keep`. Older copies past
+that count are removed. A settings
 control writes `$HOME/.config/smallcpp/editor.ini` when it
 changes. Close only hides the dialog. Settings is a notebook
 with the tabs on the
@@ -65,8 +67,8 @@ that is gone opens a message dialog,
 File "name" not found., and does not open a buffer.
 When recovery is on and that file has a recovery copy,
 startup asks to Open or Ignore it. Open loads the copy
-and says File "name" was restored. Ignore leaves it
-closed. When Remember
+and says File "name" was restored. Ignore deletes
+that copy and leaves the file closed. When Remember
 files is on, the open file paths and the active file are
 stored and opened again next time. An untitled buffer is
 not restored. The document tabs scroll with left and
