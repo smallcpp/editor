@@ -378,6 +378,69 @@ void check_panels(Ui *ui) {
     expect(ui->map_checked() == 1, "map checked");
 }
 
+void seed_ctrl_a(void) {
+    char path[EDITOR_PATH];
+    const char *io;
+
+    expect(config_path(path, EDITOR_PATH) == 1, "config path");
+    io = "";
+    expect(write_file(
+                path,
+                "key-copy=<Control>a\n",
+                &io) == 1,
+            "seed copy key");
+}
+
+void check_select_all(Ui *ui, Editor *editor) {
+    TextBuffer *view;
+    TextIter *start;
+    TextIter *end;
+    EditBuffer *buffer;
+    int shown;
+    int copy;
+    int select;
+
+    view = ui->view_buffer();
+    expect(view != nullptr, "select view");
+    if (view == nullptr)
+        return;
+    buffer = editor->active()->buffer();
+    expect(buffer != nullptr, "select buffer");
+    if (buffer == nullptr)
+        return;
+    expect(text_same(buffer->text(), "two\n") == 1,
+            "selects the open file");
+    start = new TextIter(0, 1);
+    view->place_cursor(start);
+    buffer->set_cursor_offset(1);
+    ui->on_menu("Select All");
+    pump(4);
+    expect(buffer->sel_lo() == 0, "select starts");
+    expect(buffer->sel_hi() == 4, "select ends");
+    expect(text_same(buffer->selected()->c_str(), "two\n") == 1,
+            "selects the file");
+    expect(buffer->dirty() == false, "select stays clean");
+    start = new TextIter(0, 0);
+    end = new TextIter(0, 0);
+    shown = 0;
+    if (view->selection_bounds(start, end) == true)
+        shown = 1;
+    expect(shown == 1, "view shows the selection");
+    expect(start->line() == 0 && start->offset() == 0,
+            "view starts at the top");
+    expect(end->line() == 1 && end->offset() == 0,
+            "view ends at the bottom");
+    copy = key_index("key-copy=");
+    select = key_index("key-select-all=");
+    expect(text_same(ui->key_text(copy), "") == 1,
+            "copy lost ctrl a");
+    expect(text_same(ui->key_text(select), "<Control>a") == 1,
+            "select keeps ctrl a");
+    start = new TextIter(0, 0);
+    view->place_cursor(start);
+    buffer->set_cursor_offset(0);
+}
+
 void check_projects(Ui *ui, const char *dir, const char *io) {
     char job[EDITOR_PATH];
     char other[EDITOR_PATH];
@@ -454,6 +517,7 @@ int main(void) {
         expect(editor->open_file(pathA) == EDITOR_OK, "open a");
         expect(editor->open_file(pathB) == EDITOR_OK, "open b");
         expect(setenv("HOME", dir, 1) == 0, "home");
+        seed_ctrl_a();
         ui = open_ui(editor);
         burn_stack(8);
         expect(text_same(ui->page_text(0), "one\n") == 1,
@@ -461,6 +525,7 @@ int main(void) {
         check_panels(ui);
         expect(text_same(ui->page_text(1), "two\n") == 1,
                 "page b");
+        check_select_all(ui, editor);
         path_join(pathC, EDITOR_PATH, dir, "how_dy.scpp");
         expect(write_file(pathC, "howdy\n", &io) == 1,
                 "seed howdy");

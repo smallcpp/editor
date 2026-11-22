@@ -900,7 +900,7 @@ Editor *Ui::editor(void) {
 
 void Ui::build(void) {
     const char *fileLabels[9];
-    const char *editLabels[15];
+    const char *editLabels[16];
     const char *searchLabels[6];
     const char *viewLabels[6];
     long fileMenu;
@@ -945,16 +945,17 @@ void Ui::build(void) {
     editLabels[2] = "Cut";
     editLabels[3] = "Copy";
     editLabels[4] = "Paste";
-    editLabels[5] = "Indent";
-    editLabels[6] = "Unindent";
-    editLabels[7] = "Comment";
-    editLabels[8] = "Block comment";
-    editLabels[9] = "Add caret";
-    editLabels[10] = "Clear carets";
-    editLabels[11] = "Record";
-    editLabels[12] = "Stop";
-    editLabels[13] = "Play";
-    editLabels[14] = "Settings";
+    editLabels[5] = "Select All";
+    editLabels[6] = "Indent";
+    editLabels[7] = "Unindent";
+    editLabels[8] = "Comment";
+    editLabels[9] = "Block comment";
+    editLabels[10] = "Add caret";
+    editLabels[11] = "Clear carets";
+    editLabels[12] = "Record";
+    editLabels[13] = "Stop";
+    editLabels[14] = "Play";
+    editLabels[15] = "Settings";
     fileMenu = menuBar->add_menu(
             "File",
             fileLabels,
@@ -964,7 +965,7 @@ void Ui::build(void) {
     editMenu = menuBar->add_menu(
             "Edit",
             editLabels,
-            15,
+            16,
             ui_menu,
             nullptr);
     searchMenu = menuBar->add_menu(
@@ -983,10 +984,10 @@ void Ui::build(void) {
     menuBar->set_separator(fileMenu, 6);
     menuBar->set_separator(fileMenu, 8);
     menuBar->set_separator(editMenu, 2);
-    menuBar->set_separator(editMenu, 5);
-    menuBar->set_separator(editMenu, 9);
-    menuBar->set_separator(editMenu, 11);
-    menuBar->set_separator(editMenu, 14);
+    menuBar->set_separator(editMenu, 6);
+    menuBar->set_separator(editMenu, 10);
+    menuBar->set_separator(editMenu, 12);
+    menuBar->set_separator(editMenu, 15);
     menuBar->set_separator(searchMenu, 2);
     menuBar->set_separator(viewMenu, 4);
     documentsMenu = menuBar->add_menu(
@@ -2732,7 +2733,10 @@ void Ui::play_macro(void) {
                 (void)config;
                 (void)accel;
                 if (text_same(keyAccel[slot], key) == 1) {
-                    handle(state->run(command));
+                    if (text_same(command, "select-all") == 1)
+                        select_file();
+                    else
+                        handle(state->run(command));
                     break;
                 }
                 slot = slot + 1;
@@ -4261,11 +4265,80 @@ int Ui::search_wrap(void) {
     return searchWrap;
 }
 
+void Ui::select_file(void) {
+    Document *doc;
+    int held;
+
+    if (state == nullptr)
+        return;
+    doc = state->active();
+    if (doc == nullptr || doc->buffer() == nullptr)
+        return;
+    doc->buffer()->select_all();
+    held = applying;
+    applying = 1;
+    place_cursor(state->index());
+    applying = held;
+}
+
+void Ui::claim_select_key(void) {
+    int n;
+    int which;
+    char want[64];
+    char mine[64];
+    char other[64];
+    const char *label;
+    const char *command;
+    const char *config;
+    const char *accel;
+
+    which = -1;
+    n = 0;
+    while (n < EDITOR_KEY_COUNT) {
+        key_info(n, &label, &command, &config, &accel);
+        if (text_same(command, "select-all") == 1)
+            which = n;
+        n = n + 1;
+    }
+    if (which < 0)
+        return;
+    if (keyAccel[which][0] == 0)
+        return;
+    if (mainWindow == nullptr)
+        return;
+    if (mainWindow->normalize_accel("<Control>a", want, 64) == 0)
+        return;
+    if (mainWindow->normalize_accel(
+                keyAccel[which],
+                mine,
+                64) == 0)
+        return;
+    if (text_same(want, mine) == 0)
+        return;
+    n = 0;
+    while (n < EDITOR_KEY_COUNT) {
+        if (n != which && keyAccel[n][0] != 0) {
+            if (mainWindow->normalize_accel(
+                        keyAccel[n],
+                        other,
+                        64) == 1) {
+                if (text_same(want, other) == 1) {
+                    keyAccel[n][0] = 0;
+                    if (keyButton[n] != nullptr)
+                        keyButton[n]->set_label("none");
+                }
+            }
+        }
+        n = n + 1;
+    }
+}
+
 void Ui::bind_keys(void) {
     int n;
 
     if (mainWindow == nullptr)
         return;
+    claim_select_key();
     mainWindow->clear_shortcuts();
     n = 0;
     while (n < EDITOR_KEY_COUNT) {
@@ -4561,6 +4634,7 @@ void Ui::read_keys(void) {
         }
         n = n + 1;
     }
+    claim_select_key();
     show_key_note();
 }
 
@@ -6902,6 +6976,10 @@ void Ui::on_menu(const char *label) {
     }
     if (text_same(label, "Paste") == 1) {
         handle(state->run("paste"));
+        return;
+    }
+    if (text_same(label, "Select All") == 1) {
+        select_file();
         return;
     }
     if (text_same(label, "Indent") == 1) {

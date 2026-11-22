@@ -62,21 +62,24 @@ void key_info(
             "<Control>c", label, command, config, accel);
     key_row(index, 12, "Paste", "paste", "key-paste",
             "<Control>v", label, command, config, accel);
-    key_row(index, 13, "Indent", "indent", "key-indent",
+    key_row(index, 13, "Select All", "select-all",
+            "key-select-all", "<Control>a",
+            label, command, config, accel);
+    key_row(index, 14, "Indent", "indent", "key-indent",
             "<Control>bracketright",
             label, command, config, accel);
-    key_row(index, 14, "Unindent", "unindent",
+    key_row(index, 15, "Unindent", "unindent",
             "key-unindent", "<Control>bracketleft",
             label, command, config, accel);
-    key_row(index, 15, "Comment", "comment",
+    key_row(index, 16, "Comment", "comment",
             "key-comment", "<Control>slash",
             label, command, config, accel);
-    key_row(index, 16, "Block comment", "block-comment",
+    key_row(index, 17, "Block comment", "block-comment",
             "key-block-comment", "<Alt>slash",
             label, command, config, accel);
-    key_row(index, 17, "Search", "search", "key-search",
+    key_row(index, 18, "Search", "search", "key-search",
             "<Control>f", label, command, config, accel);
-    key_row(index, 18, "Replace", "replace",
+    key_row(index, 19, "Replace", "replace",
             "key-replace", "<Control>h",
             label, command, config, accel);
 }
@@ -151,12 +154,12 @@ int key_place(int index, long *menu, long *item) {
         *item = index + 1;
         return 1;
     }
-    if (index < 17) {
+    if (index < 18) {
         *menu = 1;
         *item = index - 8;
         return 1;
     }
     *menu = 2;
-    *item = index - 17;
+    *item = index - 18;
     return 1;
 }

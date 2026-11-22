@@ -456,6 +456,8 @@ private:
     char activePath[EDITOR_PATH];
     void build(void);
     void bind_keys(void);
+    void claim_select_key(void);
+    void select_file(void);
     void push_options(void);
     void apply_panels(void);
     void sync_boxes(void);
