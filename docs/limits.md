@@ -35,7 +35,17 @@ FileDialog open can return several paths. Save still picks
 one path. It has no folder mode. The first dialog starts in the
 process current directory, and later dialogs start in the
 directory last chosen
-during this session. Tab titles are the file name. A modified
+during this session. The left panel cannot ask for a
+folder, because the dialog has no folder mode. The
+project is the active file's directory or a path typed
+in the panel. A directory row lists that directory and
+does not leave the project. CMake targets are the names
+in `add_executable` and `add_library`, not a full CMake
+run. A compile line is the `command` string, or the
+`arguments` list when `command` is absent. Symbols are
+a scan of the current buffer, not a compiler's view.
+The panel does not keep a second copy of the text.
+Tab titles are the file name. A modified
 tab draws a dot before that name. The dirty star is on the
 status line. A tab can show a close button. The save dialog
 lists every modified file. The window shows at most

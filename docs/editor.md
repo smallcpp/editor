@@ -37,6 +37,15 @@ open focuses that document.
 ## Window
 
 The window has a menu bar, document tabs, and a status line.
+A panel on the left lists files, the project, and symbols.
+The project is a folder. Set types a path, and File folder
+uses the directory of the active file. When that folder
+contains `CMakeLists.txt`, the project page lists
+`add_executable` and `add_library` targets, and compile
+lines from `compile_commands.json` when that file is
+there. The panel does not own the buffer. Opening a file
+uses the same path as File, Open. A symbol moves the
+cursor in the current buffer.
 The menus are File, Edit, Search, View, and Documents. The
 status line shows the title, a dirty star, the line, the
 column, and the language. Each tab has a dark border.

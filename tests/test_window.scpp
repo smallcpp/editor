@@ -356,6 +356,157 @@ int main(void) {
         ui->on_menu("Close");
         expect(editor->count() == 2, "closed recent again");
         {
+            char lists[EDITOR_PATH];
+            char cmds[EDITOR_PATH];
+            char sym[EDITOR_PATH];
+            String *json;
+            int i;
+            int saw;
+
+            expect(ui->set_project(dir) == 1,
+                    "panel project");
+            expect(text_same(
+                        ui->project_path(),
+                        dir) == 1,
+                    "project path");
+            saw = 0;
+            i = 0;
+            while (i < ui->panel_files()) {
+                if (text_same(
+                            ui->panel_file(i),
+                            "a.scpp") == 1) {
+                    saw = 1;
+                    expect(text_same(
+                                ui->shown_file(i),
+                                "a.scpp") == 1,
+                            "file row");
+                }
+                i = i + 1;
+            }
+            expect(saw == 1, "panel lists a");
+            path_join(
+                    lists,
+                    EDITOR_PATH,
+                    dir,
+                    "CMakeLists.txt");
+            expect(write_file(
+                        lists,
+                        "add_executable(demo a.scpp)\n",
+                        &io) == 1,
+                    "panel lists file");
+            path_join(
+                    cmds,
+                    EDITOR_PATH,
+                    dir,
+                    "compile_commands.json");
+            json = new String();
+            json->append("[\n{ \"command\": ");
+            json->append("\"gcc -c a.scpp\", ");
+            json->append("\"file\": \"");
+            json->append(pathA);
+            json->append("\" }\n]\n");
+            expect(write_file(
+                        cmds,
+                        json->c_str(),
+                        &io) == 1,
+                    "panel commands");
+            expect(ui->set_project(dir) == 1,
+                    "reload project");
+            expect(ui->panel_cmake() == 1, "cmake on");
+            expect(text_same(
+                        ui->cmake_note(),
+                        "CMake") == 1,
+                    "cmake note");
+            expect(ui->panel_targets() == 1,
+                    "one target");
+            expect(text_same(
+                        ui->panel_target(0),
+                        "demo") == 1,
+                    "target demo");
+            expect(text_same(
+                        ui->shown_target(0),
+                        "demo") == 1,
+                    "target row");
+            expect(ui->panel_commands() == 1,
+                    "one command");
+            expect(text_same(
+                        ui->panel_command_file(0),
+                        pathA) == 1,
+                    "command file");
+            expect(text_has(
+                        ui->panel_command(0),
+                        "gcc") == 1,
+                    "command text");
+            expect(text_has(
+                        ui->shown_command(0),
+                        "gcc") == 1,
+                    "command row");
+            ui->open_panel_command(0);
+            expect(text_same(
+                        editor->active()->path(),
+                        pathA) == 1,
+                    "command opens");
+            expect(editor->count() == 2,
+                    "open stayed on the file");
+            path_join(sym, EDITOR_PATH, dir, "sym.scpp");
+            json = new String();
+            json->append("class Box {\n};\n\n");
+            json->append("int work(void) {\n");
+            json->append("    return 1;\n}\n");
+            expect(write_file(
+                        sym,
+                        json->c_str(),
+                        &io) == 1,
+                    "symbol file");
+            expect(ui->set_project(dir) == 1,
+                    "see symbol file");
+            saw = -1;
+            i = 0;
+            while (i < ui->panel_files()) {
+                if (text_same(
+                            ui->panel_file(i),
+                            "sym.scpp") == 1)
+                    saw = i;
+                i = i + 1;
+            }
+            expect(saw >= 0, "lists sym");
+            ui->open_panel_file(saw);
+            expect(text_has(
+                        ui->page_text(editor->index()),
+                        "work") == 1,
+                    "panel opened");
+            saw = -1;
+            i = 0;
+            while (i < ui->panel_symbols()) {
+                if (text_same(
+                            ui->panel_symbol(i),
+                            "work") == 1)
+                    saw = i;
+                i = i + 1;
+            }
+            expect(saw >= 0, "symbol work");
+            expect(ui->panel_symbol_line(saw) == 4,
+                    "work line");
+            ui->open_panel_symbol(saw);
+            expect(
+                    editor->active()->buffer()
+                    ->cursor_line() == 4,
+                    "symbol moves");
+            editor->active()->buffer()->mark_clean();
+            ui->on_menu("Close");
+            expect(editor->count() == 2,
+                    "closed symbol");
+            expect(ui->project_from_file() == 1,
+                    "folder from file");
+            expect(text_same(
+                        ui->project_path(),
+                        dir) == 1,
+                    "file folder");
+            unlink(lists);
+            unlink(cmds);
+            unlink(sym);
+        }
+        {
             char pathR[EDITOR_PATH];
             long count;
 

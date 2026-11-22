@@ -3,8 +3,8 @@
 
 /* Open documents for the text editor. The window calls
  * these methods. A choice comes back through answer()
- * or provide_path(). There is no project and no
- * language client.
+ * or provide_path(). The left panel keeps a project
+ * folder and does not own these documents.
  */
 #include "document.shpp"
 
