@@ -317,6 +317,29 @@ int main(void) {
                 "opened howdy");
         ui->on_menu("Close");
         expect(editor->count() == 2, "closed howdy");
+        unlink(pathC);
+        ui->open_recent(pathC);
+        expect(ui->missing_prompt() == 1,
+                "recent says missing");
+        expect(editor->count() == 2,
+                "missing file stays closed");
+        expect(text_same(ui->page_text(0), "one\n") == 1,
+                "missing leaves the buffer");
+        ui->answer_missing(1);
+        expect(ui->missing_prompt() == 0,
+                "missing notice closed");
+        expect(write_file(pathC, "howdy\n", &io) == 1,
+                "recent restored");
+        ui->open_recent(pathC);
+        expect(ui->missing_prompt() == 0,
+                "present file opens");
+        expect(editor->count() == 3, "recent opened");
+        expect(text_same(
+                    ui->page_text(editor->index()),
+                    "howdy\n") == 1,
+                "recent text");
+        ui->on_menu("Close");
+        expect(editor->count() == 2, "closed recent again");
         ui->switched(0);
         expect(editor->index() == 0, "switch");
         view = ui->view_buffer();

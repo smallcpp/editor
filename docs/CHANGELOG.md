@@ -47,7 +47,9 @@ The editor window keeps its width and height in that
 file and uses them the next time it starts. A first run
 with no saved size uses the usual size. File has Open
 Recent beside Open. It lists the newest files first, and
-only as many as the recent-file count. When Remember
+only as many as the recent-file count. A recent file
+that is gone says that file is missing and does not
+open a buffer. When Remember
 files is on, the open file paths and the active file are
 stored and opened again next time. An untitled buffer is
 not restored. The document tabs scroll with left and
