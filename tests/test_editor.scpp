@@ -8,6 +8,26 @@ extern int setenv(
 
 static int failures;
 
+static void style_is(
+        const char *language,
+        const char *path,
+        const char *text,
+        const char *leader,
+        int block,
+        const char *msg) {
+    const char *got;
+    int flag;
+
+    got = "";
+    flag = 0;
+    comment_style(language, path, text, &got, &flag);
+    expect(text_same(got, leader) == 1, msg);
+    if (block == 0)
+        expect(flag == 0, msg);
+    else
+        expect(flag == 1, msg);
+}
+
 void expect(int cond, const char *msg) {
     if (cond == 0) {
         print("fail {:s}\n", msg);
@@ -375,6 +395,194 @@ int main(void) {
                 4);
         expect(text_same(tail, "src/ui.scpp") == 1,
                 "short path stays whole");
+    }
+    style_is("scpp", "a.scpp", "int a;\n", "//", 1,
+            "scpp comments");
+    style_is("python", "widget.py", "print(1)\n", "#", 0,
+            "python comments");
+    style_is("shell", "run.sh", "echo\n", "#", 0,
+            "shell comments");
+    style_is("markdown", "notes.md", "hi\n", "", 0,
+            "markdown ignores comments");
+    style_is("plain", "notes.txt", "hi\n", "", 0,
+            "text ignores comments");
+    style_is("plain", "CMakeLists.txt", "set(A 1)\n",
+            "#", 0, "cmake comments");
+    style_is("plain", "Makefile", "all:\n", "#", 0,
+            "makefile comments");
+    style_is("plain", "makefile", "all:\n", "#", 0,
+            "lower makefile");
+    style_is("plain", "GNUmakefile", "all:\n", "#", 0,
+            "gnu makefile");
+    style_is("plain", "Dockerfile", "FROM scratch\n",
+            "#", 0, "dockerfile comments");
+    style_is("plain", "dockerfile", "FROM scratch\n",
+            "#", 0, "lower dockerfile");
+    style_is("plain", "Containerfile", "FROM scratch\n",
+            "#", 0, "containerfile comments");
+    style_is("cpp", "Dockerfile.cpp", "int a;\n",
+            "//", 1, "suffix beats the name");
+    style_is(
+            "plain",
+            "tool",
+            "#!/usr/bin/env python3\nprint(1)\n",
+            "#",
+            0,
+            "python shebang");
+    style_is(
+            "plain",
+            "tool",
+            "#!/usr/bin/env -S python3 -u\nx\n",
+            "#",
+            0,
+            "python env shebang");
+    style_is(
+            "plain",
+            "tool",
+            "#!/bin/bash\necho\n",
+            "#",
+            0,
+            "bash shebang");
+    style_is(
+            "plain",
+            "tool",
+            "#!/usr/bin/perl\nprint\n",
+            "",
+            0,
+            "unknown shebang");
+    style_is(
+            "markdown",
+            "notes.md",
+            "#!/bin/sh\necho\n",
+            "#",
+            0,
+            "shebang beats markdown");
+    {
+        Editor *notes;
+        char path[EDITOR_PATH];
+        const char *err;
+        int which;
+        const char *label;
+        const char *command;
+        const char *config;
+        const char *accel;
+        long menu;
+        long item;
+
+        notes = new Editor();
+        err = "";
+        path_join(path, EDITOR_PATH, dir, "main.scpp");
+        expect(write_file(path, "alpha\nbeta\n", &err) == 1,
+                "comment seed");
+        expect(notes->open_file(path) == EDITOR_OK,
+                "comment open");
+        expect(notes->run("comment") == EDITOR_OK,
+                "comment line");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "// alpha\nbeta\n") == 1,
+                "comments the current line");
+        expect(notes->run("comment") == EDITOR_OK,
+                "comment again");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "alpha\nbeta\n") == 1,
+                "removes the line comment");
+        notes->active()->buffer()->select_span(1, 1, 1, 3);
+        expect(notes->run("comment") == EDITOR_OK,
+                "one line selection");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "// alpha\nbeta\n") == 1,
+                "one line stays a line comment");
+        notes->active()->buffer()->set_text("alpha\nbeta\n");
+        notes->active()->buffer()->select_span(1, 1, 3, 1);
+        expect(notes->run("comment") == EDITOR_OK,
+                "block comment");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "/*alpha\nbeta\n*/") == 1,
+                "several lines use a block");
+        expect(notes->run("comment") == EDITOR_OK,
+                "remove block");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "alpha\nbeta\n") == 1,
+                "block toggles off");
+        path_join(path, EDITOR_PATH, dir, "widget.py");
+        expect(write_file(
+                    path,
+                    "print(1)\nprint(2)\n",
+                    &err) == 1,
+                "python seed");
+        expect(notes->open_file(path) == EDITOR_OK,
+                "python open");
+        notes->active()->buffer()->select_span(1, 1, 3, 1);
+        expect(notes->run("comment") == EDITOR_OK,
+                "python block");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "# print(1)\n# print(2)\n") == 1,
+                "hash marks each line");
+        path_join(path, EDITOR_PATH, dir, "notes.md");
+        expect(write_file(path, "hello\n", &err) == 1,
+                "md seed");
+        expect(notes->open_file(path) == EDITOR_OK, "md open");
+        expect(notes->run("comment") == EDITOR_OK, "md comment");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "hello\n") == 1,
+                "markdown is unchanged");
+        path_join(path, EDITOR_PATH, dir, "Dockerfile.cpp");
+        expect(write_file(path, "int a;\nint b;\n", &err) == 1,
+                "suffix seed");
+        expect(notes->open_file(path) == EDITOR_OK,
+                "suffix open");
+        notes->active()->buffer()->select_span(1, 1, 3, 1);
+        expect(notes->run("comment") == EDITOR_OK,
+                "suffix comment");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "/*int a;\nint b;\n*/") == 1,
+                "highlighted suffix uses a block");
+        path_join(path, EDITOR_PATH, dir, "CMakeLists.txt");
+        expect(write_file(path, "set(A 1)\n", &err) == 1,
+                "cmake seed");
+        expect(notes->open_file(path) == EDITOR_OK,
+                "cmake open");
+        expect(notes->run("comment") == EDITOR_OK,
+                "cmake comment");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "# set(A 1)\n") == 1,
+                "cmake uses a hash");
+        path_join(path, EDITOR_PATH, dir, "tool");
+        expect(write_file(
+                    path,
+                    "#!/bin/bash\necho hi\n",
+                    &err) == 1,
+                "shebang seed");
+        expect(notes->open_file(path) == EDITOR_OK,
+                "shebang open");
+        notes->active()->buffer()->move_to(2, 1);
+        expect(notes->run("comment") == EDITOR_OK,
+                "shebang comment");
+        expect(text_same(
+                    notes->active()->buffer()->text(),
+                    "#!/bin/bash\n# echo hi\n") == 1,
+                "shebang uses the shell marker");
+        which = key_index("key-comment=");
+        expect(which == 15, "comment key");
+        key_info(which, &label, &command, &config, &accel);
+        expect(text_same(label, "Comment") == 1,
+                "comment label");
+        expect(text_same(command, "comment") == 1,
+                "comment command");
+        expect(text_same(accel, "<Control>slash") == 1,
+                "ctrl slash");
+        expect(key_place(which, &menu, &item) == 1,
+                "comment place");
+        expect(menu == 1 && item == 7, "comment menu");
     }
     {
         char folder[EDITOR_PATH];

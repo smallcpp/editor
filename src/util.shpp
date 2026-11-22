@@ -81,6 +81,13 @@ int write_file(
         const char **error);
 void format_clock(char *dest, long cap, long seconds);
 const char *comment_leader(const char *language);
+const char *shebang_language(const char *text);
+void comment_style(
+        const char *language,
+        const char *path,
+        const char *text,
+        const char **leader,
+        int *block);
 const char *language_of(const char *path);
 int glob_match(const char *pat, const char *text);
 int pattern_ok(const char *pat);
