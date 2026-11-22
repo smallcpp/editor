@@ -272,6 +272,53 @@ static int send_ctrl_s(void) {
     return send_chord(0x73, 1);
 }
 
+void check_projects(Ui *ui, const char *dir, const char *io) {
+    char job[EDITOR_PATH];
+    char other[EDITOR_PATH];
+    char cfg[EDITOR_PATH];
+    char home[EDITOR_PATH];
+    char *body;
+    long n;
+
+    path_join(job, EDITOR_PATH, dir, "job");
+    path_join(other, EDITOR_PATH, dir, "other");
+    expect(mkdir(job, 448) == 0, "job folder");
+    expect(mkdir(other, 448) == 0, "other folder");
+    expect(ui->set_project(job) == 1, "open job");
+    text_copy(job, EDITOR_PATH, ui->project_path());
+    expect(text_same(ui->recent_project(0), job) == 1,
+            "job is recent");
+    expect(project_config_path(cfg, EDITOR_PATH, job) == 1,
+            "job ini");
+    expect(file_exists(cfg) == 1, "job settings");
+    n = 0;
+    body = read_file(cfg, &n, &io);
+    expect(body != nullptr, "job ini text");
+    expect(project_home(home, EDITOR_PATH, job) == 1,
+            "job .sedit");
+    if (body != nullptr) {
+        expect(text_has(body, "recovery-dir=") == 1,
+                "job recovery key");
+        expect(text_has(body, home) == 1,
+                "job recovery path");
+    }
+    expect(ui->set_project(other) == 1, "open other");
+    text_copy(other, EDITOR_PATH, ui->project_path());
+    expect(text_same(ui->recent_project(0), other) == 1,
+            "other is first");
+    expect(text_same(ui->recent_project(1), job) == 1,
+            "job is second");
+    expect(text_same(ui->shown_project(), other) == 1,
+            "pull-down shows other");
+    expect(ui->pick_recent_project(1) == 1, "pick job");
+    expect(text_same(ui->project_path(), job) == 1,
+            "pull-down opened job");
+    expect(text_same(ui->shown_project(), job) == 1,
+            "pull-down follows job");
+    expect(file_exists(cfg) == 1,
+            "other open left job settings");
+}
+
 int main(void) {
     char pattern[64];
     char pathA[EDITOR_PATH];
@@ -554,7 +601,7 @@ int main(void) {
                         recDir,
                         EDITOR_PATH,
                         dir,
-                        ".config/smallcpp/recovery");
+                        ".sedit");
                 expect(recovery_leaf_for(
                             pathR, leaf, 128) == 1,
                         "recover leaf");
@@ -1147,9 +1194,7 @@ int main(void) {
                         leaf,
                         128) == 1,
                     "recovery name");
-            path_join(mid, EDITOR_PATH, dir, ".config");
-            path_join(rec, EDITOR_PATH, mid, "smallcpp");
-            path_join(mid, EDITOR_PATH, rec, "recovery");
+            path_join(mid, EDITOR_PATH, dir, ".sedit");
             path_join(rec, EDITOR_PATH, mid, leaf);
             n = 0;
             raw = read_file(rec, &n, &err);
@@ -1241,6 +1286,7 @@ int main(void) {
                     comment_leader("scpp"),
                     "//") == 1,
                 "reset line comment");
+        check_projects(ui, dir, io);
         ui->on_menu("Quit");
         expect(ui->is_leaving() == 1, "quit left");
         unlink(pathA);

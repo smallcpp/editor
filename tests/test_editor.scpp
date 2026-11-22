@@ -60,6 +60,69 @@ void expect(int cond, const char *msg) {
     }
 }
 
+void check_project(const char *dir, const char *io) {
+    Document *doc;
+    EditorConfig item;
+    char folder[EDITOR_PATH];
+    char home[EDITOR_PATH];
+    char cfg[EDITOR_PATH];
+    char leaf[128];
+    char rec[EDITOR_PATH];
+    char listed[1][EDITOR_PATH];
+    char *body;
+    long n;
+
+    path_join(folder, EDITOR_PATH, dir, "job");
+    expect(mkdir(folder, 448) == 0, "job dir");
+    expect(project_home(home, EDITOR_PATH, folder) == 1,
+            "project home");
+    expect(project_config_path(cfg, EDITOR_PATH, folder) == 1,
+            "project ini path");
+    path_join(rec, EDITOR_PATH, home, "editor.ini");
+    expect(text_same(cfg, rec) == 1, "ini is in .sedit");
+    config_defaults(&item);
+    text_copy(item.font, 128, "Mono 11");
+    text_copy(listed[0], EDITOR_PATH, folder);
+    expect(project_store(folder, &item, listed, 1) == 1,
+            "store project");
+    n = 0;
+    body = read_file(cfg, &n, &io);
+    expect(body != nullptr, "project ini");
+    if (body != nullptr) {
+        expect(text_has(body, "font=Mono 11") == 1,
+                "copied font");
+        expect(text_has(body, "recovery-dir=") == 1,
+                "recovery dir key");
+        expect(text_has(body, home) == 1,
+                "recovery dir path");
+        expect(text_has(body, "project=") == 1,
+                "project line");
+    }
+    expect(project_lines(cfg, listed, 1) == 1,
+            "one stored project");
+    expect(text_same(listed[0], folder) == 1,
+            "stored folder");
+    path_join(rec, EDITOR_PATH, folder, "note.scpp");
+    expect(write_file(rec, "int n;\n", &io) == 1,
+            "job source");
+    doc = new Document();
+    expect(doc->load_path(rec) == 1, "load job source");
+    doc->buffer()->set_text("kept work\n");
+    expect(doc->write_recovery(home) == 1,
+            "project recovery");
+    expect(doc->recovery_leaf(leaf, 128) == 1,
+            "project leaf");
+    path_join(rec, EDITOR_PATH, home, leaf);
+    expect(file_exists(rec) == 1, "recover in .sedit");
+    expect(file_exists(cfg) == 1, "ini remains");
+    unlink(rec);
+    path_join(rec, EDITOR_PATH, folder, "note.scpp");
+    unlink(rec);
+    unlink(cfg);
+    rmdir(home);
+    rmdir(folder);
+}
+
 int main(void) {
     char pattern[64];
     char pathA[EDITOR_PATH];
@@ -1482,6 +1545,7 @@ int main(void) {
                     "shell") == 1,
                 "cmake name");
     }
+    check_project(dir, io);
     unlink(pathA);
     unlink(pathB);
     unlink(pathC);
