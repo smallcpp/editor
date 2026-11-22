@@ -191,6 +191,13 @@ checkbox. The default is off. A file type stores one
 as `theme-python-keyword-bold`. A line separates the
 grid from Close. Close is centered on this dialog and
 on the setup dialog.
+When a buffer's file changes on disk, the editor asks
+to reload it, save over it, or ignore that copy until
+the file changes again. A saved file that is gone from
+disk is reported once. General has Write recovery files,
+off until it is turned on, and a Minutes box that starts
+at 5. A recovery copy is the buffer text, written under
+`$HOME/.config/smallcpp/recovery`.
 A missing file, or a missing
 `HOME`, keeps the defaults. The dialog is transient for the
 editor window.

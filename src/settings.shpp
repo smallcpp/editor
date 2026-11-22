@@ -49,6 +49,8 @@ public:
     int saveOnTab;
     int saveOnWindow;
     int trimTrailing;
+    int recoveryOn;
+    int recoveryMinutes;
     int recentCount;
     int openCount;
     int recentUsed;
@@ -77,6 +79,7 @@ void theme_copy(
         EditorConfig *dest,
         const EditorConfig *src);
 int config_path(char *dest, long cap);
+int recovery_dir(char *dest, long cap);
 int config_read(const char *path, EditorConfig *item);
 int config_write(
         const char *path,

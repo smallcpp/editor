@@ -7,6 +7,8 @@ Document::Document() {
     titleText = new String();
     titleText->append("untitled.scpp");
     loaded = new String();
+    ignored = new String();
+    missingNoted = 0;
     lang = new String();
     lang->append("scpp");
     errorText = new String();
@@ -69,6 +71,8 @@ void Document::apply_name(const char *path) {
 void Document::remember(void) {
     loaded = new String();
     loaded->append(body->text());
+    ignored = new String();
+    missingNoted = 0;
 }
 
 int Document::take_bytes(const char *path, char *raw, long n) {
@@ -198,6 +202,162 @@ int Document::disk_differs(void) {
     if (text_same(raw, loaded->c_str()) == 1)
         return 0;
     return 1;
+}
+
+int Document::disk_status(void) {
+    char *raw;
+    long n;
+    const char *io;
+
+    if (isUntitled == 1)
+        return 0;
+    if (file_exists(filePath->c_str()) == 0) {
+        if (missingNoted == 1)
+            return 0;
+        return 2;
+    }
+    missingNoted = 0;
+    io = "";
+    raw = read_file(filePath->c_str(), &n, &io);
+    if (raw == nullptr) {
+        if (missingNoted == 1)
+            return 0;
+        return 2;
+    }
+    if (ignored->size() > 0
+            && text_same(raw, ignored->c_str()) == 1)
+        return 0;
+    if (bytes_have_nul(raw, n) == 1 || utf8_ok(raw, n) == 0)
+        return 1;
+    if (text_same(raw, loaded->c_str()) == 1) {
+        ignored = new String();
+        return 0;
+    }
+    return 1;
+}
+
+void Document::ignore_disk(void) {
+    char *raw;
+    long n;
+    const char *io;
+
+    if (isUntitled == 1)
+        return;
+    io = "";
+    raw = read_file(filePath->c_str(), &n, &io);
+    if (raw == nullptr) {
+        missingNoted = 1;
+        return;
+    }
+    ignored = new String();
+    ignored->append(raw);
+}
+
+void Document::mark_missing(void) {
+    missingNoted = 1;
+}
+
+static void put_hash(char *dest, long *used, long cap, long hash) {
+    char digits[16];
+    long n;
+    long i;
+
+    if (hash < 0)
+        hash = -hash;
+    n = 0;
+    if (hash == 0) {
+        digits[0] = '0';
+        n = 1;
+    }
+    while (hash > 0 && n < 16) {
+        digits[n] = (char)('0' + (hash % 10));
+        hash = hash / 10;
+        n = n + 1;
+    }
+    i = n;
+    while (i > 0) {
+        if (*used + 1 >= cap)
+            return;
+        i = i - 1;
+        dest[*used] = digits[i];
+        *used = *used + 1;
+    }
+}
+
+int Document::recovery_leaf(char *dest, long cap) {
+    const char *base;
+    long hash;
+    long i;
+    long n;
+    int c;
+
+    if (dest == nullptr || cap < 16)
+        return 0;
+    dest[0] = 0;
+    if (isUntitled == 1)
+        return 0;
+    base = titleText->c_str();
+    hash = 0;
+    i = 0;
+    n = 0;
+    while (filePath->c_str()[i] != 0) {
+        c = filePath->c_str()[i];
+        if (c < 0)
+            c = c + 256;
+        hash = hash * 33 + c;
+        if (hash < 0)
+            hash = -hash;
+        i = i + 1;
+    }
+    i = 0;
+    while (base[i] != 0 && n + 1 < cap && n < 40) {
+        c = base[i];
+        if ((c >= 'a' && c <= 'z')
+                || (c >= 'A' && c <= 'Z')
+                || (c >= '0' && c <= '9')
+                || c == '.' || c == '-' || c == '_')
+            dest[n] = (char)c;
+        else
+            dest[n] = '_';
+        n = n + 1;
+        i = i + 1;
+    }
+    if (n + 1 >= cap)
+        return 0;
+    dest[n] = '-';
+    n = n + 1;
+    put_hash(dest, &n, cap, hash);
+    {
+        char suffix[12];
+
+        text_copy(suffix, 12, ".recover");
+        i = 0;
+        while (suffix[i] != 0) {
+            if (n + 1 >= cap)
+                return 0;
+            dest[n] = suffix[i];
+            n = n + 1;
+            i = i + 1;
+        }
+    }
+    dest[n] = 0;
+    return 1;
+}
+
+int Document::write_recovery(const char *dir) {
+    char leaf[128];
+    char path[EDITOR_PATH];
+    const char *io;
+
+    if (dir == nullptr || dir[0] == 0)
+        return 0;
+    if (recovery_leaf(leaf, 128) == 0)
+        return 0;
+    path_join(path, EDITOR_PATH, dir, leaf);
+    if (path[0] == 0)
+        return 0;
+    io = "";
+    return write_file(path, body->text(), &io);
 }
 
 void Document::rename_untitled(void) {

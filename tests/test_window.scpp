@@ -507,6 +507,12 @@ int main(void) {
         ui->set_option(
                 "Trim trailing spaces on save",
                 1);
+        expect(ui->recovery_on() == 0, "recovery off");
+        expect(ui->recovery_minutes() == 5, "five minutes");
+        ui->set_option("Write recovery files", 1);
+        ui->set_recovery_minutes(9);
+        expect(ui->recovery_on() == 1, "recovery on");
+        expect(ui->recovery_minutes() == 9, "nine minutes");
         editor->set_indent_style(2);
         ui->on_menu("Settings");
         expect(text_has(
@@ -543,6 +549,12 @@ int main(void) {
                             raw,
                             "show-whitespace=0") == 1,
                         "saved whitespace");
+                expect(text_has(raw, "recovery=1") == 1,
+                        "saved recovery");
+                expect(text_has(
+                            raw,
+                            "recovery-minutes=9") == 1,
+                        "saved minutes");
                 expect(text_has(
                             raw,
                             "key-new=<Control>n") == 1,
@@ -632,6 +644,66 @@ int main(void) {
         expect(editor->pending() == PEND_NONE,
                 "listed close finished");
         expect(editor->count() == 1, "listed close left one");
+        {
+            char pathD[EDITOR_PATH];
+            char leaf[128];
+            char mid[EDITOR_PATH];
+            char rec[EDITOR_PATH];
+            char *raw;
+            long n;
+            const char *err;
+
+            path_join(pathD, EDITOR_PATH, dir, "watch.scpp");
+            err = "";
+            expect(write_file(pathD, "keep\n", &err) == 1,
+                    "watch seed");
+            ui->open_path(pathD);
+            expect(text_same(
+                        ui->page_text(editor->index()),
+                        "keep\n") == 1,
+                    "watch open");
+            expect(write_file(pathD, "other\n", &err) == 1,
+                    "watch other");
+            ui->check_files();
+            expect(ui->disk_prompt() == 1, "prompts changed");
+            ui->answer_disk(3);
+            expect(ui->disk_prompt() == 0, "ignore closed");
+            ui->check_files();
+            expect(ui->disk_prompt() == 0, "ignore holds");
+            expect(write_file(pathD, "third\n", &err) == 1,
+                    "watch third");
+            ui->check_files();
+            expect(ui->disk_prompt() == 1, "prompts again");
+            ui->answer_disk(1);
+            expect(ui->disk_prompt() == 0, "reload closed");
+            expect(text_same(
+                        ui->page_text(editor->index()),
+                        "third\n") == 1,
+                    "reloaded view");
+            unlink(pathD);
+            ui->check_files();
+            expect(ui->disk_prompt() == 2, "prompts missing");
+            ui->answer_disk(1);
+            expect(ui->disk_prompt() == 0, "missing closed");
+            ui->check_files();
+            expect(ui->disk_prompt() == 0, "missing stays quiet");
+            expect(ui->write_recovery_files() == 1,
+                    "wrote recovery");
+            expect(editor->active()->recovery_leaf(
+                        leaf,
+                        128) == 1,
+                    "recovery name");
+            path_join(mid, EDITOR_PATH, dir, ".config");
+            path_join(rec, EDITOR_PATH, mid, "smallcpp");
+            path_join(mid, EDITOR_PATH, rec, "recovery");
+            path_join(rec, EDITOR_PATH, mid, leaf);
+            n = 0;
+            raw = read_file(rec, &n, &err);
+            expect(raw != nullptr, "recovery file");
+            if (raw != nullptr)
+                expect(text_same(raw, "third\n") == 1,
+                        "recovery bytes");
+        }
         {
             int i;
 
