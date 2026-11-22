@@ -51,7 +51,13 @@ each command, the search options, and the view options.
 Close only hides the dialog. The setup dialog is a notebook with
 the tabs on the left. General holds the switches. Search
 holds wrap at the end of the buffer, reverse direction,
-whole words only, and exact word case. Appearance holds
+whole words only, and exact word case. Appearance picks
+a theme. Saving the current settings writes
+`$HOME/.config/smallcpp/themes/<name>.ini`. The default
+theme is the `theme-` map in `editor.ini`. A theme file
+that omits a key keeps the default. A theme also sets
+the window background, text, menus, tabs, the current
+line, the column marker, and the font. Appearance holds
 Whitespace, Line ends, Indent stops, and Font. General
 holds the recent-file count, which starts at 10, Remember
 files, which is off until turned on, and trim trailing

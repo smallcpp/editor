@@ -22,6 +22,14 @@ is its key. Block comment is Alt+/, and it adds a
 multi-line comment without removing one. A language
 whose only marker is `#` uses that marker on each line.
 The shortcut list shows `/` instead of the name slash.
+Appearance picks a named theme and can save the current
+settings as a new one. A theme is a file under
+`$HOME/.config/smallcpp/themes`. It sets the window
+background and text, menus, tabs, the current line, the
+column marker, syntax colors and bold, bracket match and
+unmatched colors, and the font. The tag map in
+`editor.ini` is the default theme. A theme file that
+omits a color keeps that default.
 Python, shell, and toml use `#` on each line.
 CMakeLists.txt, Makefile, makefile, GNUmakefile,
 Dockerfile, dockerfile, and Containerfile do too. A
