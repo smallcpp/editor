@@ -45,6 +45,9 @@ public:
     void handle(int code);
     void on_menu(const char *label);
     void open_path(const char *path);
+    void open_recent(const char *path);
+    void answer_missing(int response);
+    int missing_prompt(void);
     void save_path(const char *path);
     void choice(int response);
     void changed(long index);
@@ -246,8 +249,11 @@ private:
     long recoveryMark;
     Dialog *diskDialog;
     Dialog *goneDialog;
+    Dialog *missingDialog;
     Label *diskLabel;
     Label *goneLabel;
+    Label *missingLabel;
+    int missingOpen;
     CheckButton *recoverCheck;
     Entry *recoverEntry;
     int listedCount;
@@ -293,6 +299,7 @@ private:
     void show_dirty(void);
     void show_disk(long index);
     void show_gone(long index);
+    void show_missing(const char *path);
     void show_buffer(long index);
     void arm_tick(void);
     void save_quiet(long index);

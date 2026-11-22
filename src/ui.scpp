@@ -56,7 +56,13 @@ void ui_key_click(void *data) {
 
 void ui_recent(void *data, const char *path) {
     (void)data;
-    editorUi->open_path(path);
+    editorUi->open_recent(path);
+}
+
+void ui_missing_response(void *data, int response) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->answer_missing(response);
 }
 
 void ui_resized(void *data, long width, long height) {
@@ -408,8 +414,11 @@ Ui::Ui(Editor *editor) {
     recoveryMark = 0;
     diskDialog = nullptr;
     goneDialog = nullptr;
+    missingDialog = nullptr;
     diskLabel = nullptr;
     goneLabel = nullptr;
+    missingLabel = nullptr;
+    missingOpen = 0;
     recoverCheck = nullptr;
     recoverEntry = nullptr;
     listedCount = 0;
@@ -1183,6 +1192,60 @@ void Ui::handle(int code) {
         return;
     }
     refresh();
+}
+
+static void join_note(
+        char *dest,
+        long cap,
+        const char *title,
+        const char *tail);
+
+void Ui::open_recent(const char *path) {
+    if (leaving == 1)
+        return;
+    if (path == nullptr || path[0] == 0)
+        return;
+    if (file_exists(path) == 0) {
+        show_missing(path);
+        return;
+    }
+    open_path(path);
+}
+
+void Ui::show_missing(const char *path) {
+    char text[160];
+    const char *base;
+
+    if (path == nullptr || path[0] == 0)
+        return;
+    base = path_base(path);
+    if (base == nullptr || base[0] == 0)
+        base = path;
+    if (missingDialog == nullptr) {
+        missingDialog = new Dialog("File missing");
+        missingDialog->set_transient(mainWindow);
+        missingLabel = new Label("");
+        missingDialog->set_content((Widget *)missingLabel);
+        missingDialog->add_button("Close", 1);
+        missingDialog->on_response(
+                ui_missing_response,
+                nullptr);
+    }
+    join_note(text, 160, base, " is missing.");
+    missingLabel->set_text(text);
+    missingOpen = 1;
+    missingDialog->present();
+}
+
+void Ui::answer_missing(int response) {
+    (void)response;
+    missingOpen = 0;
+    if (missingDialog != nullptr)
+        missingDialog->set_visible(false);
+}
+
+int Ui::missing_prompt(void) {
+    return missingOpen;
 }
 
 void Ui::open_path(const char *path) {
@@ -4432,6 +4495,8 @@ void Ui::leave(void) {
         diskDialog->set_visible(false);
     if (goneDialog != nullptr)
         goneDialog->set_visible(false);
+    if (missingDialog != nullptr)
+        missingDialog->set_visible(false);
     if (choiceDialog != nullptr)
         choiceDialog->set_visible(false);
     if (dirtyDialog != nullptr) {
