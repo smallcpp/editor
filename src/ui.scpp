@@ -48,6 +48,31 @@ void ui_opened(void *data, const char *path) {
     editorUi->open_path(path);
 }
 
+void ui_panel_file(void *data, long row) {
+    (void)data;
+    editorUi->open_panel_file((int)row);
+}
+
+void ui_panel_command(void *data, long row) {
+    (void)data;
+    editorUi->open_panel_command((int)row);
+}
+
+void ui_panel_symbol(void *data, long row) {
+    (void)data;
+    editorUi->open_panel_symbol((int)row);
+}
+
+void ui_project_set(void *data) {
+    (void)data;
+    editorUi->apply_project_entry();
+}
+
+void ui_project_file(void *data) {
+    (void)data;
+    editorUi->project_from_file();
+}
+
 void ui_saved(void *data, const char *path) {
     (void)data;
     editorUi->save_path(path);
@@ -546,6 +571,15 @@ Ui::Ui(Editor *editor) {
         refs[i].index = i;
         i = i + 1;
     }
+    panel = new SidePanel();
+    panelBook = nullptr;
+    fileView = nullptr;
+    targetView = nullptr;
+    commandView = nullptr;
+    symbolView = nullptr;
+    projectLabel = nullptr;
+    cmakeLabel = nullptr;
+    projectEntry = nullptr;
     editorUi = this;
     load_settings();
 }
@@ -651,8 +685,9 @@ void Ui::build(void) {
     book->add_css("tab:checked { background-color: #ffffff; }");
     book->on_switch_page(ui_switched, nullptr);
     book->set_v_expand(true);
+    book->set_h_expand(true);
     status = new Label("editor");
-    outer->append((Widget *)book);
+    outer->append(mount_panel());
     outer->append((Widget *)status);
     mainWindow->set_child((Widget *)outer);
     bind_keys();
@@ -676,6 +711,405 @@ void Ui::build(void) {
     show_recent();
 }
 
+static void panel_digits(
+        char *dest,
+        long cap,
+        long value) {
+    char digits[16];
+    long n;
+    long i;
+
+    if (dest == nullptr || cap < 2)
+        return;
+    if (value < 0)
+        value = 0;
+    n = 0;
+    if (value == 0) {
+        digits[0] = '0';
+        n = 1;
+    }
+    while (value > 0 && n < 15) {
+        digits[n] = (char)('0' + (value % 10));
+        value = value / 10;
+        n = n + 1;
+    }
+    i = 0;
+    while (n > 0 && i < cap - 1) {
+        n = n - 1;
+        dest[i] = digits[n];
+        i = i + 1;
+    }
+    dest[i] = 0;
+}
+
+Widget *Ui::mount_panel(void) {
+    Paned *split;
+    Box *projectPage;
+    Box *projectRow;
+    Button *setProject;
+    Button *fileProject;
+    ScrolledWindow *fileScroll;
+    ScrolledWindow *targetScroll;
+    ScrolledWindow *commandScroll;
+    ScrolledWindow *symbolScroll;
+
+    panelBook = new Notebook();
+    panelBook->set_scrollable(true);
+    panelBook->set_v_expand(true);
+    panelBook->set_width_request(200);
+    fileView = new ColumnView();
+    fileView->append_column("Name");
+    fileView->on_activate(ui_panel_file, nullptr);
+    fileScroll = new ScrolledWindow();
+    fileScroll->set_policy(
+            GTK_POLICY_AUTOMATIC,
+            GTK_POLICY_AUTOMATIC);
+    fileScroll->set_child((Widget *)fileView);
+    fileScroll->set_v_expand(true);
+    panelBook->append_page((Widget *)fileScroll, "Files");
+    projectPage = new Box(GTK_VERTICAL, 4);
+    projectLabel = new Label("");
+    projectPage->append((Widget *)projectLabel);
+    projectRow = new Box(GTK_HORIZONTAL, 4);
+    projectEntry = new Entry("");
+    projectEntry->set_width_chars(12);
+    setProject = new Button("Set");
+    setProject->on_clicked(ui_project_set, nullptr);
+    fileProject = new Button("File folder");
+    fileProject->on_clicked(ui_project_file, nullptr);
+    projectRow->append((Widget *)projectEntry);
+    projectRow->append((Widget *)setProject);
+    projectRow->append((Widget *)fileProject);
+    projectPage->append((Widget *)projectRow);
+    cmakeLabel = new Label("No CMakeLists.txt");
+    projectPage->append((Widget *)cmakeLabel);
+    targetView = new ColumnView();
+    targetView->append_column("Target");
+    targetScroll = new ScrolledWindow();
+    targetScroll->set_policy(
+            GTK_POLICY_AUTOMATIC,
+            GTK_POLICY_AUTOMATIC);
+    targetScroll->set_child((Widget *)targetView);
+    targetScroll->set_v_expand(true);
+    projectPage->append((Widget *)targetScroll);
+    commandView = new ColumnView();
+    commandView->append_column("File");
+    commandView->append_column("Command");
+    commandView->on_activate(ui_panel_command, nullptr);
+    commandScroll = new ScrolledWindow();
+    commandScroll->set_policy(
+            GTK_POLICY_AUTOMATIC,
+            GTK_POLICY_AUTOMATIC);
+    commandScroll->set_child((Widget *)commandView);
+    commandScroll->set_v_expand(true);
+    projectPage->append((Widget *)commandScroll);
+    panelBook->append_page(
+            (Widget *)projectPage,
+            "Project");
+    symbolView = new ColumnView();
+    symbolView->append_column("Symbol");
+    symbolView->append_column("Line");
+    symbolView->on_activate(ui_panel_symbol, nullptr);
+    symbolScroll = new ScrolledWindow();
+    symbolScroll->set_policy(
+            GTK_POLICY_AUTOMATIC,
+            GTK_POLICY_AUTOMATIC);
+    symbolScroll->set_child((Widget *)symbolView);
+    symbolScroll->set_v_expand(true);
+    panelBook->append_page(
+            (Widget *)symbolScroll,
+            "Symbols");
+    split = new Paned(GTK_HORIZONTAL);
+    split->set_start_child((Widget *)panelBook);
+    split->set_end_child((Widget *)book);
+    split->set_position(200);
+    split->set_v_expand(true);
+    return (Widget *)split;
+}
+
+void Ui::fill_files(void) {
+    int i;
+
+    if (fileView == nullptr || panel == nullptr)
+        return;
+    fileView->clear_rows();
+    i = 0;
+    while (i < panel->file_count()) {
+        const char *cells[1];
+        char shown[260];
+        long n;
+
+        text_copy(shown, 260, panel->file_name(i));
+        if (panel->row_dir(i) == 1
+                && text_same(shown, "..") == 0) {
+            n = text_length(shown);
+            if (n + 1 < 260) {
+                shown[n] = '/';
+                shown[n + 1] = 0;
+            }
+        }
+        cells[0] = shown;
+        fileView->append_row(cells, 1);
+        i = i + 1;
+    }
+}
+
+void Ui::fill_project(void) {
+    int i;
+    const char *note;
+
+    if (panel == nullptr)
+        return;
+    if (projectLabel != nullptr)
+        projectLabel->set_text(panel->root());
+    if (projectEntry != nullptr)
+        projectEntry->set_text(panel->root());
+    if (panel->cmake_project() == 0)
+        note = "No CMakeLists.txt";
+    else if (panel->command_count() == 0)
+        note = "No compile_commands.json";
+    else
+        note = "CMake";
+    if (cmakeLabel != nullptr)
+        cmakeLabel->set_text(note);
+    if (targetView != nullptr) {
+        targetView->clear_rows();
+        i = 0;
+        while (i < panel->target_count()) {
+            const char *cells[1];
+
+            cells[0] = panel->target_name(i);
+            targetView->append_row(cells, 1);
+            i = i + 1;
+        }
+    }
+    if (commandView != nullptr) {
+        commandView->clear_rows();
+        i = 0;
+        while (i < panel->command_count()) {
+            const char *cells[2];
+
+            cells[0] = path_base(
+                    panel->command_file(i));
+            cells[1] = panel->command_line(i);
+            commandView->append_row(cells, 2);
+            i = i + 1;
+        }
+    }
+}
+
+void Ui::fill_symbols(void) {
+    Document *doc;
+    int i;
+
+    if (panel == nullptr || symbolView == nullptr)
+        return;
+    doc = nullptr;
+    if (state != nullptr)
+        doc = state->active();
+    if (doc == nullptr || doc->buffer() == nullptr)
+        panel->scan_symbols("", "");
+    else
+        panel->scan_symbols(
+                doc->buffer()->text(),
+                doc->language());
+    symbolView->clear_rows();
+    i = 0;
+    while (i < panel->symbol_count()) {
+        const char *cells[2];
+        char digits[16];
+
+        panel_digits(digits, 16, panel->symbol_line(i));
+        cells[0] = panel->symbol_name(i);
+        cells[1] = digits;
+        symbolView->append_row(cells, 2);
+        i = i + 1;
+    }
+}
+
+int Ui::set_project(const char *path) {
+    if (panel == nullptr)
+        return 0;
+    if (panel->set_root(path) == 0)
+        return 0;
+    fill_files();
+    fill_project();
+    return 1;
+}
+
+const char *Ui::project_path(void) {
+    if (panel == nullptr)
+        return "";
+    return panel->root();
+}
+
+int Ui::project_from_file(void) {
+    Document *doc;
+
+    if (state == nullptr)
+        return 0;
+    doc = state->active();
+    if (doc == nullptr || doc->untitled() == 1)
+        return 0;
+    return set_project(doc->path());
+}
+
+void Ui::apply_project_entry(void) {
+    if (projectEntry == nullptr)
+        return;
+    set_project(projectEntry->text());
+}
+
+int Ui::panel_files(void) {
+    if (panel == nullptr)
+        return 0;
+    return panel->file_count();
+}
+
+const char *Ui::panel_file(int index) {
+    if (panel == nullptr)
+        return "";
+    return panel->file_name(index);
+}
+
+int Ui::panel_file_dir(int index) {
+    if (panel == nullptr)
+        return 0;
+    return panel->row_dir(index);
+}
+
+const char *Ui::shown_file(int index) {
+    if (fileView == nullptr)
+        return "";
+    if (index < 0 || index >= fileView->row_count())
+        return "";
+    return fileView->cell(index, 0);
+}
+
+void Ui::open_panel_file(int index) {
+    char path[EDITOR_PATH];
+
+    if (panel == nullptr)
+        return;
+    if (panel->row_dir(index) == 1) {
+        if (panel->enter(index) == 1)
+            fill_files();
+        return;
+    }
+    if (panel->file_path(index, path, EDITOR_PATH) == 0)
+        return;
+    open_path(path);
+}
+
+int Ui::panel_cmake(void) {
+    if (panel == nullptr)
+        return 0;
+    return panel->cmake_project();
+}
+
+const char *Ui::cmake_note(void) {
+    if (cmakeLabel == nullptr)
+        return "";
+    return cmakeLabel->text();
+}
+
+int Ui::panel_targets(void) {
+    if (panel == nullptr)
+        return 0;
+    return panel->target_count();
+}
+
+const char *Ui::panel_target(int index) {
+    if (panel == nullptr)
+        return "";
+    return panel->target_name(index);
+}
+
+const char *Ui::shown_target(int index) {
+    if (targetView == nullptr)
+        return "";
+    if (index < 0 || index >= targetView->row_count())
+        return "";
+    return targetView->cell(index, 0);
+}
+
+int Ui::panel_commands(void) {
+    if (panel == nullptr)
+        return 0;
+    return panel->command_count();
+}
+
+const char *Ui::panel_command_file(int index) {
+    if (panel == nullptr)
+        return "";
+    return panel->command_file(index);
+}
+
+const char *Ui::panel_command(int index) {
+    if (panel == nullptr)
+        return "";
+    return panel->command_line(index);
+}
+
+const char *Ui::shown_command(int index) {
+    if (commandView == nullptr)
+        return "";
+    if (index < 0 || index >= commandView->row_count())
+        return "";
+    return commandView->cell(index, 1);
+}
+
+void Ui::open_panel_command(int index) {
+    const char *file;
+    char path[EDITOR_PATH];
+
+    if (panel == nullptr)
+        return;
+    file = panel->command_file(index);
+    if (file[0] == 0)
+        return;
+    if (path_is_abs(file) == 1)
+        text_copy(path, EDITOR_PATH, file);
+    else
+        path_join(path, EDITOR_PATH, panel->root(), file);
+    open_path(path);
+}
+
+int Ui::panel_symbols(void) {
+    if (panel == nullptr)
+        return 0;
+    return panel->symbol_count();
+}
+
+const char *Ui::panel_symbol(int index) {
+    if (panel == nullptr)
+        return "";
+    return panel->symbol_name(index);
+}
+
+long Ui::panel_symbol_line(int index) {
+    if (panel == nullptr)
+        return 0;
+    return panel->symbol_line(index);
+}
+
+void Ui::open_panel_symbol(int index) {
+    Document *doc;
+    long line;
+
+    if (panel == nullptr || state == nullptr)
+        return;
+    line = panel->symbol_line(index);
+    if (line < 1)
+        return;
+    doc = state->active();
+    if (doc == nullptr || doc->buffer() == nullptr)
+        return;
+    doc->buffer()->move_to(line, 1);
+    place_cursor(state->index());
+    paint_status();
+}
+
 void Ui::prepare(void) {
     int named;
 
@@ -688,6 +1122,12 @@ void Ui::prepare(void) {
             && state->at(0)->untitled() == 0)
         named = 1;
     build();
+    if (panel->root()[0] == 0) {
+        char cwd[EDITOR_PATH];
+
+        if (current_directory(cwd, EDITOR_PATH) == 1)
+            set_project(cwd);
+    }
     if (named == 0 && rememberFiles == 1 && openCount > 0)
         restore_files();
     else
@@ -1207,6 +1647,7 @@ void Ui::refresh(void) {
     }
     fill_documents();
     paint_status();
+    fill_symbols();
 }
 
 void Ui::show_main(void) {
@@ -1807,6 +2248,8 @@ void Ui::changed(long index) {
         highlight(index);
     retitle(index);
     paint_status();
+    if (index == state->index())
+        fill_symbols();
 }
 
 void Ui::moved(long index, long line, long offset) {
@@ -1835,6 +2278,7 @@ void Ui::switched(long index) {
         save_quiet(previous);
     state->set_index(index);
     paint_status();
+    fill_symbols();
 }
 
 TextBuffer *Ui::view_buffer(void) {

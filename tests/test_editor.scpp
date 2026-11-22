@@ -1,4 +1,5 @@
 #include "../src/editor.shpp"
+#include "../src/panel.shpp"
 #include "../src/settings.shpp"
 
 extern int setenv(
@@ -1041,6 +1042,198 @@ int main(void) {
         unlink(neu);
         unlink(note);
         rmdir(rec);
+    }
+    {
+        SidePanel *panel;
+        String *json;
+        char folder[EDITOR_PATH];
+        char sub[EDITOR_PATH];
+        char path[EDITOR_PATH];
+        char listed[EDITOR_PATH];
+        int i;
+        int saw;
+        int row;
+
+        panel = new SidePanel();
+        json = new String();
+        json->append("# add_executable(nope x)\n");
+        json->append("add_executable(yes a.c)\n");
+        json->append(
+                "add_library(\"quoted\" STATIC a.c)\n");
+        panel->read_lists(json->c_str());
+        expect(panel->target_count() == 2,
+                "two targets");
+        expect(text_same(
+                    panel->target_name(0),
+                    "yes") == 1,
+                "skips a comment");
+        expect(text_same(
+                    panel->target_name(1),
+                    "quoted") == 1,
+                "quoted target");
+        json = new String();
+        json->append("[\n{ \"file\": \"/tmp/a.scpp\", ");
+        json->append(
+                "\"arguments\": [\"gcc\", \"-c\", ");
+        json->append("\"a.scpp\"] }\n]\n");
+        panel->read_commands(json->c_str());
+        expect(panel->command_count() == 1,
+                "arguments line");
+        expect(text_same(
+                    panel->command_file(0),
+                    "/tmp/a.scpp") == 1,
+                "command file");
+        expect(text_same(
+                    panel->command_line(0),
+                    "gcc -c a.scpp") == 1,
+                "joined arguments");
+        json = new String();
+        json->append("class Box {\n};\n\n");
+        json->append("int work(void) {\n");
+        json->append("    call(1);\n}\n");
+        panel->scan_symbols(json->c_str(), "scpp");
+        expect(panel->symbol_count() == 2,
+                "two symbols");
+        expect(text_same(
+                    panel->symbol_name(0),
+                    "Box") == 1,
+                "class symbol");
+        expect(panel->symbol_line(0) == 1,
+                "class line");
+        expect(text_same(
+                    panel->symbol_name(1),
+                    "work") == 1,
+                "function symbol");
+        expect(panel->symbol_line(1) == 4,
+                "function line");
+        json = new String();
+        json->append("def run():\n    return 1\n");
+        json->append("class Bag:\n    pass\n");
+        panel->scan_symbols(json->c_str(), "python");
+        expect(panel->symbol_count() == 2,
+                "python symbols");
+        expect(text_same(
+                    panel->symbol_name(0),
+                    "run") == 1,
+                "def name");
+        panel->scan_symbols(
+                "if (ready()) {\n    return 1;\n}\n",
+                "c");
+        expect(panel->symbol_count() == 0,
+                "skips if");
+        panel->scan_symbols(
+                "void Ui::build(void) {\n}\n",
+                "scpp");
+        expect(text_same(
+                    panel->symbol_name(0),
+                    "Ui::build") == 1,
+                "qualified name");
+        panel->scan_symbols("hello\n", "plain");
+        expect(panel->symbol_count() == 0,
+                "plain has none");
+        path_join(folder, EDITOR_PATH, dir, "proj");
+        expect(mkdir(folder, 448) == 0, "project dir");
+        path_join(path, EDITOR_PATH, folder, "a.scpp");
+        expect(write_file(path, "int a;\n", &io) == 1,
+                "project source");
+        path_join(sub, EDITOR_PATH, folder, "sub");
+        expect(mkdir(sub, 448) == 0, "sub dir");
+        path_join(path, EDITOR_PATH, sub, "inside.txt");
+        expect(write_file(path, "in\n", &io) == 1,
+                "nested file");
+        path_join(
+                path,
+                EDITOR_PATH,
+                folder,
+                "CMakeLists.txt");
+        expect(write_file(
+                    path,
+                    "add_library(core STATIC a.scpp)\n",
+                    &io) == 1,
+                "lists file");
+        expect(panel->set_root(folder) == 1,
+                "set project");
+        expect(text_same(panel->root(), folder) == 1,
+                "project folder");
+        expect(panel->cmake_project() == 1,
+                "cmake project");
+        expect(panel->target_count() == 1,
+                "library target");
+        expect(text_same(
+                    panel->target_name(0),
+                    "core") == 1,
+                "core target");
+        expect(panel->command_count() == 0,
+                "no compile file");
+        expect(panel->set_root(path) == 1,
+                "file selects its folder");
+        expect(text_same(panel->root(), folder) == 1,
+                "folder of the file");
+        saw = 0;
+        row = -1;
+        i = 0;
+        while (i < panel->file_count()) {
+            if (text_same(
+                        panel->file_name(i),
+                        "a.scpp") == 1)
+                saw = 1;
+            if (text_same(
+                        panel->file_name(i),
+                        "sub") == 1) {
+                row = i;
+                expect(panel->row_dir(i) == 1,
+                        "sub is a directory");
+            }
+            i = i + 1;
+        }
+        expect(saw == 1, "lists source");
+        expect(row >= 0, "lists sub");
+        expect(panel->enter(row) == 1, "enter sub");
+        text_copy(listed, EDITOR_PATH, panel->listed());
+        expect(text_same(listed, sub) == 1,
+                "listed sub");
+        saw = 0;
+        row = -1;
+        i = 0;
+        while (i < panel->file_count()) {
+            if (text_same(
+                        panel->file_name(i),
+                        "inside.txt") == 1)
+                saw = 1;
+            if (text_same(
+                        panel->file_name(i),
+                        "..") == 1)
+                row = i;
+            i = i + 1;
+        }
+        expect(saw == 1, "lists nested");
+        expect(panel->enter(row) == 1, "leave sub");
+        expect(text_same(
+                    panel->listed(),
+                    folder) == 1,
+                "back at the project");
+        expect(panel->set_root(sub) == 1,
+                "plain folder");
+        expect(panel->cmake_project() == 0,
+                "not cmake");
+        expect(panel->target_count() == 0,
+                "no targets");
+        expect(panel->set_root("missing-dir") == 0,
+                "missing folder");
+        expect(text_same(panel->root(), sub) == 1,
+                "keeps the folder");
+        path_join(path, EDITOR_PATH, sub, "inside.txt");
+        unlink(path);
+        rmdir(sub);
+        path_join(path, EDITOR_PATH, folder, "a.scpp");
+        unlink(path);
+        path_join(
+                path,
+                EDITOR_PATH,
+                folder,
+                "CMakeLists.txt");
+        unlink(path);
+        rmdir(folder);
     }
     unlink(pathA);
     unlink(pathB);

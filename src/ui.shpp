@@ -7,6 +7,7 @@
  * title-bar setter.
  */
 #include "editor.shpp"
+#include "panel.shpp"
 #include "settings.shpp"
 #include "syntax.shpp"
 #include <exceptions>
@@ -152,6 +153,29 @@ public:
     void open_theme_color(int slot);
     void paint_theme(const char *language);
     void paint_paper(long index);
+    int set_project(const char *path);
+    const char *project_path(void);
+    int project_from_file(void);
+    void apply_project_entry(void);
+    int panel_files(void);
+    const char *panel_file(int index);
+    int panel_file_dir(int index);
+    const char *shown_file(int index);
+    void open_panel_file(int index);
+    int panel_cmake(void);
+    const char *cmake_note(void);
+    int panel_targets(void);
+    const char *panel_target(int index);
+    const char *shown_target(int index);
+    int panel_commands(void);
+    const char *panel_command_file(int index);
+    const char *panel_command(int index);
+    const char *shown_command(int index);
+    void open_panel_command(int index);
+    int panel_symbols(void);
+    const char *panel_symbol(int index);
+    long panel_symbol_line(int index);
+    void open_panel_symbol(int index);
 private:
     Editor *state;
     Application *app;
@@ -159,6 +183,15 @@ private:
     MenuBar *menuBar;
     long documentsMenu;
     Notebook *book;
+    SidePanel *panel;
+    Notebook *panelBook;
+    ColumnView *fileView;
+    ColumnView *targetView;
+    ColumnView *commandView;
+    ColumnView *symbolView;
+    Label *projectLabel;
+    Label *cmakeLabel;
+    Entry *projectEntry;
     Label *status;
     EditPage pages[EDITOR_PAGES];
     PageRef refs[EDITOR_PAGES];
@@ -310,6 +343,10 @@ private:
     void collect_open(EditorConfig *item);
     void show_search(void);
     void show_replace(void);
+    Widget *mount_panel(void);
+    void fill_files(void);
+    void fill_project(void);
+    void fill_symbols(void);
     void add_page(long index);
     void rebuild(void);
     void push_active(void);

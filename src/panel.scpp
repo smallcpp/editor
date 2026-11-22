@@ -1,0 +1,1122 @@
+#include "panel.shpp"
+#include <dirent>
+
+static int blank(int value) {
+    if (value == ' ' || value == '\t')
+        return 1;
+    if (value == '\n' || value == '\r')
+        return 1;
+    return 0;
+}
+
+static int word_here(
+        const char *text,
+        long n,
+        long i,
+        const char *word) {
+    long k;
+
+    if (i > 0 && is_ident(byte_at(text, i - 1)) == 1)
+        return 0;
+    k = 0;
+    while (word[k] != 0) {
+        if (i + k >= n)
+            return 0;
+        if (text[i + k] != word[k])
+            return 0;
+        k = k + 1;
+    }
+    if (i + k < n
+            && is_ident(byte_at(text, i + k)) == 1)
+        return 0;
+    return 1;
+}
+
+static void skip_string(const char *text, long n, long *at) {
+    long i;
+
+    i = *at;
+    if (i >= n || text[i] != '"')
+        return;
+    i = i + 1;
+    while (i < n && text[i] != '"') {
+        if (text[i] == '\\' && i + 1 < n)
+            i = i + 2;
+        else
+            i = i + 1;
+    }
+    if (i < n && text[i] == '"')
+        i = i + 1;
+    *at = i;
+}
+
+static void skip_note(const char *text, long n, long *at) {
+    long i;
+
+    i = *at;
+    if (i >= n || text[i] != '#')
+        return;
+    if (i + 1 < n && text[i + 1] == '[') {
+        i = i + 2;
+        while (i + 1 < n) {
+            if (text[i] == ']' && text[i + 1] == ']') {
+                i = i + 2;
+                break;
+            }
+            i = i + 1;
+        }
+        *at = i;
+        return;
+    }
+    while (i < n && text[i] != '\n')
+        i = i + 1;
+    *at = i;
+}
+
+static int name_less(const char *left, const char *right) {
+    long i;
+
+    i = 0;
+    while (left[i] != 0 && right[i] != 0) {
+        if (left[i] != right[i])
+            return left[i] < right[i];
+        i = i + 1;
+    }
+    return left[i] == 0 && right[i] != 0;
+}
+
+static int row_before(
+        const char *left,
+        int leftDir,
+        const char *right,
+        int rightDir) {
+    if (text_same(left, "..") == 1
+            && text_same(right, "..") == 0)
+        return 1;
+    if (text_same(right, "..") == 1)
+        return 0;
+    if (leftDir != rightDir)
+        return leftDir;
+    return name_less(left, right);
+}
+
+static int under_root(const char *root, const char *path) {
+    long n;
+    long m;
+
+    n = text_length(root);
+    m = text_length(path);
+    if (n == 0 || m < n)
+        return 0;
+    if (text_starts(path, root) == 0)
+        return 0;
+    if (m == n)
+        return 1;
+    if (root[n - 1] == '/')
+        return 1;
+    if (path[n] == '/')
+        return 1;
+    return 0;
+}
+
+static int take_json(
+        const char *text,
+        long n,
+        long *at,
+        char *dest,
+        long cap) {
+    long i;
+    long out;
+    int value;
+
+    i = *at;
+    if (dest == nullptr || cap < 2)
+        return 0;
+    dest[0] = 0;
+    if (i >= n || text[i] != '"')
+        return 0;
+    i = i + 1;
+    out = 0;
+    while (i < n && text[i] != '"') {
+        value = byte_at(text, i);
+        if (value == '\\' && i + 1 < n) {
+            i = i + 1;
+            value = byte_at(text, i);
+            if (value == 'n')
+                value = '\n';
+            else if (value == 't')
+                value = '\t';
+            else if (value == 'u') {
+                i = i + 4;
+                value = '?';
+            }
+        }
+        if (out < cap - 1) {
+            dest[out] = (char)value;
+            out = out + 1;
+        }
+        i = i + 1;
+    }
+    if (i < n && text[i] == '"')
+        i = i + 1;
+    dest[out] = 0;
+    *at = i;
+    return 1;
+}
+
+static void skip_space(const char *text, long n, long *at) {
+    long i;
+
+    i = *at;
+    while (i < n && blank(byte_at(text, i)) == 1)
+        i = i + 1;
+    *at = i;
+}
+
+static int take_args(
+        const char *text,
+        long n,
+        long *at,
+        char *dest,
+        long cap) {
+    long i;
+    long out;
+    int first;
+    char piece[PANEL_CMD];
+
+    i = *at;
+    if (i >= n || text[i] != '[')
+        return 0;
+    i = i + 1;
+    out = 0;
+    first = 1;
+    if (dest != nullptr && cap > 0)
+        dest[0] = 0;
+    while (i < n) {
+        skip_space(text, n, &i);
+        if (i < n && text[i] == ']') {
+            i = i + 1;
+            *at = i;
+            return 1;
+        }
+        if (i < n && text[i] == ',') {
+            i = i + 1;
+            continue;
+        }
+        if (take_json(text, n, &i, piece, PANEL_CMD) == 0)
+            return 0;
+        if (dest != nullptr && cap > 1) {
+            long k;
+
+            if (first == 0 && out < cap - 1) {
+                dest[out] = ' ';
+                out = out + 1;
+            }
+            k = 0;
+            while (piece[k] != 0 && out < cap - 1) {
+                dest[out] = piece[k];
+                out = out + 1;
+                k = k + 1;
+            }
+            dest[out] = 0;
+        }
+        first = 0;
+    }
+    return 0;
+}
+
+static int control_name(const char *name) {
+    if (text_same(name, "if") == 1)
+        return 1;
+    if (text_same(name, "else") == 1)
+        return 1;
+    if (text_same(name, "while") == 1)
+        return 1;
+    if (text_same(name, "for") == 1)
+        return 1;
+    if (text_same(name, "switch") == 1)
+        return 1;
+    if (text_same(name, "return") == 1)
+        return 1;
+    if (text_same(name, "sizeof") == 1)
+        return 1;
+    if (text_same(name, "catch") == 1)
+        return 1;
+    if (text_same(name, "do") == 1)
+        return 1;
+    if (text_same(name, "case") == 1)
+        return 1;
+    return 0;
+}
+
+static int c_like(const char *language) {
+    if (text_same(language, "c") == 1)
+        return 1;
+    if (text_same(language, "cpp") == 1)
+        return 1;
+    if (text_same(language, "scpp") == 1)
+        return 1;
+    if (text_same(language, "cw") == 1)
+        return 1;
+    return 0;
+}
+
+static void copy_token(
+        const char *text,
+        long from,
+        long to,
+        char *dest,
+        long cap) {
+    long i;
+    long n;
+
+    if (dest == nullptr || cap < 2)
+        return;
+    n = 0;
+    i = from;
+    while (i < to && n < cap - 1) {
+        dest[n] = text[i];
+        n = n + 1;
+        i = i + 1;
+    }
+    dest[n] = 0;
+}
+
+static int name_before(
+        const char *text,
+        long start,
+        long paren,
+        char *dest,
+        long cap) {
+    long i;
+    long end;
+    long from;
+
+    dest[0] = 0;
+    i = paren;
+    while (i > start && blank(byte_at(text, i - 1)) == 1)
+        i = i - 1;
+    end = i;
+    while (i > start && is_ident(byte_at(text, i - 1)) == 1)
+        i = i - 1;
+    if (i == end)
+        return 0;
+    if (is_ident(byte_at(text, i)) == 1) {
+        int lead;
+
+        lead = byte_at(text, i);
+        if (lead >= '0' && lead <= '9')
+            return 0;
+    }
+    from = i;
+    if (i >= start + 2
+            && text[i - 1] == ':'
+            && text[i - 2] == ':') {
+        i = i - 2;
+        while (i > start
+                && is_ident(byte_at(text, i - 1)) == 1)
+            i = i - 1;
+        if (i < from)
+            from = i;
+    }
+    copy_token(text, from, end, dest, cap);
+    if (dest[0] == 0)
+        return 0;
+    return 1;
+}
+
+static int semi_before_brace(
+        const char *text,
+        long start,
+        long end) {
+    long i;
+    int quote;
+
+    i = start;
+    quote = 0;
+    while (i < end) {
+        int value;
+
+        value = byte_at(text, i);
+        if (quote == 1) {
+            if (value == '\\' && i + 1 < end)
+                i = i + 2;
+            else {
+                if (value == '"')
+                    quote = 0;
+                i = i + 1;
+            }
+            continue;
+        }
+        if (value == '"') {
+            quote = 1;
+            i = i + 1;
+            continue;
+        }
+        if (value == '/' && i + 1 < end && text[i + 1] == '/')
+            return 0;
+        if (value == '{')
+            return 0;
+        if (value == ';')
+            return 1;
+        i = i + 1;
+    }
+    return 0;
+}
+
+SidePanel::SidePanel() {
+    rootPath[0] = 0;
+    listPath[0] = 0;
+    files = 0;
+    cmakeOn = 0;
+    targets = 0;
+    commands = 0;
+    symbols = 0;
+}
+
+int SidePanel::set_root(const char *path) {
+    char dir[EDITOR_PATH];
+    char clean[EDITOR_PATH];
+
+    if (path == nullptr || path[0] == 0)
+        return 0;
+    text_copy(dir, EDITOR_PATH, path);
+    if (file_is_reg(path) == 1)
+        path_dir(dir, EDITOR_PATH, path);
+    if (path_normalize(clean, EDITOR_PATH, dir) == 0)
+        return 0;
+    if (file_is_dir(clean) == 0)
+        return 0;
+    text_copy(rootPath, EDITOR_PATH, clean);
+    text_copy(listPath, EDITOR_PATH, clean);
+    list_dir();
+    read_project();
+    return 1;
+}
+
+const char *SidePanel::root(void) {
+    return rootPath;
+}
+
+const char *SidePanel::listed(void) {
+    return listPath;
+}
+
+int SidePanel::file_count(void) {
+    return files;
+}
+
+const char *SidePanel::file_name(int index) {
+    if (index < 0 || index >= files)
+        return "";
+    return fileName[index];
+}
+
+int SidePanel::row_dir(int index) {
+    if (index < 0 || index >= files)
+        return 0;
+    return fileDir[index];
+}
+
+int SidePanel::file_path(int index, char *dest, long cap) {
+    if (dest == nullptr || cap < 2)
+        return 0;
+    dest[0] = 0;
+    if (index < 0 || index >= files)
+        return 0;
+    if (text_same(fileName[index], "..") == 1) {
+        path_dir(dest, cap, listPath);
+        return dest[0] != 0;
+    }
+    path_join(dest, cap, listPath, fileName[index]);
+    return dest[0] != 0;
+}
+
+int SidePanel::enter(int index) {
+    char next[EDITOR_PATH];
+
+    if (index < 0 || index >= files)
+        return 0;
+    if (fileDir[index] == 0)
+        return 0;
+    if (text_same(fileName[index], "..") == 1) {
+        path_dir(next, EDITOR_PATH, listPath);
+        if (under_root(rootPath, next) == 0)
+            return 0;
+    } else
+        path_join(
+                next,
+                EDITOR_PATH,
+                listPath,
+                fileName[index]);
+    if (file_is_dir(next) == 0)
+        return 0;
+    text_copy(listPath, EDITOR_PATH, next);
+    list_dir();
+    return 1;
+}
+
+int SidePanel::cmake_project(void) {
+    return cmakeOn;
+}
+
+void SidePanel::add_target(const char *name) {
+    if (name == nullptr || name[0] == 0)
+        return;
+    if (targets >= PANEL_TARGETS)
+        return;
+    text_copy(targetName[targets], PANEL_NAME, name);
+    targets = targets + 1;
+}
+
+void SidePanel::read_lists(const char *text) {
+    long n;
+    long i;
+
+    targets = 0;
+    if (text == nullptr)
+        return;
+    n = text_length(text);
+    i = 0;
+    while (i < n) {
+        if (text[i] == '#')
+            skip_note(text, n, &i);
+        else if (text[i] == '"')
+            skip_string(text, n, &i);
+        else if (word_here(
+                    text,
+                    n,
+                    i,
+                    "add_executable") == 1
+                || word_here(
+                    text,
+                    n,
+                    i,
+                    "add_library") == 1) {
+            char name[PANEL_NAME];
+            long word;
+
+            if (word_here(
+                        text,
+                        n,
+                        i,
+                        "add_executable") == 1)
+                word = 14;
+            else
+                word = 11;
+            i = i + word;
+            skip_space(text, n, &i);
+            name[0] = 0;
+            if (i < n && text[i] == '(') {
+                i = i + 1;
+                skip_space(text, n, &i);
+                if (i < n && text[i] == '"') {
+                    take_json(text, n, &i, name, PANEL_NAME);
+                } else if (i < n
+                        && is_ident(byte_at(text, i)) == 1
+                        && byte_at(text, i) > '9') {
+                    long from;
+
+                    from = i;
+                    while (i < n
+                            && is_ident(
+                                byte_at(text, i)) == 1)
+                        i = i + 1;
+                    copy_token(
+                            text,
+                            from,
+                            i,
+                            name,
+                            PANEL_NAME);
+                }
+            }
+            add_target(name);
+        } else
+            i = i + 1;
+    }
+}
+
+int SidePanel::target_count(void) {
+    return targets;
+}
+
+const char *SidePanel::target_name(int index) {
+    if (index < 0 || index >= targets)
+        return "";
+    return targetName[index];
+}
+
+void SidePanel::add_command(
+        const char *file,
+        const char *line) {
+    if (file == nullptr || file[0] == 0)
+        return;
+    if (commands >= PANEL_CMDS)
+        return;
+    text_copy(commandFile[commands], EDITOR_PATH, file);
+    if (line == nullptr)
+        commandLine[commands][0] = 0;
+    else
+        text_copy(commandLine[commands], PANEL_CMD, line);
+    commands = commands + 1;
+}
+
+void SidePanel::read_commands(const char *text) {
+    long n;
+    long i;
+    int depth;
+    char file[EDITOR_PATH];
+    char line[PANEL_CMD];
+    int haveFile;
+
+    commands = 0;
+    if (text == nullptr)
+        return;
+    n = text_length(text);
+    i = 0;
+    depth = 0;
+    haveFile = 0;
+    file[0] = 0;
+    line[0] = 0;
+    while (i < n) {
+        if (text[i] == '"') {
+            char key[32];
+
+            if (take_json(text, n, &i, key, 32) == 0)
+                return;
+            skip_space(text, n, &i);
+            if (i < n && text[i] == ':') {
+                i = i + 1;
+                skip_space(text, n, &i);
+                if (text_same(key, "file") == 1) {
+                    if (take_json(
+                                text,
+                                n,
+                                &i,
+                                file,
+                                EDITOR_PATH) == 1)
+                        haveFile = 1;
+                } else if (text_same(key, "command") == 1)
+                    take_json(text, n, &i, line, PANEL_CMD);
+                else if (text_same(key, "arguments") == 1
+                        && line[0] == 0)
+                    take_args(text, n, &i, line, PANEL_CMD);
+            }
+        } else if (text[i] == '{') {
+            depth = depth + 1;
+            i = i + 1;
+        } else if (text[i] == '}') {
+            if (depth == 1 && haveFile == 1)
+                add_command(file, line);
+            if (depth > 0)
+                depth = depth - 1;
+            if (depth == 0) {
+                haveFile = 0;
+                file[0] = 0;
+                line[0] = 0;
+            }
+            i = i + 1;
+        } else
+            i = i + 1;
+    }
+}
+
+int SidePanel::command_count(void) {
+    return commands;
+}
+
+const char *SidePanel::command_file(int index) {
+    if (index < 0 || index >= commands)
+        return "";
+    return commandFile[index];
+}
+
+const char *SidePanel::command_line(int index) {
+    if (index < 0 || index >= commands)
+        return "";
+    return commandLine[index];
+}
+
+void SidePanel::add_symbol(const char *name, long line) {
+    if (name == nullptr || name[0] == 0)
+        return;
+    if (symbols >= PANEL_SYMBOLS)
+        return;
+    text_copy(symbolName[symbols], PANEL_NAME, name);
+    symbolLine[symbols] = line;
+    symbols = symbols + 1;
+}
+
+static int take_intro(
+        const char *text,
+        long start,
+        long end,
+        const char *word,
+        char *dest,
+        long cap) {
+    long i;
+    long n;
+
+    i = start;
+    while (i < end && blank(byte_at(text, i)) == 1)
+        i = i + 1;
+    n = text_length(word);
+    if (word_here(text, end, i, word) == 0)
+        return 0;
+    i = i + n;
+    while (i < end && blank(byte_at(text, i)) == 1)
+        i = i + 1;
+    if (i >= end || is_ident(byte_at(text, i)) == 0)
+        return 0;
+    if (byte_at(text, i) >= '0' && byte_at(text, i) <= '9')
+        return 0;
+    start = i;
+    while (i < end && is_ident(byte_at(text, i)) == 1)
+        i = i + 1;
+    copy_token(text, start, i, dest, cap);
+    return dest[0] != 0;
+}
+
+static int has_brace(
+        const char *text,
+        long start,
+        long end) {
+    long i;
+    int quote;
+
+    i = start;
+    quote = 0;
+    while (i < end) {
+        int value;
+
+        value = byte_at(text, i);
+        if (quote == 1) {
+            if (value == '\\' && i + 1 < end)
+                i = i + 2;
+            else {
+                if (value == '"')
+                    quote = 0;
+                i = i + 1;
+            }
+            continue;
+        }
+        if (value == '"') {
+            quote = 1;
+            i = i + 1;
+            continue;
+        }
+        if (value == '/' && i + 1 < end && text[i + 1] == '/')
+            return 0;
+        if (value == '{')
+            return 1;
+        i = i + 1;
+    }
+    return 0;
+}
+
+static int scan_c_line(
+        const char *text,
+        long start,
+        long end,
+        int indent,
+        char *dest,
+        long cap) {
+    long i;
+    int quote;
+
+    dest[0] = 0;
+    i = start;
+    quote = 0;
+    while (i < end) {
+        int value;
+
+        value = byte_at(text, i);
+        if (quote == 1) {
+            if (value == '\\' && i + 1 < end)
+                i = i + 2;
+            else {
+                if (value == '"')
+                    quote = 0;
+                i = i + 1;
+            }
+            continue;
+        }
+        if (value == '"') {
+            quote = 1;
+            i = i + 1;
+            continue;
+        }
+        if (value == '/' && i + 1 < end && text[i + 1] == '/')
+            break;
+        if (value == '(') {
+            if (name_before(
+                        text,
+                        start,
+                        i,
+                        dest,
+                        cap) == 1
+                    && control_name(dest) == 0
+                    && semi_before_brace(
+                        text,
+                        start,
+                        end) == 0
+                    && (indent == 0
+                        || has_brace(
+                            text,
+                            start,
+                            end) == 1))
+                return 1;
+            dest[0] = 0;
+            return 0;
+        }
+        i = i + 1;
+    }
+    return 0;
+}
+
+void SidePanel::scan_symbols(
+        const char *text,
+        const char *language) {
+    long n;
+    long i;
+    long line;
+    int block;
+    int kind;
+
+    symbols = 0;
+    if (text == nullptr)
+        return;
+    if (language == nullptr)
+        language = "";
+    kind = 0;
+    if (c_like(language) == 1)
+        kind = 1;
+    else if (text_same(language, "python") == 1)
+        kind = 2;
+    else if (text_same(language, "shell") == 1)
+        kind = 3;
+    else if (text_same(language, "cmake") == 1)
+        kind = 4;
+    if (kind == 0)
+        return;
+    n = text_length(text);
+    i = 0;
+    line = 1;
+    block = 0;
+    while (i < n) {
+        long start;
+        long end;
+        long at;
+        int indent;
+        char name[PANEL_NAME];
+
+        start = i;
+        indent = 0;
+        while (i < n
+                && text[i] != '\n'
+                && blank(byte_at(text, i)) == 1) {
+            indent = 1;
+            i = i + 1;
+        }
+        at = i;
+        while (i < n && text[i] != '\n')
+            i = i + 1;
+        end = i;
+        if (block == 1) {
+            long k;
+
+            k = start;
+            while (k + 1 < end) {
+                if (text[k] == '*' && text[k + 1] == '/')
+                    block = 0;
+                k = k + 1;
+            }
+        } else if (kind == 1
+                && at + 1 < end
+                && text[at] == '/'
+                && text[at + 1] == '*') {
+            long k;
+
+            block = 1;
+            k = at;
+            while (k + 1 < end) {
+                if (text[k] == '*' && text[k + 1] == '/')
+                    block = 0;
+                k = k + 1;
+            }
+        } else if (kind == 1 && block == 0) {
+            if (at < end && text[at] != '#'
+                    && (at + 1 >= end
+                        || text[at] != '/'
+                        || text[at + 1] != '/')) {
+                name[0] = 0;
+                if (take_intro(
+                            text,
+                            at,
+                            end,
+                            "class",
+                            name,
+                            PANEL_NAME) == 1
+                        || take_intro(
+                            text,
+                            at,
+                            end,
+                            "struct",
+                            name,
+                            PANEL_NAME) == 1
+                        || take_intro(
+                            text,
+                            at,
+                            end,
+                            "enum",
+                            name,
+                            PANEL_NAME) == 1)
+                    add_symbol(name, line);
+                else if (scan_c_line(
+                            text,
+                            start,
+                            end,
+                            indent,
+                            name,
+                            PANEL_NAME) == 1)
+                    add_symbol(name, line);
+            }
+        } else if (kind == 2 && block == 0) {
+            name[0] = 0;
+            if (word_here(text, end, at, "async") == 1) {
+                long k;
+
+                k = at + 5;
+                while (k < end
+                        && blank(byte_at(text, k)) == 1)
+                    k = k + 1;
+                if (take_intro(
+                            text,
+                            k,
+                            end,
+                            "def",
+                            name,
+                            PANEL_NAME) == 1)
+                    add_symbol(name, line);
+            } else if (take_intro(
+                        text,
+                        at,
+                        end,
+                        "def",
+                        name,
+                        PANEL_NAME) == 1
+                    || take_intro(
+                        text,
+                        at,
+                        end,
+                        "class",
+                        name,
+                        PANEL_NAME) == 1)
+                add_symbol(name, line);
+        } else if (kind == 3 && block == 0) {
+            if (take_intro(
+                        text,
+                        at,
+                        end,
+                        "function",
+                        name,
+                        PANEL_NAME) == 1)
+                add_symbol(name, line);
+            else if (at < end
+                    && is_ident(byte_at(text, at)) == 1
+                    && byte_at(text, at) > '9') {
+                long k;
+
+                k = at;
+                while (k < end
+                        && is_ident(byte_at(text, k)) == 1)
+                    k = k + 1;
+                if (k + 1 < end
+                        && text[k] == '('
+                        && text[k + 1] == ')') {
+                    copy_token(
+                            text,
+                            at,
+                            k,
+                            name,
+                            PANEL_NAME);
+                    add_symbol(name, line);
+                }
+            }
+        } else if (kind == 4 && block == 0) {
+            if (word_here(
+                        text,
+                        end,
+                        at,
+                        "function") == 1
+                    || word_here(
+                        text,
+                        end,
+                        at,
+                        "macro") == 1) {
+                long k;
+
+                if (word_here(
+                            text,
+                            end,
+                            at,
+                            "function") == 1)
+                    k = at + 8;
+                else
+                    k = at + 5;
+                while (k < end
+                        && blank(byte_at(text, k)) == 1)
+                    k = k + 1;
+                if (k < end && text[k] == '(')
+                    k = k + 1;
+                while (k < end
+                        && blank(byte_at(text, k)) == 1)
+                    k = k + 1;
+                {
+                    long from;
+
+                    from = k;
+                    name[0] = 0;
+                    while (k < end
+                            && is_ident(
+                                byte_at(text, k)) == 1)
+                        k = k + 1;
+                    copy_token(
+                            text,
+                            from,
+                            k,
+                            name,
+                            PANEL_NAME);
+                }
+                add_symbol(name, line);
+            }
+        }
+        if (i < n && text[i] == '\n')
+            i = i + 1;
+        line = line + 1;
+    }
+}
+
+int SidePanel::symbol_count(void) {
+    return symbols;
+}
+
+const char *SidePanel::symbol_name(int index) {
+    if (index < 0 || index >= symbols)
+        return "";
+    return symbolName[index];
+}
+
+long SidePanel::symbol_line(int index) {
+    if (index < 0 || index >= symbols)
+        return 0;
+    return symbolLine[index];
+}
+
+void SidePanel::sort_files(void) {
+    int i;
+
+    i = 1;
+    while (i < files) {
+        char saved[PANEL_NAME];
+        int savedDir;
+        int j;
+
+        text_copy(saved, PANEL_NAME, fileName[i]);
+        savedDir = fileDir[i];
+        j = i;
+        while (j > 0
+                && row_before(
+                    saved,
+                    savedDir,
+                    fileName[j - 1],
+                    fileDir[j - 1]) == 1) {
+            text_copy(
+                    fileName[j],
+                    PANEL_NAME,
+                    fileName[j - 1]);
+            fileDir[j] = fileDir[j - 1];
+            j = j - 1;
+        }
+        text_copy(fileName[j], PANEL_NAME, saved);
+        fileDir[j] = savedDir;
+        i = i + 1;
+    }
+}
+
+void SidePanel::list_dir(void) {
+    DIR *listing;
+    struct dirent *entry;
+
+    files = 0;
+    if (listPath[0] == 0)
+        return;
+    if (text_same(listPath, rootPath) == 0
+            && files < PANEL_FILES) {
+        text_copy(fileName[files], PANEL_NAME, "..");
+        fileDir[files] = 1;
+        files = files + 1;
+    }
+    listing = opendir(listPath);
+    if (listing == nullptr)
+        return;
+    entry = readdir(listing);
+    while (entry != nullptr) {
+        char path[EDITOR_PATH];
+        int dir;
+
+        if (entry->d_name[0] != '.'
+                && files < PANEL_FILES) {
+            path_join(
+                    path,
+                    EDITOR_PATH,
+                    listPath,
+                    entry->d_name);
+            dir = 0;
+            if (file_is_dir(path) == 1)
+                dir = 1;
+            if (dir == 1 || file_is_reg(path) == 1) {
+                text_copy(
+                        fileName[files],
+                        PANEL_NAME,
+                        entry->d_name);
+                fileDir[files] = dir;
+                files = files + 1;
+            }
+        }
+        entry = readdir(listing);
+    }
+    closedir(listing);
+    sort_files();
+}
+
+void SidePanel::read_project(void) {
+    char path[EDITOR_PATH];
+    char *raw;
+    long n;
+    const char *err;
+
+    cmakeOn = 0;
+    targets = 0;
+    commands = 0;
+    err = "";
+    path_join(path, EDITOR_PATH, rootPath, "CMakeLists.txt");
+    if (file_is_reg(path) == 0)
+        return;
+    cmakeOn = 1;
+    n = 0;
+    raw = read_file(path, &n, &err);
+    if (raw != nullptr)
+        read_lists(raw);
+    path_join(
+            path,
+            EDITOR_PATH,
+            rootPath,
+            "compile_commands.json");
+    if (file_is_reg(path) == 0)
+        return;
+    n = 0;
+    raw = read_file(path, &n, &err);
+    if (raw != nullptr)
+        read_commands(raw);
+}
