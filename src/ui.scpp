@@ -5,6 +5,7 @@ extern void gtk_file_dialog_set_initial_folder(
         void *dialog,
         void *folder);
 extern void g_object_unref(void *object);
+extern void *g_object_ref_sink(void *object);
 extern unsigned g_idle_add(void *func, void *data);
 extern unsigned g_timeout_add(
         unsigned interval,
@@ -1911,7 +1912,7 @@ MapColumn::MapColumn(void *owner, long index) : Widget() {
     hooked = 0;
     markDrag = 0;
     adjust = nullptr;
-    native = gtk_drawing_area_new();
+    native = g_object_ref_sink(gtk_drawing_area_new());
     set_width_request(MAP_WIDTH);
     set_v_expand(true);
     set_h_expand(false);

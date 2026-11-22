@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+The mini-map keeps its own reference to the drawing area.
+Closing a file, or quitting with several files open, no
+longer releases that area after the split has already
+freed it.
+
 Project lines its file names up on the left, the same way
 Files does. Dragging the marker between the left panel and
 the editor changes the panel width, and that width stays
