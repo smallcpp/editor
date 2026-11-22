@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+View has Left panel and Right panel. Each is checked
+while that panel is shown. Left panel is the files and
+project list. Right panel is the mini-map. Clearing a
+check hides that panel, and checking it shows the panel
+again. The choice is saved in `editor.ini`.
+
 The installed program is `sedit`. The binary is `bin/sedit`,
 and `install` copies that file into the prefix. Help and the
 version line use that name.

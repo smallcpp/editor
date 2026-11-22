@@ -109,7 +109,11 @@ dialogs and stay open while finding. A selection that spans
 lines is the only range that is searched. File includes Close
 All, which closes every document and leaves one untitled
 buffer. Each command shows its accelerator. View offers
-Whitespace, Line ends, and Indent stops. Whitespace draws
+Whitespace, Line ends, and Indent stops. Left panel and
+Right panel are checked while those panels are shown.
+Left panel is the files and project list. Right panel
+is the mini-map. Clearing a check hides that panel.
+Whitespace draws
 a dot for each space and a line for each tab. Line ends
 draws a mark after each line. Indent stops draws a line
 at each tab stop inside the leading indent. Settings has

@@ -19,6 +19,7 @@ extern void *gtk_message_dialog_new(
         ...);
 extern void gtk_window_present(void *window);
 extern void gtk_widget_set_visible(void *widget, int visible);
+extern int gtk_widget_get_visible(void *widget);
 extern unsigned long g_signal_connect_data(
         void *instance,
         const char *signal,
@@ -587,6 +588,9 @@ Ui::Ui(Editor *editor) {
     showSpace = 0;
     showEnds = 0;
     showStops = 0;
+    showLeft = 1;
+    showMap = 1;
+    editorSplit = nullptr;
     fileMenu = 0;
     searchMenu = 0;
     viewMenu = 0;
@@ -739,7 +743,7 @@ void Ui::build(void) {
     const char *fileLabels[9];
     const char *editLabels[15];
     const char *searchLabels[6];
-    const char *viewLabels[4];
+    const char *viewLabels[6];
     long fileMenu;
     long editMenu;
     Box *outer;
@@ -775,6 +779,8 @@ void Ui::build(void) {
     viewLabels[1] = "Line ends";
     viewLabels[2] = "Indent stops";
     viewLabels[3] = "Remember files";
+    viewLabels[4] = "Left panel";
+    viewLabels[5] = "Right panel";
     editLabels[0] = "Undo";
     editLabels[1] = "Redo";
     editLabels[2] = "Cut";
@@ -811,7 +817,7 @@ void Ui::build(void) {
     viewMenu = menuBar->add_menu(
             "View",
             viewLabels,
-            4,
+            6,
             ui_menu,
             nullptr);
     menuBar->set_separator(fileMenu, 3);
@@ -823,6 +829,7 @@ void Ui::build(void) {
     menuBar->set_separator(editMenu, 11);
     menuBar->set_separator(editMenu, 14);
     menuBar->set_separator(searchMenu, 2);
+    menuBar->set_separator(viewMenu, 4);
     documentsMenu = menuBar->add_menu(
             "Documents",
             nullptr,
@@ -978,6 +985,7 @@ Widget *Ui::mount_panel(void) {
     split->set_start_child((Widget *)panelBook);
     split->set_end_child((Widget *)book);
     split->set_position(200);
+    editorSplit = split;
     split->set_v_expand(true);
     return (Widget *)split;
 }
@@ -1720,6 +1728,8 @@ void Ui::add_page(long index) {
         row->set_v_expand(true);
         row->append((Widget *)scroll);
         row->append((Widget *)pages[index].map);
+        if (showMap == 0)
+            pages[index].map->set_visible(false);
         book->append_page((Widget *)row, title);
     }
     pageCount = pageCount + 1;
@@ -3256,9 +3266,12 @@ void Ui::push_options(void) {
         menuBar->set_check(viewMenu, 1, showEnds);
         menuBar->set_check(viewMenu, 2, showStops);
         menuBar->set_check(viewMenu, 3, rememberFiles);
+        menuBar->set_check(viewMenu, 4, showLeft);
+        menuBar->set_check(viewMenu, 5, showMap);
     }
     applying = 0;
     sync_boxes();
+    apply_panels();
 }
 
 void Ui::set_option(const char *label, int on) {
@@ -3285,6 +3298,10 @@ void Ui::set_option(const char *label, int on) {
         showEnds = value;
     if (text_same(label, "Indent stops") == 1)
         showStops = value;
+    if (text_same(label, "Left panel") == 1)
+        showLeft = value;
+    if (text_same(label, "Right panel") == 1)
+        showMap = value;
     if (text_same(label, "Remember files") == 1)
         rememberFiles = value;
     if (text_same(label, "Save when a tab loses focus") == 1)
@@ -3332,6 +3349,69 @@ int Ui::shows_ends(void) {
 
 int Ui::shows_stops(void) {
     return showStops;
+}
+
+void Ui::apply_panels(void) {
+    long i;
+
+    if (panelBook != nullptr) {
+        if (showLeft == 0)
+            panelBook->set_visible(false);
+        else
+            panelBook->set_visible(true);
+    }
+    if (editorSplit != nullptr) {
+        if (showLeft == 0)
+            editorSplit->set_position(0);
+        else if (editorSplit->position() < 40)
+            editorSplit->set_position(200);
+    }
+    i = 0;
+    while (i < pageCount) {
+        if (pages[i].map != nullptr) {
+            if (showMap == 0)
+                pages[i].map->set_visible(false);
+            else
+                pages[i].map->set_visible(true);
+        }
+        i = i + 1;
+    }
+}
+
+int Ui::shows_left(void) {
+    if (panelBook == nullptr || panelBook->native == nullptr)
+        return showLeft;
+    if (gtk_widget_get_visible(panelBook->native) == 0)
+        return 0;
+    return 1;
+}
+
+int Ui::left_checked(void) {
+    if (menuBar == nullptr)
+        return showLeft;
+    return menuBar->is_checked(viewMenu, 4);
+}
+
+int Ui::map_checked(void) {
+    if (menuBar == nullptr)
+        return showMap;
+    return menuBar->is_checked(viewMenu, 5);
+}
+
+int Ui::shows_map(void) {
+    long index;
+
+    index = 0;
+    if (state != nullptr)
+        index = state->index();
+    if (index < 0 || index >= pageCount)
+        return showMap;
+    if (pages[index].map == nullptr
+            || pages[index].map->native == nullptr)
+        return showMap;
+    if (gtk_widget_get_visible(pages[index].map->native) == 0)
+        return 0;
+    return 1;
 }
 
 int Ui::search_wrap(void) {
@@ -4045,6 +4125,12 @@ void Ui::use_config(EditorConfig *item) {
     showSpace = item->showSpace;
     showEnds = item->showEnds;
     showStops = item->showStops;
+    showLeft = item->showLeft;
+    if (showLeft != 0)
+        showLeft = 1;
+    showMap = item->showMap;
+    if (showMap != 0)
+        showMap = 1;
     windowWidth = item->windowWidth;
     windowHeight = item->windowHeight;
     rememberFiles = item->rememberFiles;
@@ -4169,6 +4255,8 @@ void Ui::apply_settings(void) {
     item.showSpace = showSpace;
     item.showEnds = showEnds;
     item.showStops = showStops;
+    item.showLeft = showLeft;
+    item.showMap = showMap;
     item.rememberFiles = rememberFiles;
     item.saveOnTab = saveOnTab;
     item.saveOnWindow = saveOnWindow;
@@ -5896,6 +5984,18 @@ void Ui::on_menu(const char *label) {
     if (text_same(label, "Remember files") == 1) {
         rememberFiles = menuBar->is_checked(viewMenu, 3);
         sync_boxes();
+        return;
+    }
+    if (text_same(label, "Left panel") == 1) {
+        showLeft = menuBar->is_checked(viewMenu, 4);
+        apply_panels();
+        apply_settings();
+        return;
+    }
+    if (text_same(label, "Right panel") == 1) {
+        showMap = menuBar->is_checked(viewMenu, 5);
+        apply_panels();
+        apply_settings();
         return;
     }
     if (text_same(label, "Settings") == 1) {
