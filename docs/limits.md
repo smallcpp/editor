@@ -24,6 +24,14 @@ the view can turn on. The right column marker is an overlay at a character
 column. The status line shows the line and column from the
 editor buffer.
 
+GtkTextView keeps one cursor. The wrapper stores extra
+carets as marks and draws them, because the text view
+cannot hold a second cursor itself. The editor asks for
+a caret on the next line from the Edit menu. Typing,
+Backspace, Delete, and Comment then apply at each caret.
+An arrow key or a click clears the extra carets. The
+editor keeps at most 16 extra carets.
+
 Shortcuts use `Widget::add_shortcut`. `Widget::on_key` reports
 one key while a shortcut cell is waiting. Escape cancels that
 wait. Menus run the same commands. The text

@@ -110,6 +110,7 @@ EditBuffer::EditBuffer() {
     copy_bracket_pairs(pairText, 64, bracket_list());
     indentOn = true;
     multi = true;
+    caretCount = 0;
     undoStack = new MarkVec();
     redoStack = new MarkVec();
 }
@@ -140,10 +141,9 @@ void EditBuffer::clear_marks(MarkVec *marks) {
         marks->remove(0);
 }
 
-void EditBuffer::push_undo(void) {
-    EditMark *mark;
+void EditBuffer::snapshot(EditMark *mark) {
+    int i;
 
-    mark = new EditMark();
     mark->text = new String(body);
     mark->cursor = cursor;
     mark->anchor = anchor;
@@ -151,6 +151,20 @@ void EditBuffer::push_undo(void) {
     mark->scopeOn = scopeOn;
     mark->scopeStart = scopeStart;
     mark->scopeEnd = scopeEnd;
+    mark->caretCount = caretCount;
+    i = 0;
+    while (i < EDITOR_CARETS) {
+        mark->caretLine[i] = caretLine[i];
+        mark->caretCol[i] = caretCol[i];
+        i = i + 1;
+    }
+}
+
+void EditBuffer::push_undo(void) {
+    EditMark *mark;
+
+    mark = new EditMark();
+    snapshot(mark);
     undoStack->add(mark);
     while (undoStack->size() > 100)
         undoStack->remove(0);
@@ -165,6 +179,21 @@ void EditBuffer::restore(EditMark *mark) {
     scopeOn = mark->scopeOn;
     scopeStart = mark->scopeStart;
     scopeEnd = mark->scopeEnd;
+    caretCount = mark->caretCount;
+    if (caretCount < 0)
+        caretCount = 0;
+    if (caretCount > EDITOR_CARETS)
+        caretCount = EDITOR_CARETS;
+    {
+        int i;
+
+        i = 0;
+        while (i < EDITOR_CARETS) {
+            caretLine[i] = mark->caretLine[i];
+            caretCol[i] = mark->caretCol[i];
+            i = i + 1;
+        }
+    }
     hasMatch = false;
     clamp_point();
 }
@@ -173,6 +202,7 @@ void EditBuffer::set_text(const char *value) {
     assign(value);
     cursor = 0;
     anchor = 0;
+    caretCount = 0;
     dirtyFlag = false;
     scopeOn = false;
     hasMatch = false;
@@ -606,6 +636,268 @@ void EditBuffer::finish_brackets(
     }
 }
 
+static void sort_points(long *point, int *role, int n) {
+    int i;
+    int j;
+
+    i = 0;
+    while (i < n) {
+        j = i + 1;
+        while (j < n) {
+            if (point[j] > point[i]) {
+                long swap;
+                int who;
+
+                swap = point[i];
+                point[i] = point[j];
+                point[j] = swap;
+                who = role[i];
+                role[i] = role[j];
+                role[j] = who;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+}
+
+void EditBuffer::add_caret(long line, long column) {
+    long mineLine;
+    long mineCol;
+    int i;
+
+    if (line < 0 || column < 0)
+        return;
+    if (line >= line_count())
+        return;
+    line_column_at(cursor, &mineLine, &mineCol);
+    if (line == mineLine && column == mineCol)
+        return;
+    i = 0;
+    while (i < caretCount) {
+        if (caretLine[i] == line && caretCol[i] == column)
+            return;
+        i = i + 1;
+    }
+    if (caretCount >= EDITOR_CARETS)
+        return;
+    caretLine[caretCount] = line;
+    caretCol[caretCount] = column;
+    caretCount = caretCount + 1;
+}
+
+void EditBuffer::clear_carets(void) {
+    caretCount = 0;
+}
+
+int EditBuffer::caret_count(void) {
+    return caretCount;
+}
+
+int EditBuffer::caret_at(
+        int index,
+        long *line,
+        long *column) {
+    if (index < 0 || index >= caretCount)
+        return 0;
+    if (line != nullptr)
+        *line = caretLine[index];
+    if (column != nullptr)
+        *column = caretCol[index];
+    return 1;
+}
+
+void EditBuffer::drop_cursor_carets(void) {
+    long line;
+    long column;
+    int i;
+
+    line_column_at(cursor, &line, &column);
+    i = 0;
+    while (i < caretCount) {
+        if (caretLine[i] == line && caretCol[i] == column) {
+            int j;
+
+            j = i;
+            while (j + 1 < caretCount) {
+                caretLine[j] = caretLine[j + 1];
+                caretCol[j] = caretCol[j + 1];
+                j = j + 1;
+            }
+            caretCount = caretCount - 1;
+        }
+        else
+            i = i + 1;
+    }
+}
+
+void EditBuffer::insert_at_carets(const char *value) {
+    long point[EDITOR_CARETS + 1];
+    long neu[EDITOR_CARETS + 1];
+    int role[EDITOR_CARETS + 1];
+    int n;
+    int i;
+    int j;
+    long len;
+    long line;
+    long column;
+
+    if (value == nullptr || value[0] == 0)
+        return;
+    n = 0;
+    point[n] = cursor;
+    role[n] = -1;
+    n = n + 1;
+    i = 0;
+    while (i < caretCount && n < EDITOR_CARETS + 1) {
+        point[n] = byte_at_line(caretLine[i], caretCol[i]);
+        role[n] = i;
+        n = n + 1;
+        i = i + 1;
+    }
+    sort_points(point, role, n);
+    push_undo();
+    len = text_length(value);
+    i = 0;
+    while (i < n) {
+        int before;
+
+        if (i > 0 && point[i] == point[i - 1]) {
+            neu[i] = neu[i - 1];
+            i = i + 1;
+            continue;
+        }
+        splice(point[i], point[i], value);
+        before = 0;
+        j = 0;
+        while (j < n) {
+            if ((j == 0 || point[j] != point[j - 1])
+                    && point[j] <= point[i])
+                before = before + 1;
+            j = j + 1;
+        }
+        neu[i] = point[i] + len * before;
+        i = i + 1;
+    }
+    i = 0;
+    while (i < n) {
+        if (role[i] < 0) {
+            cursor = neu[i];
+            anchor = cursor;
+        }
+        else {
+            line_column_at(neu[i], &line, &column);
+            caretLine[role[i]] = line;
+            caretCol[role[i]] = column;
+        }
+        i = i + 1;
+    }
+    drop_cursor_carets();
+}
+
+void EditBuffer::delete_at_carets(int forward) {
+    long point[EDITOR_CARETS + 1];
+    long neu[EDITOR_CARETS + 1];
+    int role[EDITOR_CARETS + 1];
+    int n;
+    int i;
+    int j;
+    int acted;
+    long line;
+    long column;
+
+    n = 0;
+    point[n] = cursor;
+    role[n] = -1;
+    n = n + 1;
+    i = 0;
+    while (i < caretCount && n < EDITOR_CARETS + 1) {
+        point[n] = byte_at_line(caretLine[i], caretCol[i]);
+        role[n] = i;
+        n = n + 1;
+        i = i + 1;
+    }
+    sort_points(point, role, n);
+    acted = 0;
+    i = 0;
+    while (i < n && acted == 0) {
+        if (forward == 0 && point[i] > 0)
+            acted = 1;
+        if (forward != 0 && point[i] < body->size())
+            acted = 1;
+        i = i + 1;
+    }
+    if (acted == 0)
+        return;
+    push_undo();
+    i = 0;
+    while (i < n) {
+        long at;
+        int step;
+        long from;
+        long removed;
+
+        if (i > 0 && point[i] == point[i - 1]) {
+            neu[i] = neu[i - 1];
+            i = i + 1;
+            continue;
+        }
+        at = point[i];
+        removed = 0;
+        if (forward == 0) {
+            if (at == 0)
+                neu[i] = 0;
+            else {
+                step = 1;
+                from = at - 1;
+                while (from > 0
+                        && (byte_at(body->c_str(), from) & 192)
+                                == 128)
+                    from = from - 1;
+                step = (int)(at - from);
+                if (step > 4)
+                    step = 1;
+                splice(at - step, at, "");
+                neu[i] = at - step;
+                removed = step;
+            }
+        }
+        else if (at >= body->size())
+            neu[i] = at;
+        else {
+            step = utf8_len(byte_at(body->c_str(), at));
+            if (at + step > body->size())
+                step = 1;
+            splice(at, at + step, "");
+            neu[i] = at;
+            removed = step;
+        }
+        if (removed > 0) {
+            j = 0;
+            while (j < i) {
+                if (neu[j] >= at)
+                    neu[j] = neu[j] - removed;
+                j = j + 1;
+            }
+        }
+        i = i + 1;
+    }
+    i = 0;
+    while (i < n) {
+        if (role[i] < 0) {
+            cursor = neu[i];
+            anchor = cursor;
+        }
+        else {
+            line_column_at(neu[i], &line, &column);
+            caretLine[role[i]] = line;
+            caretCol[role[i]] = column;
+        }
+        i = i + 1;
+    }
+    drop_cursor_carets();
+}
+
 void EditBuffer::insert_text(const char *value) {
     long lo;
     long hi;
@@ -617,6 +909,10 @@ void EditBuffer::insert_text(const char *value) {
         return;
     if (multi == true && spans_lines() == true) {
         insert_column(value);
+        return;
+    }
+    if (caretCount > 0 && has_selection() == false) {
+        insert_at_carets(value);
         return;
     }
     push_undo();
@@ -653,6 +949,10 @@ void EditBuffer::backspace(void) {
         splice(lo, hi, "");
         cursor = lo;
         anchor = lo;
+        return;
+    }
+    if (caretCount > 0) {
+        delete_at_carets(0);
         return;
     }
     if (cursor == 0)
@@ -694,6 +994,10 @@ void EditBuffer::delete_forward(void) {
         anchor = lo;
         return;
     }
+    if (caretCount > 0) {
+        delete_at_carets(1);
+        return;
+    }
     if (cursor >= body->size())
         return;
     value = byte_at(body->c_str(), cursor);
@@ -722,13 +1026,7 @@ void EditBuffer::undo(void) {
     if (n == 0)
         return;
     now = new EditMark();
-    now->text = new String(body);
-    now->cursor = cursor;
-    now->anchor = anchor;
-    now->dirty = dirtyFlag;
-    now->scopeOn = scopeOn;
-    now->scopeStart = scopeStart;
-    now->scopeEnd = scopeEnd;
+    snapshot(now);
     redoStack->add(now);
     mark = undoStack->at(n - 1);
     undoStack->remove(n - 1);
@@ -744,13 +1042,7 @@ void EditBuffer::redo(void) {
     if (n == 0)
         return;
     now = new EditMark();
-    now->text = new String(body);
-    now->cursor = cursor;
-    now->anchor = anchor;
-    now->dirty = dirtyFlag;
-    now->scopeOn = scopeOn;
-    now->scopeStart = scopeStart;
-    now->scopeEnd = scopeEnd;
+    snapshot(now);
     undoStack->add(now);
     mark = redoStack->at(n - 1);
     redoStack->remove(n - 1);
@@ -835,7 +1127,127 @@ void EditBuffer::line_range(long *first, long *last) {
         *last = line2;
 }
 
+void EditBuffer::comment_carets(const char *leader) {
+    long rows[EDITOR_CARETS + 1];
+    int rowsN;
+    int i;
+    int j;
+    long lead;
+    long line;
+    long column;
+
+    if (leader == nullptr || leader[0] == 0)
+        leader = "//";
+    lead = text_length(leader);
+    line_column_at(cursor, &line, &column);
+    rowsN = 0;
+    rows[rowsN] = line;
+    rowsN = rowsN + 1;
+    i = 0;
+    while (i < caretCount && rowsN < EDITOR_CARETS + 1) {
+        int seen;
+
+        seen = 0;
+        j = 0;
+        while (j < rowsN) {
+            if (rows[j] == caretLine[i])
+                seen = 1;
+            j = j + 1;
+        }
+        if (seen == 0) {
+            rows[rowsN] = caretLine[i];
+            rowsN = rowsN + 1;
+        }
+        i = i + 1;
+    }
+    i = 0;
+    while (i < rowsN) {
+        j = i + 1;
+        while (j < rowsN) {
+            if (rows[j] > rows[i]) {
+                long swap;
+
+                swap = rows[i];
+                rows[i] = rows[j];
+                rows[j] = swap;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    push_undo();
+    i = 0;
+    while (i < rowsN) {
+        long start;
+        long rowEnd;
+        long at;
+        long atCol;
+        long n;
+        const char *raw;
+        int value;
+
+        start = byte_at_line(rows[i], 0);
+        raw = body->c_str();
+        n = body->size();
+        rowEnd = start;
+        while (rowEnd < n && raw[rowEnd] != '\n')
+            rowEnd = rowEnd + 1;
+        at = start;
+        atCol = 0;
+        while (at < rowEnd) {
+            value = byte_at(raw, at);
+            if (value != ' ' && value != '\t')
+                break;
+            at = at + 1;
+            atCol = atCol + 1;
+        }
+        if (at + lead <= rowEnd
+                && text_starts(raw + at, leader) == 1) {
+            long keep;
+            long removed;
+
+            keep = at + lead;
+            if (keep < rowEnd && raw[keep] == ' ')
+                keep = keep + 1;
+            removed = keep - at;
+            splice(at, keep, "");
+            j = 0;
+            while (j < caretCount) {
+                if (caretLine[j] == rows[i]
+                        && caretCol[j] >= atCol) {
+                    caretCol[j] = caretCol[j] - removed;
+                    if (caretCol[j] < atCol)
+                        caretCol[j] = atCol;
+                }
+                j = j + 1;
+            }
+        }
+        else {
+            String *bits;
+            long added;
+
+            bits = new String();
+            bits->append(leader);
+            bits->add(' ');
+            added = bits->size();
+            splice(at, at, bits->c_str());
+            j = 0;
+            while (j < caretCount) {
+                if (caretLine[j] == rows[i]
+                        && caretCol[j] >= atCol)
+                    caretCol[j] = caretCol[j] + added;
+                j = j + 1;
+            }
+        }
+        i = i + 1;
+    }
+}
+
 void EditBuffer::toggle_line_comment(const char *leader) {
+    if (caretCount > 0) {
+        comment_carets(leader);
+        return;
+    }
     line_comment(leader, 1);
 }
 
@@ -1733,6 +2145,13 @@ int EditBuffer::note_external(const char *value) {
         value = "";
     if (text_same(body->c_str(), value) == 1)
         return 0;
+    if (caretCount > 0) {
+        push_undo();
+        assign(value);
+        dirtyFlag = true;
+        hasMatch = false;
+        return 0;
+    }
     oldCopy = new String(body);
     oldRaw = oldCopy->c_str();
     oldN = oldCopy->size();
