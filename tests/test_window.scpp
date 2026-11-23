@@ -222,7 +222,7 @@ static int send_chord(unsigned long keysym, int ctrl) {
                 (void *)attr);
         if (XFetchName(display, kids[i], &name) != 0
                 && name != nullptr
-                && text_same(name, "editor") == 1
+                && text_same(name, "<No Session>") == 1
                 && fields[2] > 100) {
             win = kids[i];
             clickX = fields[0] + fields[2] / 2;
@@ -821,6 +821,8 @@ static void check_sessions(
 
     mark_clean_all(editor);
     expect(ui->new_session() == 1, "start from a blank session");
+    expect(text_same(ui->window_title(), "<No Session>") == 1,
+            "blank session title");
     path_join(one, EDITOR_PATH, dir, "sess-a.txt");
     path_join(two, EDITOR_PATH, dir, "sess-b.txt");
     expect(write_file(
@@ -837,12 +839,22 @@ static void check_sessions(
             "save the session");
     expect(text_same(ui->current_session(), "work") == 1,
             "session name");
+    expect(text_same(ui->window_title(), "work") == 1,
+            "saved title");
+    expect(ui->save_current_session() == 1,
+            "save the named session");
+    expect(text_same(ui->window_title(), "work") == 1,
+            "save keeps the title");
     mark_clean_all(editor);
     expect(ui->new_session() == 1, "new session");
     expect(text_same(ui->current_session(), "") == 1,
             "new session is unnamed");
+    expect(text_same(ui->window_title(), "<No Session>") == 1,
+            "new session title");
     expect(editor->count() == 1, "new session is empty");
     expect(ui->open_session("work") == 1, "open work");
+    expect(text_same(ui->window_title(), "work") == 1,
+            "opened title");
     expect(editor->count() == 2, "restored both files");
     expect(text_same(editor->active()->path(), two) == 1,
             "restored the current file");
@@ -902,6 +914,8 @@ static void check_sessions(
     ui->answer_session(5);
     expect(ui->session_dialog_open() == 1,
             "rename leaves the dialog");
+    expect(text_same(ui->window_title(), "work-two") == 1,
+            "renamed title");
     saw = -1;
     i = 0;
     while (i < ui->session_count()) {
@@ -931,17 +945,23 @@ static void check_sessions(
     ui->on_session_menu("New Session");
     expect(text_same(ui->current_session(), "") == 1,
             "menu new session");
+    expect(text_same(ui->window_title(), "<No Session>") == 1,
+            "closed title");
     ui->open_path(one);
     editor->active()->buffer()->move_to(3, 1);
     ui->on_session_menu("Save Session");
     expect(text_same(ui->current_session(), "") == 1,
             "unnamed save asks");
     expect(ui->save_session_as("later") == 1, "save as later");
+    expect(text_same(ui->window_title(), "later") == 1,
+            "save as title");
     mark_clean_all(editor);
     ui->on_session_menu("New Session");
     ui->open_recent_session("later");
     expect(text_same(ui->current_session(), "later") == 1,
             "recent opens it");
+    expect(text_same(ui->window_title(), "later") == 1,
+            "recent title");
     expect(text_same(editor->active()->path(), one) == 1,
             "recent restores the file");
     expect(editor->active()->buffer()->cursor_line() == 3,
@@ -954,6 +974,18 @@ static void check_sessions(
     expect(editor->count() == 1, "new session has no files");
     expect(ui->save_session_as("later") == 0,
             "save as refuses an existing name");
+    expect(text_same(ui->window_title(), "<No Session>") == 1,
+            "refused save leaves the title");
+    expect(ui->save_session_as("gone") == 1,
+            "name a session to close");
+    expect(text_same(ui->window_title(), "gone") == 1,
+            "named before close");
+    expect(ui->delete_session("gone") == 1,
+            "close the current session");
+    expect(text_same(ui->current_session(), "") == 1,
+            "closed session has no name");
+    expect(text_same(ui->window_title(), "<No Session>") == 1,
+            "closed session title");
 }
 
 

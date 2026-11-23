@@ -1209,7 +1209,7 @@ void Ui::build(void) {
     Box *outer;
 
     app = new Application("org.smallcpp.Editor");
-    mainWindow = new Window("editor");
+    mainWindow = new Window("<No Session>");
     if (windowWidth >= 100 && windowHeight >= 100)
         mainWindow->set_default_size(
                 windowWidth,
@@ -1324,6 +1324,7 @@ void Ui::build(void) {
     push_options();
     files = new FileDialog();
     files->set_parent(mainWindow);
+    show_session_title();
     fonts = new FontDialog();
     colors = new ColorDialog();
     choiceDialog = new Dialog("Confirm");
@@ -1796,6 +1797,7 @@ int Ui::open_session(const char *name) {
     sessionAsk = 0;
     refresh_sessions();
     refresh();
+    show_session_title();
     if (status != nullptr)
         status->set_text("Opened the session");
     return 1;
@@ -1819,6 +1821,7 @@ int Ui::new_session(void) {
         state->new_file();
     sessionAsk = 0;
     refresh();
+    show_session_title();
     if (status != nullptr)
         status->set_text("New session");
     return 1;
@@ -1838,6 +1841,7 @@ int Ui::save_current_session(void) {
         return 0;
     }
     refresh_sessions();
+    show_session_title();
     if (status != nullptr)
         status->set_text("Saved the session");
     return 1;
@@ -1853,6 +1857,7 @@ int Ui::save_session_as(const char *name) {
         return 0;
     }
     refresh_sessions();
+    show_session_title();
     if (status != nullptr)
         status->set_text("Saved the session");
     return 1;
@@ -1868,6 +1873,7 @@ int Ui::delete_session(const char *name) {
             && text_same(session->name(), name) == 1)
         session->set_name("");
     refresh_sessions();
+    show_session_title();
     if (status != nullptr)
         status->set_text("Deleted the session");
     return 1;
@@ -1885,6 +1891,7 @@ int Ui::rename_session(
             && text_same(session->name(), from) == 1)
         session->set_name(to);
     refresh_sessions();
+    show_session_title();
     if (status != nullptr)
         status->set_text("Renamed the session");
     return 1;
@@ -1931,6 +1938,23 @@ const char *Ui::current_session(void) {
     if (session == nullptr)
         return "";
     return session->name();
+}
+
+void Ui::show_session_title(void) {
+    const char *name;
+
+    if (mainWindow == nullptr)
+        return;
+    name = "<No Session>";
+    if (session != nullptr && session->name()[0] != 0)
+        name = session->name();
+    mainWindow->set_title(name);
+}
+
+const char *Ui::window_title(void) {
+    if (mainWindow == nullptr)
+        return "";
+    return mainWindow->title();
 }
 
 void Ui::pick_session(int index) {

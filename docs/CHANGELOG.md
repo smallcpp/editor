@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+The window title is the current session name. When no
+session is open, the title is `<No Session>`. Opening,
+creating, renaming, saving, saving as, or closing a
+session updates that title.
+
 Startup with no files keeps the Sessions dialog open.
 The editor window is registered first and stays hidden
 until a session is chosen, so GTK does not quit and
