@@ -64,7 +64,7 @@ directory. A project is optional. It is a named list
 of files, not a folder, and more than one project can
 describe the same directory. The files come from an
 explicit list, a directory, a git repository, or the
-sources named in a CMake build. Project has New,
+sources named in a CMake build. Project has
 Create New, Create From, Open, Close, Save, Save As,
 and Delete. Create New asks for a directory and unpacks
 the installed template there. Browse opens in the

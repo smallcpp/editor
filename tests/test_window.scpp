@@ -873,6 +873,11 @@ void check_projects(
     }
     expect(sawStray == 0, "open closes the previous buffer");
     expect(ui->panel_page() == 1, "open shows the project");
+    expect(text_same(ui->project_name(), "job") == 1,
+            "job stays open");
+    ui->on_project_menu("New");
+    expect(text_same(ui->project_name(), "job") == 1,
+            "new does not replace the project");
     expect(text_same(editor->active()->path(), note) == 1,
             "restored file");
     expect(editor->active()->buffer()->cursor_line() == 3,
