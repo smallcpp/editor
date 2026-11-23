@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+Creating or opening a project closes the file buffers
+that were already open. If a buffer has unsaved changes,
+the editor asks before it closes that buffer and switches.
+The left panel then shows the Project page and that
+project's tree. Open, Create New, and each Create From
+item do this. A project that saved its place opens those
+files after the previous buffers are gone.
+
 Project, Create New asks for a directory, unpacks the
 project template there, and opens that directory as a
 project named for the directory. The editor build clones

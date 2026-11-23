@@ -940,6 +940,10 @@ Ui::Ui(Editor *editor) {
     fromKind[0] = 0;
     knownUsed = 0;
     projectStore[0] = 0;
+    projectHold = 0;
+    holdName[0] = 0;
+    holdKind[0] = 0;
+    holdPath[0] = 0;
     langName = nullptr;
     langSuffix = nullptr;
     langNames = nullptr;
@@ -1543,10 +1547,73 @@ void Ui::apply_place(void) {
     paint_status();
 }
 
+int Ui::take_buffers(void) {
+    int code;
+
+    if (state == nullptr)
+        return 1;
+    code = state->close_all();
+    handle(code);
+    if (code == EDITOR_OK)
+        return 1;
+    if (code == EDITOR_NEEDS_CHOICE)
+        return -1;
+    return 0;
+}
+
+void Ui::reveal_project(void) {
+    if (showLeft == 0) {
+        showLeft = 1;
+        if (menuBar != nullptr)
+            menuBar->set_check(viewMenu, 4, 1);
+        apply_panels();
+    }
+    show_panel_page(1);
+}
+
+void Ui::complete_held_project(void) {
+    int mode;
+    int ok;
+    char name[PROJECT_NAME];
+    char kind[16];
+    char path[EDITOR_PATH];
+
+    if (projectHold == 0)
+        return;
+    mode = projectHold;
+    text_copy(name, PROJECT_NAME, holdName);
+    text_copy(kind, 16, holdKind);
+    text_copy(path, EDITOR_PATH, holdPath);
+    projectHold = 0;
+    ok = 0;
+    if (mode == 1)
+        ok = make_project(name, kind, path);
+    else if (mode == 2)
+        ok = open_named_project(name);
+    if (ok == 1) {
+        hide_template_project();
+        hide_from_project();
+    }
+}
+
 int Ui::make_project(
         const char *name,
         const char *kind,
         const char *path) {
+    int ready;
+
+    if (name == nullptr || kind == nullptr || path == nullptr)
+        return 0;
+    ready = take_buffers();
+    if (ready < 0) {
+        text_copy(holdName, PROJECT_NAME, name);
+        text_copy(holdKind, 16, kind);
+        text_copy(holdPath, EDITOR_PATH, path);
+        projectHold = 1;
+        return 0;
+    }
+    if (ready == 0)
+        return 0;
     if (named == nullptr)
         named = new EditProject();
     if (named->make(name, kind, path) == 0) {
@@ -1555,6 +1622,7 @@ int Ui::make_project(
         return 0;
     }
     fill_project_files();
+    reveal_project();
     refresh_known();
     return 1;
 }
@@ -1569,6 +1637,20 @@ int Ui::add_project_file(const char *path) {
 }
 
 int Ui::open_named_project(const char *name) {
+    int ready;
+
+    if (name == nullptr || name[0] == 0)
+        return 0;
+    ready = take_buffers();
+    if (ready < 0) {
+        text_copy(holdName, PROJECT_NAME, name);
+        holdKind[0] = 0;
+        holdPath[0] = 0;
+        projectHold = 2;
+        return 0;
+    }
+    if (ready == 0)
+        return 0;
     if (named == nullptr)
         named = new EditProject();
     if (named->load(name) == 0) {
@@ -1578,6 +1660,7 @@ int Ui::open_named_project(const char *name) {
         return 0;
     }
     fill_project_files();
+    reveal_project();
     apply_place();
     refresh_known();
     return 1;
@@ -1770,6 +1853,12 @@ void Ui::show_panel_page(int index) {
     if (index < 0 || index > 2)
         return;
     panelBook->set_current_page((long)index);
+}
+
+int Ui::panel_page(void) {
+    if (panelBook == nullptr)
+        return -1;
+    return (int)panelBook->current_page();
 }
 
 int Ui::panel_project_files(void) {
@@ -4210,6 +4299,10 @@ void Ui::finish_choice(int code) {
         dirtyDialog->set_visible(false);
     }
     handle(code);
+    if (code == EDITOR_CANCELLED)
+        projectHold = 0;
+    else if (code == EDITOR_OK)
+        complete_held_project();
     if (state->quit_ready() == 1)
         leave();
 }

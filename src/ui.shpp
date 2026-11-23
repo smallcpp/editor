@@ -306,6 +306,7 @@ public:
     const char *panel_scroll_mark(int side);
     void scroll_panel_tabs(int direction);
     void show_panel_page(int index);
+    int panel_page(void);
     int panel_project_files(void);
     const char *panel_project_file(int index);
     const char *shown_project_file(int index);
@@ -510,6 +511,10 @@ private:
     int knownUsed;
     char knownName[PROJECT_KNOWN][PROJECT_NAME];
     char projectStore[EDITOR_PATH];
+    int projectHold;
+    char holdName[PROJECT_NAME];
+    char holdKind[16];
+    char holdPath[EDITOR_PATH];
     Entry *langName;
     Entry *langSuffix;
     Entry *langNames;
@@ -556,6 +561,9 @@ private:
     Widget *mount_panel(void);
     void fill_files(void);
     void fill_project_files(void);
+    int take_buffers(void);
+    void reveal_project(void);
+    void complete_held_project(void);
     void place_map(long index);
     void note_map_split(long index);
     void sync_map_spin(void);

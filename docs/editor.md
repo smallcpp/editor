@@ -79,8 +79,14 @@ of the CMake build. Open lists the known
 projects. Each one is stored at
 `$HOME/.config/smallcpp/projects/<name>.project`, which
 also keeps the active file, the line, and the other
-open files for that project. Opening the project
-restores that place. Remember files is a separate
+open files for that project. Creating or opening a
+project closes the buffers that were already open, and
+the left panel switches to Project and shows that
+project's tree. Open, Create New, and each Create From
+item do this. If a buffer has unsaved changes, the
+editor asks before it closes that buffer and switches.
+Opening the project then restores its saved place.
+Remember files is a separate
 global choice. The editor does not build, run, or
 debug. The panel does not own the buffer. Opening a
 file uses the same path as File, Open. A symbol moves

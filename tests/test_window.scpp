@@ -298,6 +298,10 @@ void check_project_list(
                 "directory",
                 folder) == 1,
             "named project");
+    expect(editor->count() == 1, "create closes buffers");
+    expect(editor->active()->untitled() == 1,
+            "previous file is gone");
+    expect(ui->panel_page() == 1, "create shows the project");
     saw = -1;
     dirRow = -1;
     childRow = -1;
@@ -710,7 +714,18 @@ void check_projects(
     int sawAlso;
     int sawNote;
     int sawSide;
+    int sawStray;
+    char stray[EDITOR_PATH];
 
+    i = 0;
+    while (i < editor->count()) {
+        Document *doc;
+
+        doc = editor->at(i);
+        if (doc != nullptr && doc->buffer() != nullptr)
+            doc->buffer()->mark_clean();
+        i = i + 1;
+    }
     path_join(job, EDITOR_PATH, dir, "job");
     path_join(other, EDITOR_PATH, dir, "other");
     expect(mkdir(job, 448) == 0, "job folder");
@@ -773,7 +788,26 @@ void check_projects(
     ui->on_menu("Close");
     editor->active()->buffer()->mark_clean();
     ui->on_menu("Close");
+    path_join(stray, EDITOR_PATH, dir, "stray.scpp");
+    expect(write_file(stray, "stray\n", &io) == 1,
+            "stray file");
+    ui->open_path(stray);
+    ui->show_panel_page(0);
+    expect(ui->panel_page() == 0, "files page");
     expect(ui->open_named_project("job") == 1, "reopen job");
+    sawStray = 0;
+    i = 0;
+    while (i < editor->count()) {
+        Document *doc;
+
+        doc = editor->at(i);
+        if (doc != nullptr
+                && text_same(doc->path(), stray) == 1)
+            sawStray = 1;
+        i = i + 1;
+    }
+    expect(sawStray == 0, "open closes the previous buffer");
+    expect(ui->panel_page() == 1, "open shows the project");
     expect(text_same(editor->active()->path(), note) == 1,
             "restored file");
     expect(editor->active()->buffer()->cursor_line() == 3,
@@ -802,6 +836,30 @@ void check_projects(
     expect(file_exists(store) == 1, "other project remains");
     expect(text_same(ui->project_name(), "") == 1,
             "deleted project closed");
+    ui->open_path(stray);
+    editor->active()->buffer()->set_text("changed\n");
+    editor->active()->buffer()->mark_dirty();
+    expect(ui->make_project("later", "directory", job) == 0,
+            "dirty create waits");
+    expect(text_same(ui->project_name(), "") == 1,
+            "create waits for the buffer");
+    expect(ui->listed_count() == 1, "lists the dirty buffer");
+    ui->discard_listed(ui->listed_at(0));
+    expect(text_same(ui->project_name(), "later") == 1,
+            "create finishes");
+    expect(ui->panel_page() == 1, "create shows the project");
+    sawStray = 0;
+    i = 0;
+    while (i < editor->count()) {
+        Document *doc;
+
+        doc = editor->at(i);
+        if (doc != nullptr
+                && text_same(doc->path(), stray) == 1)
+            sawStray = 1;
+        i = i + 1;
+    }
+    expect(sawStray == 0, "create closes the previous buffer");
     check_template_open(ui, dir, io);
     i = 0;
     while (i < editor->count()) {
@@ -933,6 +991,8 @@ int main(void) {
             }
             expect(saw == 1, "panel lists a");
             check_cmake_project(ui, dir, io);
+            ui->open_path(pathA);
+            ui->open_path(pathB);
             path_join(sym, EDITOR_PATH, dir, "sym.scpp");
             json = new String();
             json->append("class Box {\n};\n\n");
