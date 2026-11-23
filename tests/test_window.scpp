@@ -335,7 +335,7 @@ static int send_ctrl_s(void) {
     return send_chord(0x73, 1);
 }
 
-static int send_wheel(unsigned int button) {
+static int send_wheel(unsigned int button, int ctrl) {
     void *display;
     unsigned long root;
     unsigned long parent;
@@ -343,6 +343,7 @@ static int send_wheel(unsigned int button) {
     unsigned int count;
     unsigned long win;
     unsigned int i;
+    unsigned int mod;
     int clickX;
     int clickY;
 
@@ -402,10 +403,19 @@ static int send_wheel(unsigned int button) {
     XTestFakeMotionEvent(display, -1, clickX, clickY, 0);
     XFlush(display);
     usleep(20000);
+    mod = 0;
+    if (ctrl != 0) {
+        mod = XKeysymToKeycode(display, 0xffe3);
+        XTestFakeKeyEvent(display, mod, 1, 0);
+        XFlush(display);
+        usleep(20000);
+    }
     XTestFakeButtonEvent(display, button, 1, 0);
     XFlush(display);
     usleep(20000);
     XTestFakeButtonEvent(display, button, 0, 0);
+    if (mod != 0)
+        XTestFakeKeyEvent(display, mod, 0, 0);
     XFlush(display);
     XCloseDisplay(display);
     return 1;
@@ -1974,7 +1984,7 @@ int main(void) {
                     ui->apply_settings();
                     ui->show_first(10);
                     ui->place_at(25, 1);
-                    expect(send_wheel(4) == 1,
+                    expect(send_wheel(4, 0) == 1,
                             "wheel reaches the buffer");
                     pump(20);
                     expect(editor->active()
@@ -1983,6 +1993,102 @@ int main(void) {
                             "the wheel moves the caret");
                     expect(ui->shown_first() == 10,
                             "the wheel leaves a wide margin");
+                    ui->show_first(10);
+                    ui->place_at(25, 1);
+                    ui->wheel_view(index, 1);
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == 25,
+                            "ctrl wheel leaves the caret");
+                    expect(ui->shown_first() == 11,
+                            "ctrl wheel scrolls one line");
+                    ui->show_first(10);
+                    ui->place_at(25, 1);
+                    ui->wheel_view(index, 6);
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == 25,
+                            "ctrl wheel keeps the caret");
+                    expect(ui->shown_first() == 15,
+                            "ctrl wheel stops at the margin");
+                    expect(25 - ui->shown_first() == 10,
+                            "the caret stays 10 lines down");
+                    ui->wheel_view(index, 1);
+                    expect(ui->shown_first() == 15,
+                            "ctrl wheel stays on the margin");
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == 25,
+                            "a stopped ctrl wheel leaves the caret");
+                    ui->show_first(1);
+                    ui->place_at(5, 1);
+                    ui->wheel_view(index, 1);
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == 5,
+                            "ctrl wheel near the start keeps the caret");
+                    expect(ui->shown_first() == 1,
+                            "ctrl wheel stops at the file");
+                    ui->show_first(10);
+                    ui->place_at(25, 1);
+                    ui->scroll_view_held(
+                            index,
+                            4,
+                            1,
+                            (double)half);
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == 25,
+                            "a short ctrl scroll waits");
+                    expect(ui->shown_first() == 10,
+                            "a short ctrl scroll stays put");
+                    ui->scroll_view_held(
+                            index,
+                            4,
+                            1,
+                            (double)(tall - half));
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == 25,
+                            "smooth ctrl scroll leaves the caret");
+                    expect(ui->shown_first() == 11,
+                            "smooth ctrl scroll moves one line");
+                    ui->set_caret_margin(15);
+                    ui->show_first(1);
+                    ui->place_at(25, 1);
+                    ui->wheel_view(index, 40);
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == 25,
+                            "the saved margin keeps the caret");
+                    expect(ui->shown_first() == 10,
+                            "ctrl wheel uses the saved margin");
+                    expect(25 - ui->shown_first() == 15,
+                            "the caret sits on that margin");
+                    ui->set_caret_margin(10);
+                    ui->apply_settings();
+                    ui->show_first(10);
+                    ui->place_at(25, 1);
+                    expect(send_wheel(5, 1) == 1,
+                            "ctrl wheel reaches the buffer");
+                    pump(20);
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == 25,
+                            "ctrl wheel event leaves the caret");
+                    expect(ui->shown_first() == 11,
+                            "ctrl wheel event scrolls one line");
+                    ui->show_first(15);
+                    ui->place_at(25, 1);
+                    expect(send_wheel(5, 1) == 1,
+                            "ctrl wheel at the margin is sent");
+                    pump(20);
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == 25,
+                            "ctrl wheel at the margin keeps the caret");
+                    expect(ui->shown_first() == 15,
+                            "ctrl wheel event stops at the margin");
                     ui->scroll_view(0);
                     n = 0;
                     y = -1;

@@ -109,6 +109,7 @@ extern void gdk_scroll_event_get_deltas(
         double *deltaY);
 extern int gdk_scroll_event_get_unit(void *event);
 extern int gdk_scroll_event_is_stop(void *event);
+extern int gdk_event_get_modifier_state(void *event);
 extern unsigned long g_signal_connect_data(
         void *instance,
         const char *signal,
@@ -1220,6 +1221,7 @@ Ui::Ui(Editor *editor) {
     marginCols = 80;
     wheelMargin = 10;
     wheelRemain = 0;
+    viewRemain = 0;
     hasLastDir = 0;
     leaving = 0;
     building = 0;
@@ -3218,6 +3220,17 @@ void Ui::map_wheel(long index, void *event) {
         scroll_map_wheel(index, 1);
 }
 
+static int scroll_controlled(void *event) {
+    int state;
+
+    if (event == nullptr)
+        return 0;
+    state = gdk_event_get_modifier_state(event);
+    if ((state & 4) != 0)
+        return 1;
+    return 0;
+}
+
 static int wheel_steps(
         double *remain,
         int direction,
@@ -3263,6 +3276,24 @@ void Ui::scroll_view_delta(
     wheel_lines(index, steps);
 }
 
+void Ui::scroll_view_held(
+        long index,
+        int direction,
+        int unit,
+        double down) {
+    int steps;
+
+    steps = wheel_steps(
+            &viewRemain,
+            direction,
+            unit,
+            down,
+            text_line_height(index));
+    if (steps == 0)
+        return;
+    wheel_view(index, steps);
+}
+
 void Ui::buffer_wheel(long index, void *event) {
     int direction;
     int unit;
@@ -3281,7 +3312,10 @@ void Ui::buffer_wheel(long index, void *event) {
     unit = 0;
     if (direction == 4)
         unit = gdk_scroll_event_get_unit(event);
-    scroll_view_delta(index, direction, unit, down);
+    if (scroll_controlled(event) != 0)
+        scroll_view_held(index, direction, unit, down);
+    else
+        scroll_view_delta(index, direction, unit, down);
 }
 
 void Ui::wheel_lines(long index, int steps) {
@@ -3360,6 +3394,58 @@ void Ui::wheel_lines(long index, int steps) {
     }
     if (want != first)
         scroll_line(index, want - 1);
+    redraw_map(index);
+}
+
+void Ui::wheel_view(long index, int steps) {
+    Document *doc;
+    long line;
+    long first;
+    long shown;
+    long next;
+    long limit;
+    int margin;
+
+    if (steps == 0)
+        return;
+    if (index < 0 || index >= pageCount)
+        return;
+    if (state == nullptr)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr || doc->buffer() == nullptr)
+        return;
+    line = doc->buffer()->cursor_line();
+    margin = wheelMargin;
+    if (margin < 0)
+        margin = 0;
+    view_span(index, &first, &shown);
+    if (shown < 1)
+        shown = 1;
+    first = first + 1;
+    next = first + (long)steps;
+    if (next < 1)
+        next = 1;
+    if (steps > 0) {
+        limit = line - (long)margin;
+        if (limit < 1)
+            limit = 1;
+        if (first >= limit)
+            next = first;
+        else if (next > limit)
+            next = limit;
+    }
+    if (steps < 0) {
+        limit = line + (long)margin - shown + 1;
+        if (limit < 1)
+            limit = 1;
+        if (first <= limit)
+            next = first;
+        else if (next < limit)
+            next = limit;
+    }
+    if (next != first)
+        scroll_line(index, next - 1);
     redraw_map(index);
 }
 

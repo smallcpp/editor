@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+Ctrl and the mouse wheel over the text buffer scroll
+the view and leave the caret where it was. The view
+stops when the caret would enter the caret margin, so
+the caret stays visible. A notch moves one line. A
+smooth scroll uses the same line accumulation as the
+plain wheel. The plain wheel still moves the caret.
+The mini-map wheel ignores Control.
+
 The mouse wheel over the text buffer moves the caret.
 The view scrolls only when that caret would sit inside
 the caret margin, and then the caret is left that many
