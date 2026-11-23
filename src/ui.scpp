@@ -260,18 +260,6 @@ void ui_from_picked(void *data, const char *path) {
         editorUi->use_from_path(path);
 }
 
-void ui_new_project(void *data, int response) {
-    (void)data;
-    if (editorUi == nullptr)
-        return;
-    if (response == 1)
-        editorUi->accept_new_project();
-    else if (response == 2)
-        editorUi->add_new_project_file();
-    else
-        editorUi->hide_new_project();
-}
-
 void ui_open_project_row(void *data, long row) {
     (void)data;
     if (editorUi == nullptr)
@@ -935,10 +923,6 @@ Ui::Ui(Editor *editor) {
     langDrop = nullptr;
     projectDrop = nullptr;
     named = new EditProject();
-    newProjectDialog = nullptr;
-    newProjectName = nullptr;
-    newProjectKind = nullptr;
-    newProjectPath = nullptr;
     openProjectDialog = nullptr;
     openProjectList = nullptr;
     saveAsDialog = nullptr;
@@ -1075,7 +1059,7 @@ void Ui::build(void) {
     const char *editLabels[16];
     const char *searchLabels[6];
     const char *viewLabels[6];
-    const char *projectLabels[8];
+    const char *projectLabels[7];
     const char *fromLabels[4];
     long fileMenu;
     long editMenu;
@@ -1114,14 +1098,13 @@ void Ui::build(void) {
     viewLabels[3] = "Remember files";
     viewLabels[4] = "Left panel";
     viewLabels[5] = "Right panel";
-    projectLabels[0] = "New";
-    projectLabels[1] = "Create New";
-    projectLabels[2] = "Create From";
-    projectLabels[3] = "Open";
-    projectLabels[4] = "Close";
-    projectLabels[5] = "Save";
-    projectLabels[6] = "Save As";
-    projectLabels[7] = "Delete";
+    projectLabels[0] = "Create New";
+    projectLabels[1] = "Create From";
+    projectLabels[2] = "Open";
+    projectLabels[3] = "Close";
+    projectLabels[4] = "Save";
+    projectLabels[5] = "Save As";
+    projectLabels[6] = "Delete";
     fromLabels[0] = "Individual files";
     fromLabels[1] = "From directory";
     fromLabels[2] = "Git repo";
@@ -1169,12 +1152,12 @@ void Ui::build(void) {
     projectMenu = menuBar->add_menu(
             "Project",
             projectLabels,
-            8,
+            7,
             ui_project_menu,
             nullptr);
     menuBar->set_submenu(
             projectMenu,
-            2,
+            1,
             fromLabels,
             4,
             ui_project_from,
@@ -7470,88 +7453,6 @@ void Ui::show_settings(void) {
     settingsDialog->present();
 }
 
-static const char *project_kind_name(long which) {
-    if (which == 1)
-        return "directory";
-    if (which == 2)
-        return "git";
-    if (which == 3)
-        return "cmake";
-    return "files";
-}
-
-void Ui::show_new_project(void) {
-    Box *box;
-    const char *kinds[4];
-
-    if (newProjectDialog == nullptr) {
-        box = new Box(GTK_VERTICAL, 8);
-        newProjectName = new Entry("");
-        newProjectKind = new DropDown();
-        kinds[0] = "Files";
-        kinds[1] = "Directory";
-        kinds[2] = "Git";
-        kinds[3] = "CMake";
-        newProjectKind->set_items(kinds, 4);
-        newProjectPath = new Entry("");
-        box->append((Widget *)new Label("Name"));
-        box->append((Widget *)newProjectName);
-        box->append((Widget *)new Label("Source"));
-        box->append((Widget *)newProjectKind);
-        box->append((Widget *)new Label("Path"));
-        box->append((Widget *)newProjectPath);
-        newProjectDialog = new Dialog("New project");
-        newProjectDialog->set_content((Widget *)box);
-        newProjectDialog->add_button("Close", 0);
-        newProjectDialog->add_button("Create", 1);
-        newProjectDialog->add_button("Add", 2);
-        newProjectDialog->on_response(ui_new_project, nullptr);
-        newProjectDialog->set_transient(mainWindow);
-        newProjectDialog->set_default_size(420, 280);
-    }
-    newProjectDialog->present();
-}
-
-void Ui::hide_new_project(void) {
-    if (newProjectDialog != nullptr)
-        newProjectDialog->set_visible(false);
-}
-
-void Ui::accept_new_project(void) {
-    const char *name;
-    const char *path;
-    const char *kind;
-    long which;
-
-    if (newProjectName == nullptr || newProjectPath == nullptr)
-        return;
-    name = newProjectName->text();
-    path = newProjectPath->text();
-    which = 0;
-    if (newProjectKind != nullptr)
-        which = newProjectKind->selected();
-    kind = project_kind_name(which);
-    make_project(name, kind, path);
-}
-
-void Ui::add_new_project_file(void) {
-    const char *name;
-    const char *path;
-
-    if (newProjectName == nullptr || newProjectPath == nullptr)
-        return;
-    name = newProjectName->text();
-    path = newProjectPath->text();
-    if (named == nullptr
-            || named->name()[0] == 0
-            || text_same(named->name(), name) == 0
-            || text_same(named->kind_name(), "files") == 0) {
-        accept_new_project();
-        return;
-    }
-    add_project_file(path);
-}
-
 void Ui::fill_open_projects(void) {
     int i;
 
@@ -7953,10 +7854,6 @@ void Ui::on_project_menu(const char *label) {
         return;
     if (text_same(label, "Create New") == 1) {
         show_template_project();
-        return;
-    }
-    if (text_same(label, "New") == 1) {
-        show_new_project();
         return;
     }
     if (text_same(label, "Open") == 1) {

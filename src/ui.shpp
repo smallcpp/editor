@@ -291,10 +291,6 @@ public:
     void hide_from_project(void);
     void browse_from_path(void);
     void use_from_path(const char *path);
-    void show_new_project(void);
-    void accept_new_project(void);
-    void add_new_project_file(void);
-    void hide_new_project(void);
     void show_open_project(void);
     void hide_open_project(void);
     void show_save_as_project(void);
@@ -498,10 +494,6 @@ private:
     DropDown *langDrop;
     DropDown *projectDrop;
     EditProject *named;
-    Dialog *newProjectDialog;
-    Entry *newProjectName;
-    DropDown *newProjectKind;
-    Entry *newProjectPath;
     Dialog *openProjectDialog;
     ColumnView *openProjectList;
     Dialog *saveAsDialog;
