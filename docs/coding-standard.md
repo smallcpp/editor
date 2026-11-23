@@ -11,9 +11,22 @@ files use the `.scpp` suffix. Do not invent an `sc_` prefix for a name.
 
 ## General guidelines
 
+- Classes should have a single well-defined function and should have a 
+  block comment that describes that function.
 - Prefer to define class methods outside of the class body. Declare the
   method in the class, and write the body later as `Class::name`. This
   keeps the class small and readable.
+- Files should have a single well-defined purpose. Ideally, files should 
+  be limited to less than 500 lines and should never be more than 1500 
+  lines.   
+- Files should have a block comment at the start   
+    - names the author and the date.
+    - that names related files such as headers or implementations. 
+    - outlines how the file fits into the project.
+    - has a change list with author, date, and a single sentence that can 
+      map back to a pull request if its managed with GITHUB.
+- Functions and data that are defined outside of a class should have its
+  own header and implementation.
 - Always use a new line after a `{` and before a `}`. Including one line
   code blocks. This helps to visually define code blocks.
 - Indents are 4 spaces. Continuations are allowed inside `[]` and `()`
