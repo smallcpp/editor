@@ -1450,6 +1450,24 @@ int main(void) {
                 long y;
                 int n;
 
+                view->set_text("one\ntwo\nthree\n");
+                n = 0;
+                height = 0;
+                while (n < 40) {
+                    usleep(50000);
+                    pump(10);
+                    height = ui->map_height();
+                    if (height > 40)
+                        break;
+                    n = n + 1;
+                }
+                expect(height > 40, "map has a height");
+                expect(ui->map_top() == 0,
+                        "short map starts at the top");
+                band = ui->map_band();
+                expect(band > 0, "short map has a band");
+                expect(band < height,
+                        "short map stays packed");
                 shape = new String();
                 shape->append("short\n");
                 shape->append("\n");

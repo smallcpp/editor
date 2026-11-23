@@ -227,6 +227,7 @@ public:
             int height,
             const char *text,
             long lines);
+    int map_pitch(void *widget, long height);
     void scroll_line(long index, long line);
     long map_height(void);
     long map_top(void);
