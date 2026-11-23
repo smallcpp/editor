@@ -8,6 +8,11 @@ The tab lists those files by the same names, lined up
 on the left, and one click switches to that file. The
 tab row still scrolls with the same buttons. Files,
 Project, and Symbols stay as they are.
+Project no longer has New. That item created an empty
+project from a name and a source. Create New and Create
+From remain. Create New still asks for a directory,
+including one typed in Browse that does not exist yet,
+and unpacks the template there.
 
 Project, Create New, Browse opens in the directory where
 the editor was started. That directory is kept for the
@@ -46,7 +51,7 @@ that kind.
 
 A project is a named list of files, and using one is
 optional. More than one project can describe the same
-directory. Project has New, Create New, Create From,
+directory. Project has Create New, Create From,
 Open, Close, Save, Save As, and Delete. Open lists the
 projects already saved. A
 project's files come from an explicit list, a directory,
