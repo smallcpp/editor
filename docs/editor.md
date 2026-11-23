@@ -60,16 +60,34 @@ editor and the column sets the column width. Map width in
 Settings sets that same width, from 24 to 500. The column keeps the width
 from the last of those and does not change it on its own.
 The column reads the buffer the editor already has.
-A panel on the left lists files, the project, symbols,
-and the open documents.
+A panel on the left lists files, symbols, and the open
+documents. Documents also lists the project tree.
 Its left edge is the left edge of the window. Dragging the
 marker on the panel's right edge changes the panel width.
-The tab row has buttons that scroll the Files, Project,
-Symbols, and Documents labels when they do not fit. Files
+The tab row has buttons that scroll the Files, Symbols,
+and Documents labels when they do not fit. Files
 lists the current folder with each name starting at the
 left. Documents lists the open files the same way, and
-one click switches to that file. A name is shown as
+one click switches to that file. Under those names it
+lists the open project's files. A name is shown as
 written, including an underscore.
+Right-click on Files, the project tree, or the open
+documents shows New,
+Open, Close, Save, and Remove. Open, Close, Save, and
+Remove are gray unless the click landed on a file, and
+then they use that file. New stays available when a
+file can be created: the Files tab has a folder, a
+project is open, or Documents can open a buffer. New
+is the same as File, New. Open opens that file. Close
+closes it when it is open, and still asks when it is
+dirty. Save writes it, opening it first when it is not
+already open. Remove asks before it changes anything.
+Remove from the project drops a project file, closes a
+document, or hides a name in the Files list, and the
+file stays on disk. Remove from the project and the
+disk does that and then deletes the file. Cancel
+leaves the file alone. A Files name stays hidden for
+that folder until the editor quits.
 Project lists the files in the open project as a
 collapsible tree. Each row is a directory name or a
 file name, and one click opens a file or folds a
@@ -101,16 +119,31 @@ projects. Each one is stored at
 also keeps the active file, the line, and the other
 open files for that project. Creating or opening a
 project closes the buffers that were already open, and
-the left panel switches to Project and shows that
+the left panel switches to Documents and shows that
 project's tree. Open, Create New, and each Create From
 item do this. If a buffer has unsaved changes, the
 editor asks before it closes that buffer and switches.
 Opening the project then restores its saved place.
+Save writes that project. Save As asks for a new name
+and writes a copy, leaving the original project open
+and its file unchanged. The same name is refused.
+Close saves the project and clears it. Delete removes
+the project file. With no project, those items say so.
+Setup, Project has the same actions, including each
+Create From choice, and a theme list. A project theme
+is used while that project is open. Closing or
+deleting it returns to the editor theme. The editor
+theme saved in setup does not change.
 Remember files is a separate
 global choice. The editor does not build, run, or
 debug. The panel does not own the buffer. Opening a
 file uses the same path as File, Open. A symbol moves
 the cursor in the current buffer.
+Right-click in the text keeps the usual edit menu and
+hides Insert Emoji. Insert date writes today's local
+date at the caret as `YYYY-MM-DD`. Insert color opens
+the same color chooser as the theme colors and writes
+the chosen color as `#rrggbb`.
 The menus are File, Edit, Search, View, and Project. The
 status line shows the title, a dirty star, the line, the
 column, and the language. Each tab has a dark border.

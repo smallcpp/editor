@@ -500,6 +500,7 @@ EditProject::EditProject() {
 void EditProject::clear(void) {
     nameText[0] = 0;
     kindText[0] = 0;
+    themeText[0] = 0;
     rootPath[0] = 0;
     activePath[0] = 0;
     placeLine = 1;
@@ -507,6 +508,7 @@ void EditProject::clear(void) {
     opens = 0;
     rows = 0;
     expanded = 0;
+    omits = 0;
 }
 
 const char *EditProject::name(void) {
@@ -515,6 +517,19 @@ const char *EditProject::name(void) {
 
 const char *EditProject::kind_name(void) {
     return kindText;
+}
+
+const char *EditProject::theme_name(void) {
+    return themeText;
+}
+
+void EditProject::set_theme(const char *name) {
+    if (name == nullptr || name[0] == 0
+            || text_same(name, "default") == 1) {
+        themeText[0] = 0;
+        return;
+    }
+    text_copy(themeText, 32, name);
 }
 
 const char *EditProject::root(void) {
@@ -1050,6 +1065,10 @@ int EditProject::save(void) {
     text->append(nameText);
     text->append("\nkind=");
     text->append(kindText);
+    if (themeText[0] != 0) {
+        text->append("\ntheme=");
+        text->append(themeText);
+    }
     text->append("\nroot=");
     text->append(rootPath);
     text->append("\nactive=");
@@ -1070,6 +1089,14 @@ int EditProject::save(void) {
         while (i < files) {
             text->append("file=");
             text->append(filePath[i]);
+            text->append("\n");
+            i = i + 1;
+        }
+    } else {
+        i = 0;
+        while (i < omits) {
+            text->append("omit=");
+            text->append(omitPath[i]);
             text->append("\n");
             i = i + 1;
         }
@@ -1131,6 +1158,8 @@ int EditProject::load(const char *wanted) {
         take_line(raw, n, &at, line, EDITOR_PATH);
         if (split_key(line, "kind", value, 16) == 1)
             text_copy(kindText, 16, value);
+        else if (split_key(line, "theme", value, 32) == 1)
+            text_copy(themeText, 32, value);
         else if (split_key(line, "root", value, EDITOR_PATH) == 1)
             text_copy(rootPath, EDITOR_PATH, value);
         else if (split_key(line, "active", value, EDITOR_PATH) == 1)
@@ -1141,6 +1170,8 @@ int EditProject::load(const char *wanted) {
             note_open(value);
         else if (split_key(line, "file", value, EDITOR_PATH) == 1)
             add_abs(value);
+        else if (split_key(line, "omit", value, EDITOR_PATH) == 1)
+            note_omit(value);
     }
     if (kind_code(kindText) == 0) {
         clear();
@@ -1151,6 +1182,7 @@ int EditProject::load(const char *wanted) {
     if (text_same(kindText, "files") == 0) {
         files = 0;
         collect();
+        drop_omitted();
     } else
         share_root();
     build_tree();
@@ -1163,6 +1195,105 @@ int EditProject::add_file(const char *path) {
     if (add_abs(path) == 0)
         return 0;
     share_root();
+    build_tree();
+    return save();
+}
+
+int EditProject::forget_one(const char *norm) {
+    int i;
+    int j;
+
+    if (norm == nullptr || norm[0] == 0)
+        return 0;
+    i = 0;
+    while (i < files) {
+        if (text_same(filePath[i], norm) == 1) {
+            j = i;
+            while (j + 1 < files) {
+                text_copy(
+                        filePath[j],
+                        EDITOR_PATH,
+                        filePath[j + 1]);
+                j = j + 1;
+            }
+            files = files - 1;
+            return 1;
+        }
+        i = i + 1;
+    }
+    return 0;
+}
+
+void EditProject::forget_open(const char *norm) {
+    int i;
+    int j;
+
+    if (norm == nullptr)
+        return;
+    if (text_same(activePath, norm) == 1)
+        activePath[0] = 0;
+    i = 0;
+    while (i < opens) {
+        if (text_same(openPath[i], norm) == 1) {
+            j = i;
+            while (j + 1 < opens) {
+                text_copy(
+                        openPath[j],
+                        EDITOR_PATH,
+                        openPath[j + 1]);
+                j = j + 1;
+            }
+            opens = opens - 1;
+        } else
+            i = i + 1;
+    }
+}
+
+void EditProject::drop_omitted(void) {
+    int i;
+
+    i = 0;
+    while (i < omits) {
+        forget_one(omitPath[i]);
+        i = i + 1;
+    }
+}
+
+int EditProject::note_omit(const char *path) {
+    char norm[EDITOR_PATH];
+    int i;
+
+    if (path == nullptr || path[0] == 0)
+        return 0;
+    if (omits >= PROJECT_OMIT)
+        return 0;
+    if (path_normalize(norm, EDITOR_PATH, path) == 0)
+        text_copy(norm, EDITOR_PATH, path);
+    i = 0;
+    while (i < omits) {
+        if (text_same(omitPath[i], norm) == 1)
+            return 1;
+        i = i + 1;
+    }
+    text_copy(omitPath[omits], EDITOR_PATH, norm);
+    omits = omits + 1;
+    return 1;
+}
+
+int EditProject::drop_path(const char *path) {
+    char norm[EDITOR_PATH];
+
+    if (path_normalize(norm, EDITOR_PATH, path) == 0)
+        return 0;
+    if (forget_one(norm) == 0)
+        return 0;
+    if (text_same(kindText, "files") == 1)
+        share_root();
+    else if (note_omit(norm) == 0) {
+        add_abs(norm);
+        return 0;
+    }
+    forget_open(norm);
     build_tree();
     return save();
 }

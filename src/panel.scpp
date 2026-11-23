@@ -368,6 +368,7 @@ SidePanel::SidePanel() {
     rootPath[0] = 0;
     listPath[0] = 0;
     files = 0;
+    hides = 0;
     treeFiles = 0;
     cmakeOn = 0;
     targets = 0;
@@ -432,6 +433,39 @@ int SidePanel::file_path(int index, char *dest, long cap) {
     }
     path_join(dest, cap, listPath, fileName[index]);
     return (int)(dest[0] != 0);
+}
+
+int SidePanel::hidden_here(const char *name) {
+    int i;
+
+    if (name == nullptr || name[0] == 0)
+        return 0;
+    i = 0;
+    while (i < hides) {
+        if (text_same(hideDir[i], listPath) == 1
+                && text_same(hideName[i], name) == 1)
+            return 1;
+        i = i + 1;
+    }
+    return 0;
+}
+
+int SidePanel::hide_file(const char *name) {
+    if (name == nullptr || name[0] == 0)
+        return 0;
+    if (text_same(name, "..") == 1)
+        return 0;
+    if (hidden_here(name) == 1) {
+        list_dir();
+        return 1;
+    }
+    if (hides >= PANEL_HIDE)
+        return 0;
+    text_copy(hideDir[hides], EDITOR_PATH, listPath);
+    text_copy(hideName[hides], PANEL_NAME, name);
+    hides = hides + 1;
+    list_dir();
+    return 1;
 }
 
 int SidePanel::tree_count(void) {
@@ -1196,7 +1230,8 @@ void SidePanel::list_dir(void) {
         int dir;
 
         if (entry->d_name[0] != '.'
-                && files < PANEL_FILES) {
+                && files < PANEL_FILES
+                && hidden_here(entry->d_name) == 0) {
             path_join(
                     path,
                     EDITOR_PATH,
