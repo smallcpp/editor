@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+Right-click on the mini-map opens a dialog for its font
+and size. Save updates the column immediately and stores
+the same `map-font` value as Settings, Appearance. Cancel
+leaves the font as it is. The wheel, the drag, the
+current-line mark, and the width stay as they are.
+
 The mini-map width can be set from 24 to 500. The
 setup spin, the drag bar, and a saved map-width all
 use that range. A width already saved stays as it is.

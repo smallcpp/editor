@@ -512,6 +512,54 @@ void check_map_click(Ui *ui, Editor *editor) {
     expect(after > before, "click marks the caret line");
 }
 
+void check_map_font_dialog(Ui *ui) {
+    char path[EDITOR_PATH];
+    char *raw;
+    long n;
+    long wide;
+    const char *err;
+
+    ui->set_map_font("Monospace 4");
+    wide = ui->map_spin();
+    ui->show_map_font_dialog();
+    expect(ui->map_font_size() == 4, "dialog shows the size");
+    expect(text_same(ui->map_font(), "Monospace 4") == 1,
+            "opening leaves the font");
+    ui->stage_map_font("Sans 9");
+    expect(ui->map_font_size() == 9, "chooser sets the size");
+    expect(text_same(ui->map_font(), "Monospace 4") == 1,
+            "chooser waits for save");
+    ui->answer_map_font(0);
+    expect(text_same(ui->map_font(), "Monospace 4") == 1,
+            "cancel leaves the font");
+    ui->show_map_font_dialog();
+    ui->stage_map_font("Sans 9");
+    ui->answer_map_font(1);
+    expect(text_same(ui->map_font(), "Sans 9") == 1,
+            "save updates the map font");
+    ui->show_map_font_dialog();
+    ui->set_map_font_size(6);
+    expect(text_same(ui->map_font(), "Sans 9") == 1,
+            "size waits for save");
+    ui->answer_map_font(1);
+    expect(text_same(ui->map_font(), "Sans 6") == 1,
+            "save stores the size");
+    err = "";
+    n = 0;
+    expect(config_path(path, EDITOR_PATH) == 1,
+            "map font ini");
+    raw = read_file(path, &n, &err);
+    expect(raw != nullptr, "map font ini text");
+    if (raw != nullptr)
+        expect(text_has(raw, "map-font=Sans 6") == 1,
+                "saved map font");
+    expect(ui->map_spin() == wide, "map width stays");
+    ui->scroll_map_wheel(0, 1);
+    expect(text_same(ui->map_font(), "Sans 6") == 1,
+            "wheel leaves the font");
+    ui->set_map_font("Monospace 4");
+}
+
 void check_map_mark(Ui *ui, Editor *editor) {
     long caret;
     long wide;
@@ -1586,6 +1634,7 @@ int main(void) {
                 expect(ui->map_top() > top,
                         "viewport moved down");
                 check_map_mark(ui, editor);
+                check_map_font_dialog(ui);
             }
             editor->active()->buffer()->mark_clean();
         }

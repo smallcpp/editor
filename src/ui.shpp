@@ -252,6 +252,13 @@ public:
     void open_map_font(void);
     void choose_map_font(const char *description);
     void finish_font(const char *description);
+    void show_map_font_dialog(void);
+    void answer_map_font(int response);
+    void stage_map_font(const char *description);
+    void edit_map_font(void);
+    void set_map_font_size(int size);
+    void note_map_font_size(void);
+    int map_font_size(void);
     long map_width(void);
     void set_map_width(long width);
     void set_map_spin(long width);
@@ -382,6 +389,9 @@ private:
     EditorConfig *themeConfig;
     char fontDesc[128];
     char mapFont[128];
+    char mapFontDraft[128];
+    int mapFontHold;
+    int mapFontWait;
     char lastDir[EDITOR_PATH];
     char startDir[EDITOR_PATH];
     char docName[EDITOR_PAGES][80];
@@ -419,6 +429,9 @@ private:
     char marginSwatch[32];
     String *frameText;
     Button *mapFontButton;
+    Dialog *mapFontDialog;
+    Button *mapFontChoice;
+    SpinButton *mapFontSize;
     SpinButton *mapWidthSpin;
     DropDown *themePick;
     Entry *themeSaveEntry;
