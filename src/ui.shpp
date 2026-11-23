@@ -300,6 +300,11 @@ public:
     void answer_session(int response);
     void set_session_name_text(const char *text);
     const char *session_name_text(void);
+    void ask_session_name(int mode);
+    void accept_session_name(void);
+    void hide_session_name(void);
+    int session_name_open(void);
+    int session_row_clicks(void);
     void keep_session_pick(int index);
     void pick_session(int index);
     int picked_session(void);
@@ -308,7 +313,6 @@ public:
     int session_button_count(void);
     const char *session_button_label(int index);
     int session_button_gap(int index);
-    void activate_session_row(long row);
     int recent_sessions(void);
     const char *recent_session(int index);
     void open_recent_session(const char *name);
@@ -547,8 +551,12 @@ private:
     Dialog *sessionDialog;
     ColumnView *sessionView;
     void *sessionSelect;
-    Entry *sessionEntry;
-    Button *sessionButton[5];
+    Dialog *sessionNameDialog;
+    Entry *sessionNameEntry;
+    int sessionNameMode;
+    int sessionNameShown;
+    char sessionNameFrom[SESSION_NAME];
+    Button *sessionButton[6];
     Dialog *sessionSaveDialog;
     Entry *sessionSaveEntry;
     int sessionUsed;
