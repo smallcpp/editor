@@ -307,6 +307,8 @@ public:
     void focus_session_list(void);
     int session_button_count(void);
     const char *session_button_label(int index);
+    int session_button_gap(int index);
+    void activate_session_row(long row);
     int recent_sessions(void);
     const char *recent_session(int index);
     void open_recent_session(const char *name);
@@ -546,6 +548,7 @@ private:
     ColumnView *sessionView;
     void *sessionSelect;
     Entry *sessionEntry;
+    Button *sessionButton[5];
     Dialog *sessionSaveDialog;
     Entry *sessionSaveEntry;
     int sessionUsed;

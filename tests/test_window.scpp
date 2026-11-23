@@ -923,29 +923,37 @@ static void check_sessions(
             "restored the caret");
     ui->show_sessions();
     expect(ui->session_dialog_open() == 1, "dialog is open");
-    expect(ui->session_button_count() == 6, "six buttons");
-    expect(text_same(ui->session_button_label(0), "Open") == 1,
-            "open button");
+    expect(ui->session_button_count() == 5, "five buttons");
     expect(text_same(
-                ui->session_button_label(1),
+                ui->session_button_label(0),
                 "New Session") == 1,
             "new button");
     expect(text_same(
-                ui->session_button_label(2),
+                ui->session_button_label(1),
                 "Delete") == 1,
             "delete button");
     expect(text_same(
-                ui->session_button_label(3),
+                ui->session_button_label(2),
                 "Close") == 1,
             "close button");
     expect(text_same(
-                ui->session_button_label(4),
+                ui->session_button_label(3),
                 "Rename") == 1,
             "rename button");
     expect(text_same(
-                ui->session_button_label(5),
+                ui->session_button_label(4),
                 "Duplicate") == 1,
             "duplicate button");
+    expect(ui->session_button_gap(0) == 0,
+            "new session starts the column");
+    expect(ui->session_button_gap(1) == 1,
+            "space before delete");
+    expect(ui->session_button_gap(2) == 0,
+            "close follows delete");
+    expect(ui->session_button_gap(3) == 1,
+            "space before rename");
+    expect(ui->session_button_gap(4) == 0,
+            "duplicate follows rename");
     saw = -1;
     i = 0;
     while (i < ui->session_count()) {
@@ -1069,6 +1077,21 @@ static void check_sessions(
             "closed session has no name");
     expect(text_same(ui->window_title(), "<No Session>") == 1,
             "closed session title");
+    mark_clean_all(editor);
+    ui->show_sessions();
+    saw = -1;
+    i = 0;
+    while (i < ui->session_count()) {
+        if (text_same(ui->session_name_at(i), "later") == 1)
+            saw = i;
+        i = i + 1;
+    }
+    expect(saw >= 0, "later is listed");
+    ui->activate_session_row((long)saw);
+    expect(ui->session_dialog_open() == 0,
+            "a click opens the session");
+    expect(text_same(ui->current_session(), "later") == 1,
+            "the clicked row opened");
 }
 
 
