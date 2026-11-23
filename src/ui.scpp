@@ -101,6 +101,11 @@ extern void *gtk_css_provider_new(void);
 extern void gtk_css_provider_load_from_string(
         void *provider,
         const char *css);
+extern void *gtk_widget_get_style_context(void *widget);
+extern void gtk_style_context_add_provider(
+        void *context,
+        void *provider,
+        int priority);
 extern void *gdk_display_get_default(void);
 extern void gtk_style_context_add_provider_for_display(
         void *display,
@@ -868,6 +873,17 @@ Ui::Ui(Editor *editor) {
     bracketEntry = nullptr;
     lineColorButton = nullptr;
     marginColorButton = nullptr;
+    lineSwatchProvider = nullptr;
+    marginSwatchProvider = nullptr;
+    lineSwatch[0] = 0;
+    marginSwatch[0] = 0;
+    frameText = nullptr;
+    i = 0;
+    while (i < THEME_ALL) {
+        themeSwatchProvider[i] = nullptr;
+        themeSwatch[i][0] = 0;
+        i = i + 1;
+    }
     mapFontButton = nullptr;
     mapWidthSpin = nullptr;
     files = nullptr;
@@ -6507,6 +6523,11 @@ void Ui::fill_theme(void) {
                     language,
                     theme_name(i));
             themeEntry[i]->set_text(color);
+            paint_color_button(
+                    themeColorButton[i],
+                    &themeSwatchProvider[i],
+                    themeSwatch[i],
+                    color);
         }
         i = i + 1;
     }
@@ -6558,6 +6579,11 @@ void Ui::take_theme_entry(int slot) {
             theme_name(slot),
             color) == 0)
         return;
+    paint_color_button(
+            themeColorButton[slot],
+            &themeSwatchProvider[slot],
+            themeSwatch[slot],
+            color);
     paint_theme(language);
     if (text_same(
             theme_name(slot),
@@ -6648,6 +6674,47 @@ void Ui::paint_theme(const char *language) {
     }
 }
 
+static int hex_nibble(char ch) {
+    if (ch >= '0' && ch <= '9')
+        return (int)(ch - '0');
+    if (ch >= 'a' && ch <= 'f')
+        return (int)(ch - 'a') + 10;
+    if (ch >= 'A' && ch <= 'F')
+        return (int)(ch - 'A') + 10;
+    return -1;
+}
+
+static int hex_color(const char *text) {
+    int i;
+
+    if (text == nullptr || text[0] != '#')
+        return 0;
+    i = 1;
+    while (i <= 6) {
+        if (hex_nibble(text[i]) < 0)
+            return 0;
+        i = i + 1;
+    }
+    if (text[7] != 0)
+        return 0;
+    return 1;
+}
+
+static int swatch_dark(const char *color) {
+    int red;
+    int green;
+    int blue;
+    int bright;
+
+    red = hex_nibble(color[1]) * 16 + hex_nibble(color[2]);
+    green = hex_nibble(color[3]) * 16 + hex_nibble(color[4]);
+    blue = hex_nibble(color[5]) * 16 + hex_nibble(color[6]);
+    bright = (red * 3 + green * 6 + blue) / 10;
+    if (bright < 140)
+        return 1;
+    return 0;
+}
+
 static void css_rule(
         String *css,
         const char *selector,
@@ -6667,6 +6734,15 @@ static void css_rule(
     css->append("; }\n");
 }
 
+static void css_pair(
+        String *css,
+        const char *selector,
+        const char *back,
+        const char *ink) {
+    css_rule(css, selector, "background-color", back);
+    css_rule(css, selector, "color", ink);
+}
+
 void Ui::keep_theme_base(const EditorConfig *item) {
     if (themeBase == nullptr || item == nullptr)
         return;
@@ -6684,6 +6760,69 @@ void Ui::give_theme_base(EditorConfig *item) {
     text_copy(item->marginColor, 32, themeBase->marginColor);
     text_copy(item->font, 128, themeBase->font);
     text_copy(item->themeName, THEME_NAME, themeName);
+}
+
+void Ui::paint_color_button(
+        Button *button,
+        void **provider,
+        char *shown,
+        const char *color) {
+    String *css;
+    void *context;
+    const char *ink;
+
+    if (button == nullptr || button->native == nullptr)
+        return;
+    if (provider == nullptr || shown == nullptr)
+        return;
+    if (hex_color(color) == 0)
+        return;
+    text_copy(shown, 32, color);
+    ink = "#1a1a1a";
+    if (swatch_dark(color) == 1)
+        ink = "#f7f7f7";
+    css = new String();
+    css->append("button { background-image: none; ");
+    css->append("background-color: ");
+    css->append(color);
+    css->append("; color: ");
+    css->append(ink);
+    css->append("; }\n");
+    if (*provider == nullptr) {
+        *provider = gtk_css_provider_new();
+        if (*provider == nullptr)
+            return;
+        context = gtk_widget_get_style_context(button->native);
+        if (context == nullptr)
+            return;
+        gtk_style_context_add_provider(
+                context,
+                *provider,
+                800);
+    }
+    gtk_css_provider_load_from_string(
+            *provider,
+            css->c_str());
+}
+
+const char *Ui::line_swatch(void) {
+    return lineSwatch;
+}
+
+const char *Ui::margin_swatch(void) {
+    return marginSwatch;
+}
+
+const char *Ui::theme_swatch(int slot) {
+    if (slot < 0 || slot >= THEME_ALL)
+        return "";
+    return themeSwatch[slot];
+}
+
+const char *Ui::frame_css(void) {
+    if (frameText == nullptr)
+        return "";
+    return frameText->c_str();
 }
 
 void Ui::paint_frame(void) {
@@ -6735,6 +6874,29 @@ void Ui::paint_frame(void) {
             "color",
             tabText);
     css_rule(css, "textview", "color", ink);
+    css_pair(css, "window.editor box", paper, ink);
+    css_pair(css, "window.editor paned", paper, ink);
+    css_pair(css, "window.editor notebook", paper, ink);
+    css_pair(css, "window.editor columnview", paper, ink);
+    css_pair(css, "window.editor listview", paper, ink);
+    css_pair(
+            css,
+            "window.editor scrolledwindow",
+            paper,
+            ink);
+    css_rule(css, "window.editor label", "color", ink);
+    css_pair(css, "window.editor button", paper, ink);
+    css_pair(css, "menubar item", menu, menuText);
+    css_rule(css, "menubar item label", "color", menuText);
+    css_pair(css, "popover.menu contents", menu, menuText);
+    css_pair(css, "popover.menu box", menu, menuText);
+    css_pair(
+            css,
+            "popover.menu modelbutton",
+            menu,
+            menuText);
+    css_rule(css, "popover.menu label", "color", menuText);
+    frameText = css;
     if (themeCss == nullptr) {
         display = gdk_display_get_default();
         if (display == nullptr)
@@ -7199,6 +7361,16 @@ void Ui::show_settings(void) {
         marginColorButton->on_clicked(
                 ui_margin_color,
                 nullptr);
+        paint_color_button(
+                lineColorButton,
+                &lineSwatchProvider,
+                lineSwatch,
+                lineColor);
+        paint_color_button(
+                marginColorButton,
+                &marginSwatchProvider,
+                marginSwatch,
+                marginColor);
         fontButton->on_clicked(ui_font_button, nullptr);
         mapFontButton = new Button(mapFont);
         mapFontButton->on_clicked(ui_map_font_button, nullptr);
@@ -9469,6 +9641,11 @@ void Ui::set_line_color(const char *color) {
     if (safe_color(color) == 0)
         return;
     text_copy(lineColor, 32, color);
+    paint_color_button(
+            lineColorButton,
+            &lineSwatchProvider,
+            lineSwatch,
+            lineColor);
     i = 0;
     while (i < pageCount) {
         paint_line(i);
@@ -9482,6 +9659,11 @@ void Ui::set_margin_color(const char *color) {
     if (safe_color(color) == 0)
         return;
     text_copy(marginColor, 32, color);
+    paint_color_button(
+            marginColorButton,
+            &marginSwatchProvider,
+            marginSwatch,
+            marginColor);
     i = 0;
     while (i < pageCount) {
         apply_view(i);

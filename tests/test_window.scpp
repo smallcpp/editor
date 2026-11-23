@@ -1902,6 +1902,24 @@ int main(void) {
                     "tabs do not widen the window");
         }
         ui->show_settings();
+        expect(text_same(ui->line_swatch(), "#d6e4f5") == 1,
+                "line color patch");
+        expect(text_same(ui->margin_swatch(), "#c8c8c8") == 1,
+                "margin color patch");
+        expect(text_has(ui->frame_css(), "columnview") == 1,
+                "panels take the theme");
+        expect(text_has(ui->frame_css(), "button") == 1,
+                "buttons take the theme");
+        expect(text_has(ui->frame_css(), "menubar") == 1,
+                "menus take the theme");
+        expect(text_has(ui->frame_css(), "#ffffff") == 1,
+                "window background color");
+        expect(text_has(ui->frame_css(), "#1a1a1a") == 1,
+                "window text color");
+        ui->show_theme();
+        pump(10);
+        expect(text_same(ui->theme_swatch(0), "#2040c0") == 1,
+                "keyword color patch");
         expect(text_same(ui->theme_choice(), "default") == 1,
                 "theme starts default");
         expect(ui->theme_store("night") == 1,
@@ -1924,6 +1942,60 @@ int main(void) {
             if (raw != nullptr)
                 expect(text_has(raw, "theme=night") == 1,
                         "saved theme name");
+        }
+        {
+            char homeDir[EDITOR_PATH];
+            char config[EDITOR_PATH];
+            char small[EDITOR_PATH];
+            char themes[EDITOR_PATH];
+            char *raw;
+            char *home;
+            long n;
+            const char *err;
+
+            err = "";
+            n = 0;
+            home = getenv("HOME");
+            expect(home != nullptr && home[0] != 0,
+                    "home for theme");
+            if (home != nullptr && home[0] != 0) {
+                path_join(
+                        homeDir,
+                        EDITOR_PATH,
+                        home,
+                        ".config");
+                path_join(
+                        config,
+                        EDITOR_PATH,
+                        homeDir,
+                        "smallcpp");
+                path_join(
+                        small,
+                        EDITOR_PATH,
+                        config,
+                        "themes");
+                path_join(
+                        themes,
+                        EDITOR_PATH,
+                        small,
+                        "night.ini");
+                raw = read_file(themes, &n, &err);
+                expect(raw != nullptr, "named theme file");
+                if (raw != nullptr) {
+                    expect(text_has(
+                                raw,
+                                "theme-background=") == 1,
+                            "saved window background");
+                    expect(text_has(raw, "theme-text=") == 1,
+                            "saved window text");
+                    expect(text_has(raw, "theme-menu=") == 1,
+                            "saved menu background");
+                    expect(text_has(
+                                raw,
+                                "theme-menu-text=") == 1,
+                            "saved menu text");
+                }
+            }
         }
         expect(ui->theme_pick("default") == 1,
                 "pick default");

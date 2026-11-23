@@ -194,8 +194,10 @@ also picks a theme and can save the current
 settings as a new theme. A theme file lives in
 `$HOME/.config/smallcpp/themes` and can be copied in.
 It sets the window background and text, menus, tabs, the
-current line, the column marker, syntax colors, bracket
-colors, and the font. The tag map in `editor.ini` is the
+panels, buttons, the current line, the column marker,
+syntax colors, bracket colors, and the font. Panels and
+buttons use the theme background and text. Menus use the
+menu background and menu text. The tag map in `editor.ini` is the
 default theme. A missing color keeps that default.
 Remember files is on General with the recent-file
 count, and it is off until it is turned on. Search and
@@ -291,8 +293,10 @@ choices to `$HOME/.config/smallcpp/editor.ini` when it
 changes. Close only hides the dialog. Close button on
 file tabs sits on General. It is not on the dialog
 frame. Current line color and the
-column marker color each have a Color button that opens
+column marker color each have a Color button. The button
+is filled with the chosen color. Clicking it still opens
 the color chooser and stores the chosen `#rrggbb`.
+The same patch is on each Color button in Syntax colors.
 Appearance has Syntax colors. That dialog is a grid.
 The tag name, the foreground, and the background are
 columns. It chooses one file type and assigns a color
