@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+The left panel no longer has a Project tab. Documents
+lists the open files and the project tree. One click
+still opens a project file or switches documents.
+Files and Symbols stay.
+
+Setup, Project has the same actions as the Project
+menu: Create New, Individual files, From directory,
+Git repo, CMake build, Open, Close, Save, Save As,
+and Delete. It also chooses the project's theme.
+
+Save writes the open project and says so. Save As
+asks for a new name, writes that project, and leaves
+the original open. The same name is refused. Close
+saves and clears the project. Delete removes that
+project file. With no project, Save, Save As, Close,
+and Delete say there is no project.
+
+A project stores a theme. Choosing it on the Project
+page uses that theme while the project is open.
+Closing or deleting the project returns to the editor
+theme. The editor theme in setup stays the editor
+theme.
+
 Right-click in the text hides Insert Emoji and adds
 Insert date and Insert color. Insert date writes the
 local date at the caret as `YYYY-MM-DD`. Insert color

@@ -168,6 +168,7 @@ public:
     const char *theme_swatch(int slot);
     const char *frame_css(void);
     void choose_theme_list(void);
+    void choose_project_theme(void);
     void save_theme_entry(void);
     int language_total(void);
     const char *language_choice(void);
@@ -274,6 +275,11 @@ public:
     int save_named_project(void);
     int save_named_project_as(const char *name);
     int delete_named_project(void);
+    const char *project_theme(void);
+    int set_project_theme(const char *name);
+    const char *editor_theme(void);
+    int project_setup_count(void);
+    const char *project_setup_label(int index);
     int known_projects(void);
     const char *known_project(int index);
     int open_known_project(int index);
@@ -390,6 +396,9 @@ private:
     char lineColor[32];
     char marginColor[32];
     char themeName[THEME_NAME];
+    char editorTheme[THEME_NAME];
+    int themeFromProject;
+    int projectThemeOn;
     EditorConfig *themeBase;
     void *themeCss;
     EditorConfig *themeConfig;
@@ -436,6 +445,7 @@ private:
     Button *mapFontButton;
     SpinButton *mapWidthSpin;
     DropDown *themePick;
+    DropDown *projectThemeDrop;
     Entry *themeSaveEntry;
     FileDialog *files;
     FontDialog *fonts;
@@ -663,6 +673,9 @@ private:
             char *shown,
             const char *color);
     void fill_themes(void);
+    void fill_project_themes(void);
+    void apply_project_theme(void);
+    void restore_editor_theme(void);
     void keep_theme_base(const EditorConfig *item);
     void give_theme_base(EditorConfig *item);
     void fill_languages(void);

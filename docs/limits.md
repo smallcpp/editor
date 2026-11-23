@@ -38,8 +38,10 @@ second copy. The wrapper has no mini-map widget, so the
 column is drawn directly. The text view's own menu
 includes Insert Emoji. The editor turns on the no-emoji
 input hint, which hides that item, and adds Insert date
-and Insert color. A right-click menu on Files, Project,
-and Documents is an ordinary popover. Open, Close, Save,
+and Insert color. A right-click menu on Files, the
+project tree, and the open documents is an ordinary
+popover. The project tree is on the Documents page.
+Open, Close, Save,
 and Remove are disabled until the click is on a file.
 A line Enter just created is numbered before it has
 characters. Whitespace, line ends, and indent stops are overlays

@@ -302,7 +302,7 @@ void check_project_list(
     expect(editor->count() == 1, "create closes buffers");
     expect(editor->active()->untitled() == 1,
             "previous file is gone");
-    expect(ui->panel_page() == 1, "create shows the project");
+    expect(ui->panel_page() == 2, "create shows the project");
     saw = -1;
     dirRow = -1;
     childRow = -1;
@@ -401,7 +401,7 @@ void check_panel_layout(Ui *ui) {
     expect(ui->panel_edge() >= 0, "panel on the left edge");
     ui->align_file_names();
     expect(ui->files_left() == 1, "files align left");
-    ui->show_panel_page(1);
+    ui->show_panel_page(2);
     pump(20);
     ui->align_file_names();
     expect(ui->project_files_left() == 1,
@@ -888,7 +888,7 @@ void check_projects(
         i = i + 1;
     }
     expect(sawStray == 0, "open closes the previous buffer");
-    expect(ui->panel_page() == 1, "open shows the project");
+    expect(ui->panel_page() == 2, "open shows the project");
     expect(text_same(ui->project_name(), "job") == 1,
             "job stays open");
     ui->on_project_menu("New");
@@ -933,7 +933,7 @@ void check_projects(
     ui->discard_listed(ui->listed_at(0));
     expect(text_same(ui->project_name(), "later") == 1,
             "create finishes");
-    expect(ui->panel_page() == 1, "create shows the project");
+    expect(ui->panel_page() == 2, "create shows the project");
     sawStray = 0;
     i = 0;
     while (i < editor->count()) {
@@ -1148,7 +1148,7 @@ static void check_context_menus(
     expect(text_same(editor->active()->path(), keep) == 0,
             "panel closed the file");
     expect(file_exists(keep) == 1, "close keeps the file");
-    ui->show_panel_page(3);
+    ui->show_panel_page(2);
     ui->open_path(keep);
     row = named_doc(ui, "stay.scpp");
     expect(row >= 0, "document row");
@@ -1191,7 +1191,7 @@ static void check_context_menus(
     mark_clean_all(editor);
     if (text_same(ui->project_name(), "") == 0)
         ui->on_project_menu("Close");
-    ui->show_panel_page(1);
+    ui->show_panel_page(2);
     ui->arm_panel(1, -1);
     expect(text_same(ui->project_name(), "") == 1,
             "no project open");
@@ -1205,7 +1205,7 @@ static void check_context_menus(
                 "directory",
                 folder) == 1,
             "menu project");
-    ui->show_panel_page(1);
+    ui->show_panel_page(2);
     check_gray(ui, 1, -1);
     row = named_proj(ui, "stay.scpp");
     expect(row >= 0, "project lists stay");
@@ -1236,6 +1236,140 @@ static void check_context_menus(
     mark_clean_all(editor);
     ui->on_project_menu("Delete");
     expect(ui->show_folder(dir) == 1, "files restored");
+}
+
+static int saw_known(Ui *ui, const char *name) {
+    int i;
+
+    i = 0;
+    while (i < ui->known_projects()) {
+        if (text_same(ui->known_project(i), name) == 1)
+            return 1;
+        i = i + 1;
+    }
+    return 0;
+}
+
+static void check_project_page(
+        Ui *ui,
+        Editor *editor,
+        const char *dir) {
+    char folder[EDITOR_PATH];
+    char path[EDITOR_PATH];
+    const char *io;
+
+    path_join(folder, EDITOR_PATH, dir, "pagejob");
+    expect(mkdir(folder, 448) == 0, "page folder");
+    path_join(path, EDITOR_PATH, folder, "a.scpp");
+    io = "";
+    expect(write_file(path, "int a;\n", &io) == 1,
+            "page file");
+    expect(ui->project_setup_count() == 10,
+            "project setup actions");
+    expect(text_same(
+                ui->project_setup_label(0),
+                "Create New") == 1,
+            "setup create");
+    expect(text_same(
+                ui->project_setup_label(1),
+                "Individual files") == 1,
+            "setup files");
+    expect(text_same(
+                ui->project_setup_label(4),
+                "CMake build") == 1,
+            "setup cmake");
+    expect(text_same(
+                ui->project_setup_label(8),
+                "Save As") == 1,
+            "setup save as");
+    expect(text_same(
+                ui->project_setup_label(9),
+                "Delete") == 1,
+            "setup delete");
+    mark_clean_all(editor);
+    expect(ui->make_project(
+                "pagejob",
+                "directory",
+                folder) == 1,
+            "page project");
+    expect(ui->panel_page() == 2,
+            "documents has the tree");
+    expect(ui->panel_project_files() > 0, "tree has rows");
+    expect(ui->save_named_project() == 1, "menu save");
+    expect(ui->save_named_project_as("pagejob") == 0,
+            "save as same name");
+    expect(text_same(ui->project_name(), "pagejob") == 1,
+            "same name stays");
+    expect(ui->save_named_project_as("pagecopy") == 1,
+            "save as copy");
+    expect(text_same(ui->project_name(), "pagejob") == 1,
+            "save as leaves the original");
+    expect(saw_known(ui, "pagecopy") == 1, "copy is listed");
+    expect(saw_known(ui, "pagejob") == 1,
+            "original stays listed");
+    mark_clean_all(editor);
+    expect(ui->open_named_project("pagecopy") == 1,
+            "copy opens");
+    expect(text_same(ui->project_name(), "pagecopy") == 1,
+            "opened the copy");
+    expect(ui->open_named_project("pagejob") == 1,
+            "original still opens");
+    expect(ui->theme_store("pagetheme") == 1,
+            "store project theme");
+    expect(ui->theme_pick("default") == 1,
+            "editor theme stays default");
+    expect(ui->set_project_theme("pagetheme") == 1,
+            "choose project theme");
+    expect(text_same(
+                ui->project_theme(),
+                "pagetheme") == 1,
+            "project theme stored");
+    expect(text_same(
+                ui->theme_choice(),
+                "pagetheme") == 1,
+            "project theme is live");
+    expect(text_same(ui->editor_theme(), "default") == 1,
+            "editor theme unchanged");
+    {
+        char ini[EDITOR_PATH];
+        char *raw;
+        long n;
+        const char *err;
+
+        err = "";
+        n = 0;
+        expect(config_path(ini, EDITOR_PATH) == 1,
+                "editor ini");
+        raw = read_file(ini, &n, &err);
+        expect(raw != nullptr, "editor ini text");
+        if (raw != nullptr)
+            expect(text_has(raw, "theme=default") == 1,
+                    "ini keeps the editor theme");
+    }
+    mark_clean_all(editor);
+    expect(ui->close_named_project() == 1, "close project");
+    expect(text_same(ui->project_name(), "") == 1,
+            "close clears the project");
+    expect(text_same(ui->theme_choice(), "default") == 1,
+            "close restores the editor theme");
+    expect(ui->open_named_project("pagejob") == 1,
+            "reopen keeps the theme");
+    expect(text_same(ui->theme_choice(), "pagetheme") == 1,
+            "saved theme returns");
+    mark_clean_all(editor);
+    expect(ui->open_named_project("pagecopy") == 1,
+            "open copy to delete");
+    expect(ui->delete_named_project() == 1, "delete copy");
+    expect(ui->open_named_project("pagecopy") == 0,
+            "copy is gone");
+    expect(ui->open_named_project("pagejob") == 1,
+            "original remains");
+    mark_clean_all(editor);
+    expect(ui->delete_named_project() == 1,
+            "delete original");
+    expect(text_same(ui->theme_choice(), "default") == 1,
+            "delete restores the editor theme");
+    expect(ui->show_folder(dir) == 1, "files after project");
 }
 
 int main(void) {
@@ -2034,10 +2168,10 @@ int main(void) {
         expect(text_has(ui->tab_text(0), "b.scpp") == 1,
                 "open retitles");
         ui->on_menu("New");
-        ui->show_panel_page(3);
+        ui->show_panel_page(2);
         pump(20);
         ui->align_file_names();
-        expect(ui->panel_page() == 3, "documents page");
+        expect(ui->panel_page() == 2, "documents page");
         expect(ui->document_clicks() == 1,
                 "documents single click");
         expect(ui->documents_left() == 1,
@@ -2322,6 +2456,7 @@ int main(void) {
                     "//") == 1,
                 "reset line comment");
         check_context_menus(ui, editor, dir, io);
+        check_project_page(ui, editor, dir);
         check_projects(ui, editor, dir, io);
         check_template_browse(ui, dir);
         ui->on_menu("Quit");

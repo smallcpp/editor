@@ -483,14 +483,9 @@ void ui_panel_tab_files(void *data) {
     editorUi->show_panel_page(0);
 }
 
-void ui_panel_tab_project(void *data) {
-    (void)data;
-    editorUi->show_panel_page(1);
-}
-
 void ui_panel_tab_symbols(void *data) {
     (void)data;
-    editorUi->show_panel_page(2);
+    editorUi->show_panel_page(1);
 }
 
 void ui_panel_scroll_left(void *data) {
@@ -763,7 +758,67 @@ void ui_remove_response(void *data, int response) {
 
 void ui_panel_tab_documents(void *data) {
     (void)data;
-    editorUi->show_panel_page(3);
+    editorUi->show_panel_page(2);
+}
+
+static const char *setup_label(int index) {
+    if (index == 0)
+        return "Create New";
+    if (index == 1)
+        return "Individual files";
+    if (index == 2)
+        return "From directory";
+    if (index == 3)
+        return "Git repo";
+    if (index == 4)
+        return "CMake build";
+    if (index == 5)
+        return "Open";
+    if (index == 6)
+        return "Close";
+    if (index == 7)
+        return "Save";
+    if (index == 8)
+        return "Save As";
+    if (index == 9)
+        return "Delete";
+    return "";
+}
+
+void ui_setup_project(void *data) {
+    const char *label;
+
+    label = (const char *)data;
+    if (editorUi == nullptr || label == nullptr)
+        return;
+    if (text_same(label, "Individual files") == 1)
+        editorUi->show_from_project(
+                "files",
+                "Individual files",
+                "File");
+    else if (text_same(label, "From directory") == 1)
+        editorUi->show_from_project(
+                "directory",
+                "From directory",
+                "Directory");
+    else if (text_same(label, "Git repo") == 1)
+        editorUi->show_from_project(
+                "git",
+                "Git repo",
+                "Repository");
+    else if (text_same(label, "CMake build") == 1)
+        editorUi->show_from_project(
+                "cmake",
+                "CMake build",
+                "Directory");
+    else
+        editorUi->on_project_menu(label);
+}
+
+void ui_project_theme(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->choose_project_theme();
 }
 
 void ui_tab_close(void *data) {
@@ -1148,12 +1203,16 @@ Ui::Ui(Editor *editor) {
     text_copy(lineColor, 32, "#d6e4f5");
     text_copy(marginColor, 32, "#c8c8c8");
     text_copy(themeName, THEME_NAME, "default");
+    text_copy(editorTheme, THEME_NAME, "default");
+    themeFromProject = 0;
+    projectThemeOn = 0;
     themeConfig = new EditorConfig();
     themeBase = new EditorConfig();
     config_defaults(themeConfig);
     config_defaults(themeBase);
     themeCss = nullptr;
     themePick = nullptr;
+    projectThemeDrop = nullptr;
     themeSaveEntry = nullptr;
     fontDesc[0] = 0;
     text_copy(mapFont, 128, "Monospace 3");
@@ -1464,13 +1523,13 @@ Widget *Ui::mount_panel(void) {
     Box *tabBar;
     Box *strip;
     Button *filesTab;
-    Button *projectTab;
     Button *symbolsTab;
     ScrolledWindow *fileScroll;
     ScrolledWindow *projectScroll;
     ScrolledWindow *symbolScroll;
     ScrolledWindow *docScroll;
     Button *documentsTab;
+    Box *docs;
 
     make_project_controls();
     panelBook = new Notebook();
@@ -1492,9 +1551,6 @@ Widget *Ui::mount_panel(void) {
             1);
     expand_column(projectFiles);
     projectScroll = panel_scroll((Widget *)projectFiles);
-    panelBook->append_page(
-            (Widget *)projectScroll,
-            "Project");
     symbolView = new ColumnView();
     symbolView->append_column("Symbol");
     symbolView->append_column("Line");
@@ -1511,7 +1567,15 @@ Widget *Ui::mount_panel(void) {
             1);
     expand_column(docView);
     docScroll = panel_scroll((Widget *)docView);
-    panelBook->append_page((Widget *)docScroll, "Documents");
+    docs = new Box(GTK_VERTICAL, 4);
+    docs->set_v_expand(true);
+    docScroll->set_v_expand(true);
+    projectScroll->set_v_expand(true);
+    docs->append((Widget *)new Label("Open"));
+    docs->append((Widget *)docScroll);
+    docs->append((Widget *)new Label("Project"));
+    docs->append((Widget *)projectScroll);
+    panelBook->append_page((Widget *)docs, "Documents");
     frame = new Box(GTK_VERTICAL, 0);
     frame->set_v_expand(true);
     frame->set_h_expand(true);
@@ -1525,15 +1589,12 @@ Widget *Ui::mount_panel(void) {
     panelTabRight->on_clicked(ui_panel_scroll_right, nullptr);
     strip = new Box(GTK_HORIZONTAL, 0);
     filesTab = new Button("Files");
-    projectTab = new Button("Project");
     symbolsTab = new Button("Symbols");
     documentsTab = new Button("Documents");
     filesTab->on_clicked(ui_panel_tab_files, nullptr);
-    projectTab->on_clicked(ui_panel_tab_project, nullptr);
     symbolsTab->on_clicked(ui_panel_tab_symbols, nullptr);
     documentsTab->on_clicked(ui_panel_tab_documents, nullptr);
     strip->append((Widget *)filesTab);
-    strip->append((Widget *)projectTab);
     strip->append((Widget *)symbolsTab);
     strip->append((Widget *)documentsTab);
     panelTabScroll = new ScrolledWindow();
@@ -1568,13 +1629,26 @@ void Ui::make_project_controls(void) {
 }
 
 void Ui::place_project_controls(Box *parent) {
-    Label *note;
+    int i;
 
     if (parent == nullptr)
         return;
-    note = new Label(
-            "A project is a named list of files. Use the Project menu.");
-    parent->append((Widget *)note);
+    i = 0;
+    while (i < 10) {
+        Button *button;
+
+        button = new Button(setup_label(i));
+        button->on_clicked(
+                ui_setup_project,
+                (void *)setup_label(i));
+        parent->append((Widget *)button);
+        i = i + 1;
+    }
+    projectThemeDrop = new DropDown();
+    projectThemeDrop->on_changed(ui_project_theme, nullptr);
+    parent->append((Widget *)new Label("Theme"));
+    parent->append((Widget *)projectThemeDrop);
+    fill_project_themes();
 }
 
 void Ui::fill_files(void) {
@@ -1749,7 +1823,7 @@ void Ui::reveal_project(void) {
             menuBar->set_check(viewMenu, 4, 1);
         apply_panels();
     }
-    show_panel_page(1);
+    show_panel_page(2);
 }
 
 void Ui::complete_held_project(void) {
@@ -1805,6 +1879,9 @@ int Ui::make_project(
     fill_project_files();
     reveal_project();
     refresh_known();
+    apply_project_theme();
+    if (status != nullptr)
+        status->set_text("Created the project");
     return 1;
 }
 
@@ -1844,46 +1921,150 @@ int Ui::open_named_project(const char *name) {
     reveal_project();
     apply_place();
     refresh_known();
+    apply_project_theme();
+    if (status != nullptr)
+        status->set_text("Opened the project");
     return 1;
 }
 
 int Ui::close_named_project(void) {
-    if (named == nullptr || named->name()[0] == 0)
+    if (named == nullptr || named->name()[0] == 0) {
+        if (status != nullptr)
+            status->set_text("No project");
         return 0;
+    }
     capture_place();
-    if (named->save() == 0)
+    if (named->save() == 0) {
+        if (status != nullptr)
+            status->set_text("Could not close the project");
         return 0;
+    }
+    restore_editor_theme();
     named->clear();
     fill_project_files();
+    if (status != nullptr)
+        status->set_text("Closed the project");
     return 1;
 }
 
 int Ui::save_named_project(void) {
-    if (named == nullptr || named->name()[0] == 0)
+    int ok;
+
+    if (named == nullptr || named->name()[0] == 0) {
+        if (status != nullptr)
+            status->set_text("No project");
         return 0;
+    }
     capture_place();
-    return named->save();
+    ok = named->save();
+    if (ok == 0) {
+        if (status != nullptr)
+            status->set_text("Could not save the project");
+        return 0;
+    }
+    if (status != nullptr)
+        status->set_text("Saved the project");
+    return 1;
 }
 
 int Ui::save_named_project_as(const char *name) {
-    if (named == nullptr || named->name()[0] == 0)
+    char kept[PROJECT_NAME];
+
+    if (named == nullptr || named->name()[0] == 0) {
+        if (status != nullptr)
+            status->set_text("No project");
         return 0;
+    }
+    if (name == nullptr || name[0] == 0
+            || text_same(named->name(), name) == 1) {
+        if (status != nullptr)
+            status->set_text("Choose a new project name");
+        return 0;
+    }
+    text_copy(kept, PROJECT_NAME, named->name());
     capture_place();
-    if (named->save_as(name) == 0)
+    if (named->save() == 0) {
+        if (status != nullptr)
+            status->set_text("Could not save the project");
         return 0;
+    }
+    if (named->save_as(name) == 0) {
+        if (status != nullptr)
+            status->set_text("Could not save the project");
+        return 0;
+    }
+    if (named->load(kept) == 0) {
+        if (status != nullptr)
+            status->set_text("Could not save the project");
+        return 0;
+    }
+    fill_project_files();
     refresh_known();
+    apply_project_theme();
+    if (status != nullptr)
+        status->set_text("Saved a copy of the project");
     return 1;
 }
 
 int Ui::delete_named_project(void) {
-    if (named == nullptr || named->name()[0] == 0)
+    if (named == nullptr || named->name()[0] == 0) {
+        if (status != nullptr)
+            status->set_text("No project");
         return 0;
-    if (named->remove_store() == 0)
+    }
+    if (named->remove_store() == 0) {
+        if (status != nullptr)
+            status->set_text("Could not delete the project");
         return 0;
+    }
+    restore_editor_theme();
     named->clear();
     fill_project_files();
     refresh_known();
+    if (status != nullptr)
+        status->set_text("Deleted the project");
     return 1;
+}
+
+const char *Ui::project_theme(void) {
+    if (named == nullptr || named->theme_name()[0] == 0)
+        return "default";
+    return named->theme_name();
+}
+
+int Ui::set_project_theme(const char *name) {
+    if (named == nullptr || named->name()[0] == 0)
+        return 0;
+    if (name == nullptr)
+        return 0;
+    named->set_theme(name);
+    apply_project_theme();
+    if (projectThemeOn == 0
+            && theme_is_default(name) == 0
+            && text_same(name, editorTheme) == 0) {
+        named->set_theme("");
+        return 0;
+    }
+    if (named->save() == 0)
+        return 0;
+    fill_project_themes();
+    return 1;
+}
+
+const char *Ui::editor_theme(void) {
+    return editorTheme;
+}
+
+int Ui::project_setup_count(void) {
+    if (projectThemeDrop == nullptr)
+        return 0;
+    return 10;
+}
+
+const char *Ui::project_setup_label(int index) {
+    if (index < 0 || index >= 10)
+        return "";
+    return setup_label(index);
 }
 
 int Ui::known_projects(void) {
@@ -2031,7 +2212,7 @@ void Ui::scroll_panel_tabs(int direction) {
 void Ui::show_panel_page(int index) {
     if (panelBook == nullptr)
         return;
-    if (index < 0 || index > 3)
+    if (index < 0 || index > 2)
         return;
     panelBook->set_current_page((long)index);
 }
@@ -6103,6 +6284,7 @@ void Ui::load_settings(void) {
         if (theme_load(&item, themeName) == 0)
             text_copy(themeName, THEME_NAME, "default");
     }
+    text_copy(editorTheme, THEME_NAME, themeName);
     use_config(&item);
 }
 
@@ -6213,7 +6395,7 @@ void Ui::apply_settings(void) {
     item.recoveryMinutes = recoveryMinutes;
     item.recoveryKeep = recoveryKeep;
     theme_copy(&item, themeConfig);
-    text_copy(item.themeName, THEME_NAME, themeName);
+    text_copy(item.themeName, THEME_NAME, editorTheme);
     if (theme_is_default(themeName) == 1)
         keep_theme_base(&item);
     else
@@ -6221,6 +6403,7 @@ void Ui::apply_settings(void) {
     use_config(&item);
     if (theme_is_default(themeName) == 0)
         give_theme_base(&item);
+    text_copy(item.themeName, THEME_NAME, editorTheme);
     if (config_path(path, EDITOR_PATH) == 1)
         write_config(path, &item);
     settingsHold = 0;
@@ -7080,6 +7263,90 @@ void Ui::fill_themes(void) {
     }
     if (n > 0)
         themePick->set_selected((long)sel);
+    fill_project_themes();
+}
+
+void Ui::fill_project_themes(void) {
+    char listed[THEME_LIST][THEME_NAME];
+    const char *items[THEME_LIST];
+    const char *chosen;
+    int n;
+    int i;
+    int sel;
+    int held;
+
+    if (projectThemeDrop == nullptr)
+        return;
+    n = theme_list(listed, THEME_LIST);
+    i = 0;
+    while (i < n) {
+        items[i] = listed[i];
+        i = i + 1;
+    }
+    chosen = project_theme();
+    sel = 0;
+    i = 0;
+    while (i < n) {
+        if (text_same(listed[i], chosen) == 1)
+            sel = i;
+        i = i + 1;
+    }
+    held = settingsHold;
+    settingsHold = 1;
+    projectThemeDrop->set_items(items, n);
+    if (n > 0)
+        projectThemeDrop->set_selected((long)sel);
+    settingsHold = held;
+}
+
+void Ui::choose_project_theme(void) {
+    const char *name;
+
+    if (settingsHold != 0 || projectThemeDrop == nullptr)
+        return;
+    name = projectThemeDrop->selected_string();
+    if (name == nullptr)
+        return;
+    if (named == nullptr || named->name()[0] == 0) {
+        if (status != nullptr)
+            status->set_text("No project");
+        fill_project_themes();
+        return;
+    }
+    if (text_same(name, project_theme()) == 1)
+        return;
+    set_project_theme(name);
+}
+
+void Ui::apply_project_theme(void) {
+    const char *name;
+
+    name = "";
+    if (named != nullptr)
+        name = named->theme_name();
+    if (name == nullptr || name[0] == 0
+            || text_same(name, "default") == 1
+            || text_same(name, editorTheme) == 1) {
+        restore_editor_theme();
+        return;
+    }
+    themeFromProject = 1;
+    if (theme_pick(name) == 0) {
+        themeFromProject = 0;
+        named->set_theme("");
+        restore_editor_theme();
+        return;
+    }
+    themeFromProject = 0;
+    projectThemeOn = 1;
+}
+
+void Ui::restore_editor_theme(void) {
+    if (projectThemeOn == 0)
+        return;
+    projectThemeOn = 0;
+    themeFromProject = 0;
+    theme_pick(editorTheme);
 }
 
 const char *Ui::theme_choice(void) {
@@ -7100,6 +7367,8 @@ int Ui::theme_pick(const char *name) {
     }
     else
         text_copy(themeName, THEME_NAME, "default");
+    if (themeFromProject == 0)
+        text_copy(editorTheme, THEME_NAME, themeName);
     theme_copy(themeConfig, &item);
     set_line_color(item.lineColor);
     set_margin_color(item.marginColor);
@@ -7126,6 +7395,7 @@ int Ui::theme_store(const char *name) {
     if (theme_save(name, &item) == 0)
         return 0;
     text_copy(themeName, THEME_NAME, name);
+    text_copy(editorTheme, THEME_NAME, name);
     apply_settings();
     settingsHold = 1;
     fill_themes();
@@ -7792,7 +8062,7 @@ void Ui::show_settings(void) {
             place_project_controls(projects);
             pages->append_page(
                     (Widget *)page_scroll((Widget *)projects),
-                    "Projects");
+                    "Project");
         }
         pages->append_page(
                 (Widget *)page_scroll((Widget *)search),
@@ -8038,7 +8308,7 @@ void Ui::show_save_as_project(void) {
         saveAsDialog->set_default_size(360, 160);
     }
     if (saveAsName != nullptr)
-        saveAsName->set_text(named->name());
+        saveAsName->set_text("");
     saveAsDialog->present();
 }
 
@@ -8052,8 +8322,6 @@ void Ui::accept_save_as_project(void) {
         return;
     if (save_named_project_as(saveAsName->text()) == 1)
         hide_save_as_project();
-    else if (status != nullptr)
-        status->set_text("Could not save the project");
 }
 
 static void directory_of(char *dest, long cap, const char *path) {
@@ -9012,7 +9280,7 @@ void Ui::store_session(void) {
     item.recoveryOn = recoveryOn;
     item.recoveryMinutes = recoveryMinutes;
     item.recoveryKeep = recoveryKeep;
-    text_copy(item.themeName, THEME_NAME, themeName);
+    text_copy(item.themeName, THEME_NAME, editorTheme);
     item.spaces = state->indent_style();
     item.recentCount = recentCount;
     if (item.recentCount < 1)
