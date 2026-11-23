@@ -639,9 +639,14 @@ void ui_key(void *data) {
     g_idle_add((void *)ui_key_idle, data);
 }
 
-void ui_doc(void *data, const char *label) {
+void ui_panel_doc(void *data, long row) {
     (void)data;
-    editorUi->select_named(label);
+    editorUi->open_document((int)row);
+}
+
+void ui_panel_tab_documents(void *data) {
+    (void)data;
+    editorUi->show_panel_page(3);
 }
 
 void ui_tab_close(void *data) {
@@ -829,7 +834,7 @@ Ui::Ui(Editor *editor) {
     choiceMode = 0;
     pendingPath = new String();
     menuBar = nullptr;
-    documentsMenu = 0;
+    docView = nullptr;
     app = nullptr;
     mainWindow = nullptr;
     book = nullptr;
@@ -1056,6 +1061,7 @@ Ui::Ui(Editor *editor) {
     panelTabScroll = nullptr;
     fileView = nullptr;
     projectFiles = nullptr;
+    docView = nullptr;
     targetView = nullptr;
     commandView = nullptr;
     symbolView = nullptr;
@@ -1189,12 +1195,6 @@ void Ui::build(void) {
     menuBar->set_separator(editMenu, 15);
     menuBar->set_separator(searchMenu, 2);
     menuBar->set_separator(viewMenu, 4);
-    documentsMenu = menuBar->add_menu(
-            "Documents",
-            nullptr,
-            0,
-            ui_doc,
-            nullptr);
     outer = new Box(GTK_VERTICAL, 0);
     outer->append((Widget *)menuBar);
     book = new Notebook();
@@ -1318,6 +1318,8 @@ Widget *Ui::mount_panel(void) {
     ScrolledWindow *fileScroll;
     ScrolledWindow *projectScroll;
     ScrolledWindow *symbolScroll;
+    ScrolledWindow *docScroll;
+    Button *documentsTab;
 
     make_project_controls();
     panelBook = new Notebook();
@@ -1350,6 +1352,15 @@ Widget *Ui::mount_panel(void) {
     panelBook->append_page(
             (Widget *)symbolScroll,
             "Symbols");
+    docView = new ColumnView();
+    docView->append_column("Name");
+    docView->on_activate(ui_panel_doc, nullptr);
+    gtk_column_view_set_single_click_activate(
+            docView->native,
+            1);
+    expand_column(docView);
+    docScroll = panel_scroll((Widget *)docView);
+    panelBook->append_page((Widget *)docScroll, "Documents");
     frame = new Box(GTK_VERTICAL, 0);
     frame->set_v_expand(true);
     frame->set_h_expand(true);
@@ -1365,12 +1376,15 @@ Widget *Ui::mount_panel(void) {
     filesTab = new Button("Files");
     projectTab = new Button("Project");
     symbolsTab = new Button("Symbols");
+    documentsTab = new Button("Documents");
     filesTab->on_clicked(ui_panel_tab_files, nullptr);
     projectTab->on_clicked(ui_panel_tab_project, nullptr);
     symbolsTab->on_clicked(ui_panel_tab_symbols, nullptr);
+    documentsTab->on_clicked(ui_panel_tab_documents, nullptr);
     strip->append((Widget *)filesTab);
     strip->append((Widget *)projectTab);
     strip->append((Widget *)symbolsTab);
+    strip->append((Widget *)documentsTab);
     panelTabScroll = new ScrolledWindow();
     panelTabScroll->set_policy(
             GTK_POLICY_EXTERNAL,
@@ -1865,7 +1879,7 @@ void Ui::scroll_panel_tabs(int direction) {
 void Ui::show_panel_page(int index) {
     if (panelBook == nullptr)
         return;
-    if (index < 0 || index > 2)
+    if (index < 0 || index > 3)
         return;
     panelBook->set_current_page((long)index);
 }
@@ -1970,6 +1984,8 @@ void Ui::align_file_names(void) {
     if (projectFiles != nullptr
             && projectFiles->native != nullptr)
         align_labels(projectFiles->native);
+    if (docView != nullptr && docView->native != nullptr)
+        align_labels(docView->native);
 }
 
 int Ui::files_left(void) {
@@ -8222,13 +8238,12 @@ const char *Ui::tab_text(long index) {
 }
 
 void Ui::fill_documents(void) {
-    const char *labels[EDITOR_PAGES];
     long n;
     long i;
     long j;
     int clash;
 
-    if (menuBar == nullptr)
+    if (state == nullptr)
         return;
     n = state->count();
     if (n > EDITOR_PAGES)
@@ -8260,10 +8275,64 @@ void Ui::fill_documents(void) {
             docName[i][used] = extra[0];
             docName[i][used + 1] = 0;
         }
-        labels[i] = docName[i];
         i = i + 1;
     }
-    menuBar->set_menu(documentsMenu, labels, n);
+    while (i < EDITOR_PAGES) {
+        docName[i][0] = 0;
+        i = i + 1;
+    }
+    if (docView == nullptr)
+        return;
+    docView->clear_rows();
+    i = 0;
+    while (i < n) {
+        const char *cells[1];
+
+        cells[0] = docName[i];
+        docView->append_row(cells, 1);
+        i = i + 1;
+    }
+    g_idle_add((void *)ui_align_idle, nullptr);
+}
+
+int Ui::panel_documents(void) {
+    if (docView == nullptr)
+        return 0;
+    return (int)docView->row_count();
+}
+
+const char *Ui::shown_document(int index) {
+    if (docView == nullptr)
+        return "";
+    if (index < 0 || index >= docView->row_count())
+        return "";
+    return docView->cell(index, 0);
+}
+
+void Ui::open_document(int index) {
+    if (index < 0 || index >= EDITOR_PAGES)
+        return;
+    if (docName[index][0] == 0)
+        return;
+    select_named(docName[index]);
+}
+
+int Ui::document_clicks(void) {
+    if (docView == nullptr || docView->native == nullptr)
+        return 0;
+    return gtk_column_view_get_single_click_activate(
+            docView->native);
+}
+
+int Ui::documents_left(void) {
+    int seen;
+
+    if (docView == nullptr || docView->native == nullptr)
+        return 0;
+    seen = 0;
+    if (labels_left(docView->native, &seen) == 0)
+        return 0;
+    return seen;
 }
 
 void Ui::select_named(const char *title) {

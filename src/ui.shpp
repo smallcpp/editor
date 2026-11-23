@@ -320,6 +320,11 @@ public:
     void align_file_names(void);
     int files_left(void);
     int project_files_left(void);
+    int panel_documents(void);
+    const char *shown_document(int index);
+    void open_document(int index);
+    int document_clicks(void);
+    int documents_left(void);
     int panel_symbols(void);
     const char *panel_symbol(int index);
     long panel_symbol_line(int index);
@@ -329,7 +334,6 @@ private:
     Application *app;
     Window *mainWindow;
     MenuBar *menuBar;
-    long documentsMenu;
     Notebook *book;
     SidePanel *panel;
     Notebook *panelBook;
@@ -339,6 +343,7 @@ private:
     ScrolledWindow *panelTabScroll;
     ColumnView *fileView;
     ColumnView *projectFiles;
+    ColumnView *docView;
     ColumnView *targetView;
     ColumnView *commandView;
     ColumnView *symbolView;
