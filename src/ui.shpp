@@ -163,6 +163,10 @@ public:
     const char *theme_choice(void);
     int theme_pick(const char *name);
     int theme_store(const char *name);
+    const char *line_swatch(void);
+    const char *margin_swatch(void);
+    const char *theme_swatch(int slot);
+    const char *frame_css(void);
     void choose_theme_list(void);
     void save_theme_entry(void);
     int language_total(void);
@@ -389,6 +393,8 @@ private:
     DropDown *themeDrop;
     Entry *themeEntry[THEME_ALL];
     Button *themeColorButton[THEME_ALL];
+    void *themeSwatchProvider[THEME_ALL];
+    char themeSwatch[THEME_ALL][32];
     CheckButton *themeBold[10];
     CheckButton *bracketCheck;
     CheckButton *indentCheck;
@@ -407,6 +413,11 @@ private:
     Entry *bracketEntry;
     Button *lineColorButton;
     Button *marginColorButton;
+    void *lineSwatchProvider;
+    void *marginSwatchProvider;
+    char lineSwatch[32];
+    char marginSwatch[32];
+    String *frameText;
     Button *mapFontButton;
     SpinButton *mapWidthSpin;
     DropDown *themePick;
@@ -604,6 +615,11 @@ private:
             long *count);
     void apply_view(long index);
     void paint_frame(void);
+    void paint_color_button(
+            Button *button,
+            void **provider,
+            char *shown,
+            const char *color);
     void fill_themes(void);
     void keep_theme_base(const EditorConfig *item);
     void give_theme_base(EditorConfig *item);

@@ -115,8 +115,11 @@ a theme. Saving the current settings writes
 `$HOME/.config/smallcpp/themes/<name>.ini`. The default
 theme is the `theme-` map in `editor.ini`. A theme file
 that omits a key keeps the default. A theme also sets
-the window background, text, menus, tabs, the current
-line, the column marker, and the font. Appearance holds
+the window background, text, menus, tabs, panels,
+buttons, the current line, the column marker, and the
+font. Panels and buttons use `theme-background` and
+`theme-text`. Menus use `theme-menu` and
+`theme-menu-text`. Appearance holds
 Whitespace, Line ends, Indent stops, and Font. General
 holds the recent-file count, which starts at 10, Remember
 files, which is off until turned on, and trim trailing
@@ -158,7 +161,9 @@ count are removed, oldest first. Startup asks
 Open or Ignore when that copy is for a file that is
 gone. Open loads it. Ignore deletes that copy.
 A Color button sets the current-line color and another
-sets the column-marker color. Indent width is a character count. Keyboard
+sets the column-marker color. Each Color button is
+filled with that color, and clicking it still opens
+the chooser. Indent width is a character count. Keyboard
 is a grid of command and shortcut. Click a shortcut, press
 the new keys, and Escape cancels. A shortcut that
 another command already uses is refused. The notebook fills the

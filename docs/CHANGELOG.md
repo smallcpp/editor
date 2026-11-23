@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+A Color button is filled with the chosen color, so the
+color shows without opening the chooser. Clicking it
+still opens the chooser. The label stays readable on
+that patch.
+
+A theme sets the background and the text color of the
+panels, menus, and buttons, as well as the editor text.
+Panels and buttons use `theme-background` and
+`theme-text`. Menus use `theme-menu` and
+`theme-menu-text`. Those colors are saved with the
+theme the same way the other theme colors are saved.
+
 The mouse wheel over the mini-map scrolls the buffer.
 Each notch moves the view by one line. The caret stays
 where it was, and the highlight follows the lines now in
