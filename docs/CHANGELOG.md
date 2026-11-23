@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+The Sessions list highlights one row. It stays a
+column view, with a single selection so the theme
+draws that row. Up and Down move the highlight. Open,
+Delete, Rename, and Duplicate use that row.
+
 Quit detaches the Files and Documents right-click
 menus from their column views before those views are
 destroyed.
