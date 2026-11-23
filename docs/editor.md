@@ -43,7 +43,10 @@ a mark on the current line. A click in the buffer moves
 the caret and that mark together, without waiting for a
 scroll. Each line is drawn in the
 mini-map font, far enough across the column that the text
-keeps its shape. A click outside the highlighted band
+keeps its shape. A file short enough to fit is drawn at
+that font's line spacing, packed from the top, so it looks
+like the top of a longer file. A longer file still fills
+the column. A click outside the highlighted band
 scrolls the buffer. Pressing the highlighted area and
 moving the mouse scrolls the buffer with the pointer.
 The caret stays where it was. Dragging the bar between the

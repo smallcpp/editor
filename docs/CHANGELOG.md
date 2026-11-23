@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+A short file in the mini-map is drawn at the mini-map
+font's line spacing, packed from the top of the column.
+It looks like the top of a longer file. A file that does
+not fit still fills the column. The column width, dragging
+the highlight to scroll, and the current-line mark stay
+as they are.
+
 Project, Create New, Browse opens in the directory where
 the editor was started. That directory is kept for the
 whole session. The user types a directory name there,

@@ -2261,6 +2261,37 @@ static void copy_map_line(
     dest[k] = 0;
 }
 
+static int text_pitch(void *widget, const char *face) {
+    void *desc;
+    void *sample;
+    int wide;
+    int tall;
+    int pitch;
+
+    pitch = 4;
+    if (face == nullptr || face[0] == 0)
+        face = "Monospace 3";
+    desc = pango_font_description_from_string(face);
+    sample = nullptr;
+    if (widget != nullptr)
+        sample = gtk_widget_create_pango_layout(widget, "Mg");
+    if (sample != nullptr) {
+        if (desc != nullptr)
+            pango_layout_set_font_description(sample, desc);
+        wide = 0;
+        tall = 0;
+        pango_layout_get_pixel_size(sample, &wide, &tall);
+        g_object_unref(sample);
+        if (tall > 1)
+            pitch = tall;
+    }
+    if (desc != nullptr)
+        pango_font_description_free(desc);
+    if (pitch < 2)
+        pitch = 2;
+    return pitch;
+}
+
 static void draw_map_line(
         void *widget,
         void *cr,
@@ -2308,12 +2339,8 @@ void Ui::paint_map_lines(
         const char *text,
         long lines) {
     void *desc;
-    void *sample;
     const char *face;
     int pitch;
-    int wide;
-    int tall;
-    long slot;
     char row[160];
 
     if (widget == nullptr || cr == nullptr)
@@ -2324,52 +2351,26 @@ void Ui::paint_map_lines(
     if (face[0] == 0)
         face = "Monospace 3";
     desc = pango_font_description_from_string(face);
-    pitch = 4;
-    sample = gtk_widget_create_pango_layout(widget, "Mg");
-    if (sample != nullptr) {
-        if (desc != nullptr)
-            pango_layout_set_font_description(sample, desc);
-        wide = 0;
-        tall = 0;
-        pango_layout_get_pixel_size(sample, &wide, &tall);
-        g_object_unref(sample);
-        if (tall > 1)
-            pitch = tall;
-    }
-    if (pitch < 2)
-        pitch = 2;
+    pitch = text_pitch(widget, face);
     if (pitch > height)
         pitch = height;
-    slot = (long)height / lines;
-    if (slot < 1)
-        slot = 1;
-    if (slot >= (long)pitch) {
+    if (map_fits(lines, (long)height, (long)pitch) == 1) {
         long line;
         long y;
-        long next;
-        long clipH;
 
         line = 0;
         while (line < lines) {
-            y = map_top_of(lines, (long)height, line);
-            next = map_top_of(lines, (long)height, line + 1);
-            clipH = next - y;
-            if (clipH < (long)pitch)
-                clipH = (long)pitch;
-            if (y + clipH > (long)height)
-                clipH = (long)height - y;
-            if (clipH > 0) {
-                copy_map_line(row, 160, text, line);
-                draw_map_line(
-                        widget,
-                        cr,
-                        desc,
-                        row,
-                        1,
-                        y,
-                        (long)width - 2,
-                        clipH);
-            }
+            y = line * (long)pitch;
+            copy_map_line(row, 160, text, line);
+            draw_map_line(
+                    widget,
+                    cr,
+                    desc,
+                    row,
+                    1,
+                    y,
+                    (long)width - 2,
+                    (long)pitch);
             line = line + 1;
         }
     } else {
@@ -2395,6 +2396,19 @@ void Ui::paint_map_lines(
     }
     if (desc != nullptr)
         pango_font_description_free(desc);
+}
+
+int Ui::map_pitch(void *widget, long height) {
+    const char *face;
+    int pitch;
+
+    face = mapFont;
+    if (face == nullptr || face[0] == 0)
+        face = "Monospace 3";
+    pitch = text_pitch(widget, face);
+    if (height > 0 && (long)pitch > height)
+        pitch = (int)height;
+    return pitch;
 }
 
 void Ui::scroll_line(long index, long line) {
@@ -2468,6 +2482,8 @@ void Ui::paint_map(
     long top;
     long band;
     long line;
+    int pitch;
+    int packed;
 
     if (column == nullptr || cr == nullptr)
         return;
@@ -2485,6 +2501,8 @@ void Ui::paint_map(
     lines = doc->buffer()->line_count();
     if (lines < 1)
         lines = 1;
+    pitch = map_pitch(column->native, (long)height);
+    packed = map_fits(lines, (long)height, (long)pitch);
     if (column->native != nullptr)
         paint_map_lines(
                 column->native,
@@ -2494,7 +2512,14 @@ void Ui::paint_map(
                 text,
                 lines);
     view_span(column->page, &first, &count);
-    map_place(lines, (long)height, first, count, &top, &band);
+    map_place_at(
+            lines,
+            (long)height,
+            first,
+            count,
+            (long)pitch,
+            &top,
+            &band);
     cairo_set_source_rgba(cr, 0.25, 0.45, 0.75, 0.28);
     cairo_rectangle(
             cr,
@@ -2508,10 +2533,16 @@ void Ui::paint_map(
         line = 0;
     if (line >= lines)
         line = lines - 1;
-    top = map_top_of(lines, (long)height, line);
-    band = map_top_of(lines, (long)height, line + 1) - top;
-    if (band < 4)
+    top = map_top_at(lines, (long)height, line, (long)pitch);
+    band = map_top_at(
+            lines,
+            (long)height,
+            line + 1,
+            (long)pitch) - top;
+    if (packed == 0 && band < 4)
         band = 4;
+    if (packed == 1 && band < 1)
+        band = 1;
     if (top + band > (long)height)
         top = (long)height - band;
     if (top < 0)
@@ -2564,7 +2595,14 @@ long Ui::map_top(void) {
         return (long)0;
     lines = state->at(index)->buffer()->line_count();
     view_span(index, &first, &count);
-    map_place(lines, height, first, count, &top, &band);
+    map_place_at(
+            lines,
+            height,
+            first,
+            count,
+            (long)map_pitch(pages[index].map->native, height),
+            &top,
+            &band);
     return top;
 }
 
@@ -2591,7 +2629,14 @@ long Ui::map_band(void) {
         return (long)0;
     lines = state->at(index)->buffer()->line_count();
     view_span(index, &first, &count);
-    map_place(lines, height, first, count, &top, &band);
+    map_place_at(
+            lines,
+            height,
+            first,
+            count,
+            (long)map_pitch(pages[index].map->native, height),
+            &top,
+            &band);
     return band;
 }
 
@@ -2661,7 +2706,11 @@ void Ui::scroll_map_y(long index, long y) {
         y = 0;
     if (y >= height)
         y = height - 1;
-    line = map_line(lines, height, y);
+    line = map_line_at(
+            lines,
+            height,
+            y,
+            (long)map_pitch(pages[index].map->native, height));
     scroll_line(index, line);
     redraw_map(index);
 }
@@ -2730,7 +2779,14 @@ long Ui::band_top(long page) {
         return (long)0;
     lines = state->at(page)->buffer()->line_count();
     view_span(page, &first, &count);
-    map_place(lines, height, first, count, &top, &band);
+    map_place_at(
+            lines,
+            height,
+            first,
+            count,
+            (long)map_pitch(pages[page].map->native, height),
+            &top,
+            &band);
     return top;
 }
 
@@ -2755,7 +2811,14 @@ int Ui::in_map_band(long page, long y) {
         return 0;
     lines = state->at(page)->buffer()->line_count();
     view_span(page, &first, &count);
-    map_place(lines, height, first, count, &top, &band);
+    map_place_at(
+            lines,
+            height,
+            first,
+            count,
+            (long)map_pitch(pages[page].map->native, height),
+            &top,
+            &band);
     if (band < 8)
         band = 8;
     if (y >= top - 3 && y < top + band + 3)

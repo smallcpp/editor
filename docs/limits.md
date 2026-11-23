@@ -20,7 +20,9 @@ the visible lines, wide enough for four digits and one space.
 Each number is drawn at its buffer line and scrolls with the
 text. A narrow column on the right draws the shape of the
 file from the length of its lines, a band for the lines
-in view, and a mark on the current line. A click in the
+in view, and a mark on the current line. A short file is
+drawn at the mini-map font's line spacing from the top of
+the column. A long file still fills the column. A click in the
 buffer moves that mark with the caret, without scrolling.
 A click outside
 the highlight scrolls that part of the file into view.

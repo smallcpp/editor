@@ -1359,14 +1359,30 @@ int main(void) {
         expect(map_line(100, 50, 49) == 99,
                 "bottom pixel is the last line");
         expect(map_line(3, 10, 4) == 1,
-                "short file pixel");
+                "compressed pixel");
         map_place(100, 50, 0, 20, &top, &band);
         expect(top == 0, "viewport starts at the top");
         expect(band == 10, "viewport covers the slice");
         expect(band < 50, "viewport is not the whole file");
-        map_place(4, 40, 0, 4, &top, &band);
+        expect(map_fits(4, 40, 4) == 1,
+                "four lines fit at pitch 4");
+        expect(map_fits(100, 50, 4) == 0,
+                "a long file does not fit");
+        expect(map_line_at(4, 40, 0, 4) == 0,
+                "packed top line");
+        expect(map_line_at(4, 40, 6, 4) == 1,
+                "packed second line");
+        expect(map_line_at(4, 40, 39, 4) == 3,
+                "below the text is the last line");
+        expect(map_top_at(4, 40, 2, 4) == 8,
+                "third line starts at its pitch");
+        map_place_at(4, 40, 0, 4, 4, &top, &band);
         expect(top == 0, "short file starts at the top");
-        expect(band == 40, "short file fills the column");
+        expect(band == 16, "short file uses natural spacing");
+        expect(band < 40, "short file does not fill the column");
+        map_place_at(100, 50, 0, 20, 4, &top, &band);
+        expect(top == 0, "long file viewport starts at the top");
+        expect(band == 10, "long file still fills its slice");
     }
     {
         SidePanel *panel;

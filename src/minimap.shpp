@@ -23,5 +23,24 @@ void map_place(
         long count,
         long *top,
         long *band);
+int map_fits(long lines, long height, long pitch);
+long map_line_at(
+        long lines,
+        long height,
+        long y,
+        long pitch);
+long map_top_at(
+        long lines,
+        long height,
+        long line,
+        long pitch);
+void map_place_at(
+        long lines,
+        long height,
+        long first,
+        long count,
+        long pitch,
+        long *top,
+        long *band);
 
 #endif
