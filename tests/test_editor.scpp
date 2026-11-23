@@ -2,7 +2,7 @@
 #include "../src/minimap.shpp"
 #include "../src/panel.shpp"
 #include "../src/language.shpp"
-#include "../src/project.shpp"
+#include "../src/session.shpp"
 #include "../src/settings.shpp"
 #include "../src/syntax.shpp"
 
@@ -64,18 +64,6 @@ void expect(int cond, const char *msg) {
     }
 }
 
-static int row_named(EditProject *project, const char *name) {
-    int i;
-
-    i = 0;
-    while (i < project->row_count()) {
-        if (text_same(project->row_name(i), name) == 1)
-            return i;
-        i = i + 1;
-    }
-    return -1;
-}
-
 void check_map_width(void) {
     EditorConfig item;
     EditorConfig back;
@@ -108,237 +96,82 @@ void check_map_width(void) {
     unlink(path);
 }
 
-void check_project(const char *dir, const char *io) {
-    EditProject *project;
-    Document *doc;
-    char folder[EDITOR_PATH];
-    char side[EDITOR_PATH];
-    char home[EDITOR_PATH];
+void check_session(const char *dir, const char *io) {
+    EditSession *session;
     char fileA[EDITOR_PATH];
     char fileB[EDITOR_PATH];
-    char sub[EDITOR_PATH];
-    char subFile[EDITOR_PATH];
-    char lists[EDITOR_PATH];
-    char store[EDITOR_PATH];
-    char other[EDITOR_PATH];
-    char leaf[128];
-    char rec[EDITOR_PATH];
+    char names[SESSION_LIST][SESSION_NAME];
+    int counts[SESSION_LIST];
+    char dates[SESSION_LIST][SESSION_DATE];
+    int n;
+    int i;
     char *body;
-    long n;
-    int row;
-    int child;
+    long size;
 
-    path_join(folder, EDITOR_PATH, dir, "job");
-    path_join(side, EDITOR_PATH, dir, "side");
-    expect(mkdir(folder, 448) == 0, "job dir");
-    expect(mkdir(side, 448) == 0, "side dir");
-    path_join(fileA, EDITOR_PATH, folder, "a.scpp");
-    path_join(fileB, EDITOR_PATH, side, "b.scpp");
-    expect(write_file(fileA, "int a;\n", &io) == 1, "job source");
-    expect(write_file(fileB, "int b;\n", &io) == 1, "side source");
-    path_join(sub, EDITOR_PATH, folder, "sub");
-    expect(mkdir(sub, 448) == 0, "sub dir");
-    path_join(subFile, EDITOR_PATH, sub, "c.scpp");
-    expect(write_file(subFile, "int c;\n", &io) == 1, "sub source");
-    project = new EditProject();
-    expect(project->make("job", "directory", folder) == 1,
-            "make job");
-    expect(project->make("also", "directory", folder) == 1,
-            "second project");
-    expect(project->store_path(store, EDITOR_PATH) == 1,
-            "also path");
-    expect(text_has(store, "/.config/smallcpp/projects/") == 1,
-            "catalog directory");
-    expect(text_has(store, "also.project") == 1, "also file");
-    expect(project->load("job") == 1, "load job");
-    expect(text_same(project->name(), "job") == 1, "job name");
-    expect(text_same(project->kind_name(), "directory") == 1,
-            "job kind");
-    row = row_named(project, "a.scpp");
-    expect(row >= 0, "tree has a");
-    expect(project->row_is_dir(row) == 0, "a is a file");
-    expect(text_has(project->row_label(row), "/") == 0,
-            "a has no path");
-    row = row_named(project, "sub");
-    expect(row >= 0, "tree has sub");
-    expect(project->row_is_dir(row) == 1, "sub is a directory");
-    expect(row_named(project, "c.scpp") < 0, "sub starts closed");
-    expect(project->toggle_row(row) == 1, "open sub");
-    child = row_named(project, "c.scpp");
-    expect(child >= 0, "sub shows c");
-    expect(text_has(project->row_label(child), "/") == 0,
-            "c has no path");
-    expect(project->toggle_row(row_named(project, "sub")) == 1,
-            "close sub");
-    expect(row_named(project, "c.scpp") < 0, "sub closes");
-    expect(project->make("picked", "files", fileA) == 1,
-            "explicit files");
-    expect(project->add_file(fileB) == 1, "add another file");
-    row = row_named(project, "job");
-    expect(row >= 0, "picked groups job");
-    expect(project->row_is_dir(row) == 1, "job group is a directory");
-    expect(project->toggle_row(row) == 1, "open picked job");
-    expect(row_named(project, "a.scpp") >= 0, "picked a");
-    row = row_named(project, "side");
-    expect(project->toggle_row(row) == 1, "open picked side");
-    expect(row_named(project, "b.scpp") >= 0, "picked b");
-    expect(text_has(
-                project->row_label(row_named(project, "a.scpp")),
-                "/") == 0,
-            "picked row is not a path");
-    path_join(lists, EDITOR_PATH, folder, "CMakeLists.txt");
-    expect(write_file(
-                lists,
-                "add_executable(demo a.scpp)\n",
-                &io) == 1,
-            "cmake file");
-    expect(project->make("built", "cmake", folder) == 1,
-            "cmake project");
-    expect(row_named(project, "a.scpp") >= 0, "cmake has a");
-    expect(project->store_path(store, EDITOR_PATH) == 1,
-            "cmake path");
-    n = 0;
-    body = read_file(store, &n, &io);
-    expect(body != nullptr, "cmake text");
-    if (body != nullptr) {
-        expect(text_has(body, "kind=cmake") == 1, "cmake kind");
-        expect(text_has(body, "add_executable") == 0,
-                "cmake stores no targets");
-    }
-    project->clear_opens();
-    expect(project->note_open(fileA) == 1, "note open");
-    project->note_active(fileA, 4);
-    expect(project->save() == 1, "save place");
-    expect(project->load("built") == 1, "load place");
-    expect(project->active_line() == 4, "saved line");
-    expect(project->open_count() == 1, "saved opens");
-    expect(text_same(project->active_path(), fileA) == 1,
-            "saved file");
-    expect(project->save_as("built-copy") == 1, "save as");
-    expect(project->store_path(other, EDITOR_PATH) == 1,
-            "copy path");
-    expect(file_exists(store) == 1, "original remains");
-    expect(file_exists(other) == 1, "copy exists");
-    expect(project->remove_store() == 1, "delete copy");
-    expect(file_exists(other) == 0, "copy is gone");
-    expect(file_exists(store) == 1, "original stays");
-    path_join(home, EDITOR_PATH, dir, "keep");
-    expect(mkdir(home, 448) == 0, "keep dir");
-    doc = new Document();
-    expect(doc->load_path(fileA) == 1, "load for recovery");
-    doc->buffer()->set_text("kept work\n");
-    expect(doc->write_recovery(home) == 1, "write recovery");
-    expect(doc->recovery_leaf(leaf, 128) == 1, "recovery leaf");
-    path_join(rec, EDITOR_PATH, home, leaf);
-    expect(file_exists(rec) == 1, "recovery file");
-    unlink(rec);
-    if (system("git --version > /dev/null 2>&1") == 0) {
-        String *cmd;
-
-        cmd = new String();
-        cmd->append("git -C '");
-        cmd->append(folder);
-        cmd->append("' init -q");
-        expect(system(cmd->c_str()) == 0, "git init");
-        cmd = new String();
-        cmd->append("git -C '");
-        cmd->append(folder);
-        cmd->append("' add a.scpp");
-        expect(system(cmd->c_str()) == 0, "git add");
-        expect(project->make("repo", "git", folder) == 1,
-                "git project");
-        expect(row_named(project, "a.scpp") >= 0, "git lists a");
-        expect(text_same(project->kind_name(), "git") == 1,
-                "git kind");
-    }
-    expect(startup_directory(home, EDITOR_PATH) == 1,
-            "start directory");
-    path_join(folder, EDITOR_PATH, home, "anchor-proj");
-    path_join(fileA, EDITOR_PATH, folder, "hello.txt");
-    unlink(fileA);
-    rmdir(folder);
-    expect(mkdir(folder, 448) == 0, "anchor folder");
-    expect(write_file(fileA, "hi\n", &io) == 1, "anchor hello");
-    expect(project->make(
-                "anchor",
-                "directory",
-                "anchor-proj") == 1,
-            "relative create");
-    expect(project->store_path(store, EDITOR_PATH) == 1,
-            "anchor store");
-    n = 0;
-    body = read_file(store, &n, &io);
-    expect(body != nullptr, "anchor text");
-    if (body != nullptr) {
-        expect(text_has(body, home) == 1,
-                "root keeps the start directory");
-        expect(text_has(body, "anchor-proj") == 1,
-                "root keeps the chosen folder");
-    }
-    expect(current_directory(other, EDITOR_PATH) == 1,
-            "remember directory");
-    expect(chdir(side) == 0, "start elsewhere");
-    project = new EditProject();
-    row = project->load("anchor");
-    expect(chdir(other) == 0, "restore cwd");
-    expect(row == 1, "open from another directory");
-    row = row_named(project, "hello.txt");
-    expect(row >= 0, "hello from the chosen directory");
-    if (row >= 0) {
-        expect(text_starts(project->row_path(row), home) == 1,
-                "path stays in the start directory");
-        expect(file_exists(project->row_path(row)) == 1,
-                "chosen file still exists");
-    }
-    project->remove_store();
-    unlink(fileA);
-    rmdir(folder);
+    path_join(fileA, EDITOR_PATH, dir, "sess-a.txt");
+    path_join(fileB, EDITOR_PATH, dir, "sess-b.txt");
+    expect(write_file(fileA, "one\n", &io) == 1, "session a");
+    expect(write_file(fileB, "two\n", &io) == 1, "session b");
+    session = new EditSession();
+    session->note_open(fileA);
+    session->note_open(fileB);
+    session->note_active(fileB, 3);
+    expect(session->save_as("alpha") == 1, "save alpha");
+    expect(session->save_as("alpha") == 1, "save same name");
+    expect(session->save_as("beta") == 1, "save as a new name");
+    expect(text_same(session->name(), "beta") == 1,
+            "save as switches the name");
+    expect(session_exists("alpha") == 1, "first session remains");
+    expect(session->save_as("alpha") == 0, "refuse a taken name");
+    session->clear();
+    expect(session->load("alpha") == 1, "load alpha");
+    expect(text_same(session->name(), "alpha") == 1,
+            "loaded name");
+    expect(session->open_count() == 2, "two open files");
+    expect(text_same(session->open_at(0), fileA) == 1,
+            "first file");
+    expect(text_same(session->open_at(1), fileB) == 1,
+            "second file");
+    expect(text_same(session->active_path(), fileB) == 1,
+            "active file");
+    expect(session->active_line() == 3, "caret line");
+    expect(text_length(session->opened()) == 10,
+            "opened date");
+    n = session_catalog(names, counts, dates, SESSION_LIST);
+    expect(n == 2, "two sessions");
+    expect(text_same(names[0], "alpha") == 1
+            || text_same(names[1], "alpha") == 1,
+            "catalog name");
+    expect(counts[0] == 2, "catalog files");
+    expect(text_length(dates[0]) == 10, "catalog date");
+    expect(session_copy("alpha", "extra") == 1, "duplicate");
+    expect(session_copy("alpha", "extra") == 0,
+            "duplicate refuses a taken name");
+    expect(session_rename("alpha", "gamma") == 1, "rename");
+    expect(session_exists("alpha") == 0, "old name is gone");
+    expect(session_exists("gamma") == 1, "new name exists");
+    expect(session_exists("extra") == 1, "copy remains");
+    session->clear();
+    expect(session->load("gamma") == 1, "load renamed");
+    expect(text_same(session->active_path(), fileB) == 1,
+            "rename keeps the place");
+    expect(session_remove("extra") == 1, "delete the copy");
+    expect(session_exists("extra") == 0, "copy record is gone");
+    expect(file_exists(fileA) == 1, "delete leaves the file");
+    expect(file_exists(fileB) == 1, "delete leaves the other");
+    size = 0;
+    body = read_file(fileA, &size, &io);
+    expect(body != nullptr && text_same(body, "one\n") == 1,
+            "file text stays");
+    expect(session->save_as("") == 0, "blank name refused");
+    expect(session->save_as("..") == 0, "dot name refused");
+    i = session_catalog(names, counts, dates, SESSION_LIST);
+    expect(i == 2, "renamed session and save-as remain");
+    expect(text_same(names[0], "gamma") == 1
+            || text_same(names[1], "gamma") == 1,
+            "catalog follows the rename");
 }
 
-void check_template(const char *dir, const char *io) {
-    char src[EDITOR_PATH];
-    char dest[EDITOR_PATH];
-    char file[EDITOR_PATH];
-    char archive[EDITOR_PATH];
-    char config[EDITOR_PATH];
-    char small[EDITOR_PATH];
-    char got[EDITOR_PATH];
-    EditProject *project;
-    String *cmd;
-
-    path_join(src, EDITOR_PATH, dir, "packsrc");
-    expect(mkdir(src, 448) == 0, "template source");
-    path_join(file, EDITOR_PATH, src, "hello.txt");
-    expect(write_file(file, "hello\n", &io) == 1, "template hello");
-    path_join(config, EDITOR_PATH, dir, ".config");
-    if (file_is_dir(config) == 0)
-        expect(mkdir(config, 448) == 0, "config dir");
-    path_join(small, EDITOR_PATH, config, "smallcpp");
-    if (file_is_dir(small) == 0)
-        expect(mkdir(small, 448) == 0, "smallcpp dir");
-    expect(template_archive(archive, EDITOR_PATH) == 1,
-            "template path");
-    expect(text_has(
-                archive,
-                "/.config/smallcpp/template.tar.gz") == 1,
-            "template location");
-    cmd = new String();
-    cmd->append("tar -C '");
-    cmd->append(src);
-    cmd->append("' -czf '");
-    cmd->append(archive);
-    cmd->append("' .");
-    expect(system(cmd->c_str()) == 0, "pack template");
-    path_join(dest, EDITOR_PATH, dir, "fresh");
-    expect(unpack_template(dest) == 1, "unpack template");
-    path_join(got, EDITOR_PATH, dest, "hello.txt");
-    expect(file_exists(got) == 1, "unpacked hello");
-    project = new EditProject();
-    expect(project->make("fresh", "directory", dest) == 1,
-            "open unpacked");
-    expect(row_named(project, "hello.txt") >= 0,
-            "template file");
-}
 
 int main(void) {
     char pattern[64];
@@ -1824,9 +1657,8 @@ int main(void) {
                     "shell") == 1,
                 "cmake name");
     }
-    check_project(dir, io);
+    check_session(dir, io);
     check_map_width();
-    check_template(dir, io);
     unlink(pathA);
     unlink(pathB);
     unlink(pathC);

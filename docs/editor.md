@@ -61,91 +61,70 @@ Settings sets that same width, from 24 to 500. The column keeps the width
 from the last of those and does not change it on its own.
 The column reads the buffer the editor already has.
 A panel on the left lists files, symbols, and the open
-documents. Documents also lists the project tree.
-Its left edge is the left edge of the window. Dragging the
-marker on the panel's right edge changes the panel width.
-The tab row has buttons that scroll the Files, Symbols,
-and Documents labels when they do not fit. Files
-lists the current folder with each name starting at the
-left. Documents lists the open files the same way, and
-one click switches to that file. Under those names it
-lists the open project's files. A name is shown as
-written, including an underscore.
-Right-click on Files, the project tree, or the open
-documents shows New,
+documents. Its left edge is the left edge of the
+window. Dragging the marker on the panel's right edge
+changes the panel width. The tab row has buttons that
+scroll the Files, Symbols, and Documents labels when
+they do not fit. Files lists the current folder with
+each name starting at the left. Documents lists the
+files open in the current session, and one click
+switches to that file. A name is shown as written,
+including an underscore.
+Right-click on Files or the open documents shows New,
 Open, Close, Save, and Remove. Open, Close, Save, and
 Remove are gray unless the click landed on a file, and
 then they use that file. New stays available when a
-file can be created: the Files tab has a folder, a
-project is open, or Documents can open a buffer. New
-is the same as File, New. Open opens that file. Close
-closes it when it is open, and still asks when it is
-dirty. Save writes it, opening it first when it is not
-already open. Remove asks before it changes anything.
-Remove from the project drops a project file, closes a
-document, or hides a name in the Files list, and the
-file stays on disk. Remove from the project and the
-disk does that and then deletes the file. Cancel
+file can be created: the Files tab has a folder, or
+Documents can open a buffer. New is the same as File,
+New. Open opens that file. Close closes it when it is
+open, and still asks when it is dirty. Save writes it,
+opening it first when it is not already open. Remove
+asks before it changes anything. Remove from the list
+closes a document or hides a name in the Files list,
+and the file stays on disk. Remove from the list and
+the disk does that and then deletes the file. Cancel
 leaves the file alone. A Files name stays hidden for
 that folder until the editor quits.
-Project lists the files in the open project as a
-collapsible tree. Each row is a directory name or a
-file name, and one click opens a file or folds a
-directory. A project is optional. It is a named list
-of files, not a folder, and more than one project can
-describe the same directory. The files come from an
-explicit list, a directory, a git repository, or the
-sources named in a CMake build. Project has
-Create New, Create From, Open, Close, Save, Save As,
-and Delete. Create New asks for a directory and unpacks
-the installed template there. Browse opens in the
-directory where the editor was started. The user types
-a new directory name there, or chooses a directory that
-already exists. Create New creates a missing directory
-and unpacks the template into it. An existing directory
-is used as before. The project keeps that chosen
-directory when the editor is started somewhere else
-later. That archive is
-`$HOME/.config/smallcpp/template.tar.gz`, packed from
-https://github.com/smallcpp/template when the editor is
-built. Create From has Individual files, From directory,
-Git repo, and CMake build. Individual files asks for a
-name and the files. From directory asks for a name and
-a directory. Git repo asks for a name and the repository
-directory. CMake build asks for a name and the directory
-of the CMake build. Open lists the known
-projects. Each one is stored at
-`$HOME/.config/smallcpp/projects/<name>.project`, which
-also keeps the active file, the line, and the other
-open files for that project. Creating or opening a
-project closes the buffers that were already open, and
-the left panel switches to Documents and shows that
-project's tree. Open, Create New, and each Create From
-item do this. If a buffer has unsaved changes, the
-editor asks before it closes that buffer and switches.
-Opening the project then restores its saved place.
-Save writes that project. Save As asks for a new name
-and writes a copy, leaving the original project open
-and its file unchanged. The same name is refused.
-Close saves the project and clears it. Delete removes
-the project file. With no project, those items say so.
-Setup, Project has the same actions, including each
-Create From choice, and a theme list. A project theme
-is used while that project is open. Closing or
-deleting it returns to the editor theme. The editor
-theme saved in setup does not change.
-Remember files is a separate
-global choice. The editor does not build, run, or
-debug. The panel does not own the buffer. Opening a
-file uses the same path as File, Open. A symbol moves
-the cursor in the current buffer.
+A session is the set of files being edited. It is not
+a project. It has no folder, kind, theme, or tree.
+Starting the editor with no files shows a dialog
+before the window. The dialog lists each session by
+name, the number of files, and the date it was last
+opened. The most recently opened session is first.
+Open opens the highlighted session. New Session opens
+the editor with no files. Delete removes that session
+from the list and leaves its files on disk. The dialog
+stays open. Close opens the most recent session, or a
+blank editor when the list is empty. Rename changes
+the highlighted session to the name in the entry.
+Duplicate copies it to that name. A name already in
+use is refused.
+The menus are File, Edit, Search, View, and Sessions.
+Sessions has New Session, Recent, All Sessions, Save
+Session, and Save As. Recent is the latest sessions.
+Choosing one opens it. All Sessions opens the same
+dialog. Save Session writes the open files, the
+current file, and the caret line under the current
+name, and updates the opened date. An unnamed session
+asks for a name. Save As writes that set under a new
+name and makes it the current session. A name that
+already belongs to a different session is refused.
+Opening a session closes the buffers that were already
+open. If one has unsaved changes, the editor asks
+before it closes them. The session then restores its
+files, the current file, and the caret line. Each
+session is a file under
+`$HOME/.config/smallcpp/sessions/<name>.session`.
+Remember files is a separate global choice. The editor
+does not build, run, or debug. The panel does not own
+the buffer. Opening a file uses the same path as File,
+Open. A symbol moves the cursor in the current buffer.
 Right-click in the text keeps the usual edit menu and
 hides Insert Emoji. Insert date writes today's local
 date at the caret as `YYYY-MM-DD`. Insert color opens
 the same color chooser as the theme colors and writes
 the chosen color as `#rrggbb`.
-The menus are File, Edit, Search, View, and Project. The
-status line shows the title, a dirty star, the line, the
+The status line shows the title, a dirty star, the line, the
 column, and the language. Each tab has a dark border.
 A close button is drawn on the tab unless Settings turns it off.
 The mark closes that document, with the same dirty-file question
@@ -206,13 +185,13 @@ All, which closes every document and leaves one untitled
 buffer. Each command shows its accelerator. View offers
 Whitespace, Line ends, and Indent stops. Left panel and
 Right panel are checked while those panels are shown.
-Left panel is the files and project list. Right panel
+Left panel is the files and documents list. Right panel
 is the mini-map. Clearing a check hides that panel.
 Whitespace draws
 a dot for each space and a line for each tab. Line ends
 draws a mark after each line. Indent stops draws a line
 at each tab stop inside the leading indent. Settings has
-General, Projects, Search, Appearance, Languages, and Keyboard
+General, Search, Appearance, Languages, and Keyboard
 pages, and the tabs sit on the left and stay put while
 the page scrolls. Languages lists each language. It has
 a name, suffixes, special filenames, a shebang, a line

@@ -274,122 +274,6 @@ static int send_ctrl_s(void) {
     return send_chord(0x73, 1);
 }
 
-void check_project_list(
-        Ui *ui,
-        Editor *editor,
-        const char *pathA) {
-    char folder[EDITOR_PATH];
-    char nest[EDITOR_PATH];
-    char child[EDITOR_PATH];
-    const char *io;
-    int i;
-    int saw;
-    int dirRow;
-    int childRow;
-
-    path_dir(folder, EDITOR_PATH, pathA);
-    path_join(nest, EDITOR_PATH, folder, "nest");
-    expect(mkdir(nest, 448) == 0, "nest folder");
-    path_join(child, EDITOR_PATH, nest, "c.scpp");
-    io = "";
-    expect(write_file(child, "int c;\n", &io) == 1,
-            "nest file");
-    expect(ui->make_project(
-                "demo",
-                "directory",
-                folder) == 1,
-            "named project");
-    expect(editor->count() == 1, "create closes buffers");
-    expect(editor->active()->untitled() == 1,
-            "previous file is gone");
-    expect(ui->panel_page() == 2, "create shows the project");
-    saw = -1;
-    dirRow = -1;
-    childRow = -1;
-    i = 0;
-    while (i < ui->panel_project_files()) {
-        expect(text_has(
-                    ui->shown_project_file(i),
-                    "/") == 0,
-                "tree hides the path");
-        if (text_same(
-                    ui->panel_project_file(i),
-                    "a.scpp") == 1)
-            saw = i;
-        if (text_same(
-                    ui->panel_project_file(i),
-                    "nest") == 1
-                && ui->project_row_dir(i) == 1)
-            dirRow = i;
-        if (text_same(
-                    ui->panel_project_file(i),
-                    "c.scpp") == 1)
-            childRow = i;
-        i = i + 1;
-    }
-    expect(saw >= 0, "project lists a");
-    expect(text_same(
-                ui->shown_project_file(saw),
-                "a.scpp") == 1,
-            "project row");
-    expect(ui->project_clicks() == 1, "project single click");
-    expect(dirRow >= 0, "project lists nest");
-    expect(childRow < 0, "nest starts closed");
-    ui->open_project_file(dirRow);
-    childRow = -1;
-    i = 0;
-    while (i < ui->panel_project_files()) {
-        expect(text_has(
-                    ui->shown_project_file(i),
-                    "/") == 0,
-                "open tree hides the path");
-        if (text_same(
-                    ui->panel_project_file(i),
-                    "c.scpp") == 1)
-            childRow = i;
-        i = i + 1;
-    }
-    expect(childRow >= 0, "nest opens");
-    ui->open_project_file(saw);
-    expect(text_same(
-                editor->active()->path(),
-                pathA) == 1,
-            "project click opens");
-}
-
-void check_cmake_project(
-        Ui *ui,
-        const char *dir,
-        const char *io) {
-    char lists[EDITOR_PATH];
-    int i;
-    int saw;
-
-    path_join(lists, EDITOR_PATH, dir, "CMakeLists.txt");
-    expect(write_file(
-                lists,
-                "add_executable(demo a.scpp)\n",
-                &io) == 1,
-            "cmake lists");
-    expect(ui->make_project("built", "cmake", dir) == 1,
-            "cmake project");
-    saw = -1;
-    i = 0;
-    while (i < ui->panel_project_files()) {
-        expect(text_has(
-                    ui->shown_project_file(i),
-                    "/") == 0,
-                "cmake tree name");
-        if (text_same(
-                    ui->panel_project_file(i),
-                    "a.scpp") == 1)
-            saw = i;
-        i = i + 1;
-    }
-    expect(saw >= 0, "cmake lists a");
-    unlink(lists);
-}
-
 void check_panel_layout(Ui *ui) {
     expect(ui->panel_scrolls() == 1, "panel scroll buttons");
     expect(text_same(ui->panel_scroll_mark(0), "<") == 1,
@@ -404,8 +288,8 @@ void check_panel_layout(Ui *ui) {
     ui->show_panel_page(2);
     pump(20);
     ui->align_file_names();
-    expect(ui->project_files_left() == 1,
-            "project files align left");
+    expect(ui->documents_left() == 1,
+            "documents align left");
     ui->show_panel_page(0);
     ui->set_panel_width(280);
     usleep(100000);
@@ -706,306 +590,6 @@ void check_select_all(Ui *ui, Editor *editor) {
     buffer->set_cursor_offset(0);
 }
 
-void check_new_directory(Ui *ui, const char *dir);
-
-void check_template_open(
-        Ui *ui,
-        const char *dir,
-        const char *io) {
-    char src[EDITOR_PATH];
-    char dest[EDITOR_PATH];
-    char file[EDITOR_PATH];
-    char archive[EDITOR_PATH];
-    char config[EDITOR_PATH];
-    char small[EDITOR_PATH];
-    String *cmd;
-    int i;
-    int saw;
-
-    path_join(src, EDITOR_PATH, dir, "packsrc");
-    expect(mkdir(src, 448) == 0, "template source");
-    path_join(file, EDITOR_PATH, src, "hello.txt");
-    expect(write_file(file, "hello\n", &io) == 1,
-            "template hello");
-    path_join(config, EDITOR_PATH, dir, ".config");
-    if (file_is_dir(config) == 0)
-        expect(mkdir(config, 448) == 0, "config dir");
-    path_join(small, EDITOR_PATH, config, "smallcpp");
-    if (file_is_dir(small) == 0)
-        expect(mkdir(small, 448) == 0, "smallcpp dir");
-    expect(template_archive(archive, EDITOR_PATH) == 1,
-            "template path");
-    cmd = new String();
-    cmd->append("tar -C '");
-    cmd->append(src);
-    cmd->append("' -czf '");
-    cmd->append(archive);
-    cmd->append("' .");
-    expect(system(cmd->c_str()) == 0, "pack template");
-    path_join(dest, EDITOR_PATH, dir, "fresh");
-    expect(ui->create_from_template(dest) == 1,
-            "create new");
-    expect(text_same(ui->project_name(), "fresh") == 1,
-            "named from the directory");
-    saw = 0;
-    i = 0;
-    while (i < ui->panel_project_files()) {
-        if (text_same(
-                    ui->panel_project_file(i),
-                    "hello.txt") == 1)
-            saw = 1;
-        expect(text_has(
-                    ui->shown_project_file(i),
-                    "/") == 0,
-                "template tree name");
-        i = i + 1;
-    }
-    expect(saw == 1, "template lists hello");
-    check_new_directory(ui, dir);
-}
-
-void check_new_directory(Ui *ui, const char *dir) {
-    char file[EDITOR_PATH];
-    char missing[EDITOR_PATH];
-    char got[EDITOR_PATH];
-    char kept[EDITOR_PATH];
-
-    ui->show_template_project();
-    path_join(file, EDITOR_PATH, dir, "a.scpp");
-    ui->use_template_dir(file);
-    expect(text_same(ui->template_directory(), dir) == 1,
-            "file still names its directory");
-    ui->use_template_dir(dir);
-    expect(text_same(ui->template_directory(), dir) == 1,
-            "existing directory stays");
-    path_join(missing, EDITOR_PATH, dir, "brand-new");
-    expect(file_is_dir(missing) == 0,
-            "name is not a directory");
-    ui->use_template_dir(missing);
-    expect(text_same(
-                ui->template_directory(),
-                missing) == 1,
-            "new name is kept");
-    text_copy(kept, EDITOR_PATH, ui->template_directory());
-    ui->use_template_dir(nullptr);
-    expect(text_same(ui->template_directory(), kept) == 1,
-            "cancel keeps the name");
-    expect(ui->create_from_template(kept) == 1,
-            "create the new directory");
-    expect(file_is_dir(missing) == 1,
-            "directory was created");
-    path_join(got, EDITOR_PATH, missing, "hello.txt");
-    expect(file_exists(got) == 1,
-            "template unpacked into it");
-    expect(text_same(ui->project_name(), "brand-new") == 1,
-            "project uses the new name");
-    ui->hide_template_project();
-}
-
-void check_template_browse(Ui *ui, const char *away) {
-    char began[EDITOR_PATH];
-    char back[EDITOR_PATH];
-    char sample[EDITOR_PATH];
-
-    text_copy(began, EDITOR_PATH, ui->template_browse_at());
-    expect(began[0] == '/', "browse directory is absolute");
-    expect(text_same(began, away) == 0,
-            "start directory is not the later one");
-    path_join(sample, EDITOR_PATH, away, "a.scpp");
-    ui->open_path(sample);
-    expect(current_directory(back, EDITOR_PATH) == 1,
-            "remember directory");
-    expect(chdir(away) == 0, "start in another directory");
-    expect(ui->template_browse_aimed() == 1,
-            "browse stays on the start directory");
-    expect(text_same(ui->template_browse_at(), began) == 1,
-            "browse directory did not move");
-    expect(ui->template_browse_named() == 1,
-            "browse accepts a typed name");
-    expect(chdir(back) == 0, "return to the start directory");
-}
-
-void check_projects(
-        Ui *ui,
-        Editor *editor,
-        const char *dir,
-        const char *io) {
-    char job[EDITOR_PATH];
-    char other[EDITOR_PATH];
-    char note[EDITOR_PATH];
-    char side[EDITOR_PATH];
-    char store[EDITOR_PATH];
-    char copy[EDITOR_PATH];
-    char *body;
-    long n;
-    int i;
-    int sawJob;
-    int sawAlso;
-    int sawNote;
-    int sawSide;
-    int sawStray;
-    char stray[EDITOR_PATH];
-
-    i = 0;
-    while (i < editor->count()) {
-        Document *doc;
-
-        doc = editor->at(i);
-        if (doc != nullptr && doc->buffer() != nullptr)
-            doc->buffer()->mark_clean();
-        i = i + 1;
-    }
-    path_join(job, EDITOR_PATH, dir, "job");
-    path_join(other, EDITOR_PATH, dir, "other");
-    expect(mkdir(job, 448) == 0, "job folder");
-    expect(mkdir(other, 448) == 0, "other folder");
-    path_join(note, EDITOR_PATH, job, "note.scpp");
-    path_join(side, EDITOR_PATH, job, "side.scpp");
-    expect(write_file(note, "a\nb\nc\nd\n", &io) == 1,
-            "job note");
-    expect(write_file(side, "side\n", &io) == 1,
-            "job side");
-    expect(ui->make_project("job", "directory", job) == 1,
-            "make job");
-    expect(ui->make_project("also", "directory", job) == 1,
-            "second project");
-    expect(ui->make_project("other", "directory", other) == 1,
-            "make other");
-    sawJob = 0;
-    sawAlso = 0;
-    n = ui->known_projects();
-    i = 0;
-    while (i < (int)n) {
-        if (text_same(ui->known_project(i), "job") == 1)
-            sawJob = 1;
-        if (text_same(ui->known_project(i), "also") == 1)
-            sawAlso = 1;
-        i = i + 1;
-    }
-    expect(sawJob == 1, "lists job");
-    expect(sawAlso == 1, "lists also");
-    expect(ui->open_named_project("job") == 1, "open job");
-    expect(text_same(ui->project_name(), "job") == 1,
-            "name is job");
-    text_copy(store, EDITOR_PATH, ui->project_path());
-    expect(file_exists(store) == 1, "project file");
-    expect(text_has(
-                store,
-                "/.config/smallcpp/projects/") == 1,
-            "project directory");
-    expect(text_has(store, "job.project") == 1,
-            "project file name");
-    n = 0;
-    body = read_file(store, &n, &io);
-    expect(body != nullptr, "project text");
-    if (body != nullptr) {
-        expect(text_has(body, "name=job") == 1,
-                "stored name");
-        expect(text_has(body, "kind=directory") == 1,
-                "stored kind");
-        free((void *)body);
-    }
-    ui->open_path(side);
-    ui->open_path(note);
-    editor->active()->buffer()->move_to(3, 1);
-    editor->active()->buffer()->mark_clean();
-    ui->on_project_menu("Save");
-    ui->on_project_menu("Close");
-    expect(text_same(ui->project_name(), "") == 1,
-            "project closed");
-    editor->active()->buffer()->mark_clean();
-    ui->on_menu("Close");
-    editor->active()->buffer()->mark_clean();
-    ui->on_menu("Close");
-    path_join(stray, EDITOR_PATH, dir, "stray.scpp");
-    expect(write_file(stray, "stray\n", &io) == 1,
-            "stray file");
-    ui->open_path(stray);
-    ui->show_panel_page(0);
-    expect(ui->panel_page() == 0, "files page");
-    expect(ui->open_named_project("job") == 1, "reopen job");
-    sawStray = 0;
-    i = 0;
-    while (i < editor->count()) {
-        Document *doc;
-
-        doc = editor->at(i);
-        if (doc != nullptr
-                && text_same(doc->path(), stray) == 1)
-            sawStray = 1;
-        i = i + 1;
-    }
-    expect(sawStray == 0, "open closes the previous buffer");
-    expect(ui->panel_page() == 2, "open shows the project");
-    expect(text_same(ui->project_name(), "job") == 1,
-            "job stays open");
-    ui->on_project_menu("New");
-    expect(text_same(ui->project_name(), "job") == 1,
-            "new does not replace the project");
-    expect(text_same(editor->active()->path(), note) == 1,
-            "restored file");
-    expect(editor->active()->buffer()->cursor_line() == 3,
-            "restored line");
-    sawNote = 0;
-    sawSide = 0;
-    i = 0;
-    while (i < editor->count()) {
-        Document *doc;
-
-        doc = editor->at(i);
-        if (doc != nullptr
-                && text_same(doc->path(), note) == 1)
-            sawNote = 1;
-        if (doc != nullptr
-                && text_same(doc->path(), side) == 1)
-            sawSide = 1;
-        i = i + 1;
-    }
-    expect(sawNote == 1, "restored note");
-    expect(sawSide == 1, "restored side");
-    expect(ui->open_named_project("also") == 1, "open also");
-    text_copy(copy, EDITOR_PATH, ui->project_path());
-    ui->on_project_menu("Delete");
-    expect(file_exists(copy) == 0, "delete removes the file");
-    expect(file_exists(store) == 1, "other project remains");
-    expect(text_same(ui->project_name(), "") == 1,
-            "deleted project closed");
-    ui->open_path(stray);
-    editor->active()->buffer()->set_text("changed\n");
-    editor->active()->buffer()->mark_dirty();
-    expect(ui->make_project("later", "directory", job) == 0,
-            "dirty create waits");
-    expect(text_same(ui->project_name(), "") == 1,
-            "create waits for the buffer");
-    expect(ui->listed_count() == 1, "lists the dirty buffer");
-    ui->discard_listed(ui->listed_at(0));
-    expect(text_same(ui->project_name(), "later") == 1,
-            "create finishes");
-    expect(ui->panel_page() == 2, "create shows the project");
-    sawStray = 0;
-    i = 0;
-    while (i < editor->count()) {
-        Document *doc;
-
-        doc = editor->at(i);
-        if (doc != nullptr
-                && text_same(doc->path(), stray) == 1)
-            sawStray = 1;
-        i = i + 1;
-    }
-    expect(sawStray == 0, "create closes the previous buffer");
-    check_template_open(ui, dir, io);
-    i = 0;
-    while (i < editor->count()) {
-        Document *doc;
-
-        doc = editor->at(i);
-        if (doc != nullptr && doc->buffer() != nullptr)
-            doc->buffer()->mark_clean();
-        i = i + 1;
-    }
-}
-
 static int date_text(const char *text) {
     int i;
 
@@ -1043,21 +627,6 @@ static int named_doc(Ui *ui, const char *name) {
     i = 0;
     while (i < ui->panel_documents()) {
         if (text_same(ui->shown_document(i), name) == 1)
-            return i;
-        i = i + 1;
-    }
-    return -1;
-}
-
-static int named_proj(Ui *ui, const char *name) {
-    int i;
-
-    i = 0;
-    while (i < ui->panel_project_files()) {
-        if (ui->project_row_dir(i) == 0
-                && text_has(
-                        ui->shown_project_file(i),
-                        name) == 1)
             return i;
         i = i + 1;
     }
@@ -1237,188 +806,156 @@ static void check_context_menus(
     expect(named_file(ui, "disk.scpp") < 0,
             "deleted file leaves the list");
     mark_clean_all(editor);
-    if (text_same(ui->project_name(), "") == 0)
-        ui->on_project_menu("Close");
-    ui->show_panel_page(2);
-    ui->arm_panel(1, -1);
-    expect(text_same(ui->project_name(), "") == 1,
-            "no project open");
-    expect(ui->panel_item_on("New") == 0,
-            "new needs a project");
-    expect(ui->panel_item_on("Open") == 0,
-            "project miss is gray");
-    mark_clean_all(editor);
-    expect(ui->make_project(
-                "menudir",
-                "directory",
-                folder) == 1,
-            "menu project");
-    ui->show_panel_page(2);
-    check_gray(ui, 1, -1);
-    row = named_proj(ui, "stay.scpp");
-    expect(row >= 0, "project lists stay");
-    ui->arm_panel(1, row);
-    expect(ui->panel_item_on("Open") == 1,
-            "project file enabled");
-    ui->run_panel_item("Remove");
-    ui->answer_remove(1);
-    expect(file_exists(keep) == 1,
-            "project drop keeps disk");
-    expect(named_proj(ui, "stay.scpp") < 0,
-            "project drop leaves the tree");
-    mark_clean_all(editor);
-    ui->on_project_menu("Close");
-    expect(ui->open_named_project("menudir") == 1,
-            "reopen menu project");
-    expect(named_proj(ui, "stay.scpp") < 0,
-            "project drop is saved");
-    expect(file_exists(keep) == 1, "saved drop still on disk");
-    row = named_proj(ui, "gone.scpp");
-    expect(row >= 0, "project lists gone");
-    ui->arm_panel(1, row);
-    ui->run_panel_item("Remove");
-    ui->answer_remove(2);
-    expect(file_exists(drop) == 0, "project deleted the file");
-    expect(named_proj(ui, "gone.scpp") < 0,
-            "deleted file leaves the project");
-    mark_clean_all(editor);
-    ui->on_project_menu("Delete");
     expect(ui->show_folder(dir) == 1, "files restored");
 }
 
-static int saw_known(Ui *ui, const char *name) {
-    int i;
-
-    i = 0;
-    while (i < ui->known_projects()) {
-        if (text_same(ui->known_project(i), name) == 1)
-            return 1;
-        i = i + 1;
-    }
-    return 0;
-}
-
-static void check_project_page(
+static void check_sessions(
         Ui *ui,
         Editor *editor,
-        const char *dir) {
-    char folder[EDITOR_PATH];
-    char path[EDITOR_PATH];
-    const char *io;
+        const char *dir,
+        const char *io) {
+    char one[EDITOR_PATH];
+    char two[EDITOR_PATH];
+    int i;
+    int saw;
 
-    path_join(folder, EDITOR_PATH, dir, "pagejob");
-    expect(mkdir(folder, 448) == 0, "page folder");
-    path_join(path, EDITOR_PATH, folder, "a.scpp");
-    io = "";
-    expect(write_file(path, "int a;\n", &io) == 1,
-            "page file");
-    expect(ui->project_setup_count() == 10,
-            "project setup actions");
+    mark_clean_all(editor);
+    expect(ui->new_session() == 1, "start from a blank session");
+    path_join(one, EDITOR_PATH, dir, "sess-a.txt");
+    path_join(two, EDITOR_PATH, dir, "sess-b.txt");
+    expect(write_file(
+                one,
+                "a1\na2\na3\na4\n",
+                &io) == 1,
+            "session file a");
+    expect(write_file(two, "b1\nb2\n", &io) == 1,
+            "session file b");
+    ui->open_path(one);
+    ui->open_path(two);
+    editor->active()->buffer()->move_to(2, 1);
+    expect(ui->save_session_as("work") == 1,
+            "save the session");
+    expect(text_same(ui->current_session(), "work") == 1,
+            "session name");
+    mark_clean_all(editor);
+    expect(ui->new_session() == 1, "new session");
+    expect(text_same(ui->current_session(), "") == 1,
+            "new session is unnamed");
+    expect(editor->count() == 1, "new session is empty");
+    expect(ui->open_session("work") == 1, "open work");
+    expect(editor->count() == 2, "restored both files");
+    expect(text_same(editor->active()->path(), two) == 1,
+            "restored the current file");
+    expect(editor->active()->buffer()->cursor_line() == 2,
+            "restored the caret");
+    ui->show_sessions();
+    expect(ui->session_dialog_open() == 1, "dialog is open");
+    expect(ui->session_button_count() == 6, "six buttons");
+    expect(text_same(ui->session_button_label(0), "Open") == 1,
+            "open button");
     expect(text_same(
-                ui->project_setup_label(0),
-                "Create New") == 1,
-            "setup create");
+                ui->session_button_label(1),
+                "New Session") == 1,
+            "new button");
     expect(text_same(
-                ui->project_setup_label(1),
-                "Individual files") == 1,
-            "setup files");
-    expect(text_same(
-                ui->project_setup_label(4),
-                "CMake build") == 1,
-            "setup cmake");
-    expect(text_same(
-                ui->project_setup_label(8),
-                "Save As") == 1,
-            "setup save as");
-    expect(text_same(
-                ui->project_setup_label(9),
+                ui->session_button_label(2),
                 "Delete") == 1,
-            "setup delete");
-    mark_clean_all(editor);
-    expect(ui->make_project(
-                "pagejob",
-                "directory",
-                folder) == 1,
-            "page project");
-    expect(ui->panel_page() == 2,
-            "documents has the tree");
-    expect(ui->panel_project_files() > 0, "tree has rows");
-    expect(ui->save_named_project() == 1, "menu save");
-    expect(ui->save_named_project_as("pagejob") == 0,
-            "save as same name");
-    expect(text_same(ui->project_name(), "pagejob") == 1,
-            "same name stays");
-    expect(ui->save_named_project_as("pagecopy") == 1,
-            "save as copy");
-    expect(text_same(ui->project_name(), "pagejob") == 1,
-            "save as leaves the original");
-    expect(saw_known(ui, "pagecopy") == 1, "copy is listed");
-    expect(saw_known(ui, "pagejob") == 1,
-            "original stays listed");
-    mark_clean_all(editor);
-    expect(ui->open_named_project("pagecopy") == 1,
-            "copy opens");
-    expect(text_same(ui->project_name(), "pagecopy") == 1,
-            "opened the copy");
-    expect(ui->open_named_project("pagejob") == 1,
-            "original still opens");
-    expect(ui->theme_store("pagetheme") == 1,
-            "store project theme");
-    expect(ui->theme_pick("default") == 1,
-            "editor theme stays default");
-    expect(ui->set_project_theme("pagetheme") == 1,
-            "choose project theme");
+            "delete button");
     expect(text_same(
-                ui->project_theme(),
-                "pagetheme") == 1,
-            "project theme stored");
+                ui->session_button_label(3),
+                "Close") == 1,
+            "close button");
     expect(text_same(
-                ui->theme_choice(),
-                "pagetheme") == 1,
-            "project theme is live");
-    expect(text_same(ui->editor_theme(), "default") == 1,
-            "editor theme unchanged");
-    {
-        char ini[EDITOR_PATH];
-        char *raw;
-        long n;
-        const char *err;
-
-        err = "";
-        n = 0;
-        expect(config_path(ini, EDITOR_PATH) == 1,
-                "editor ini");
-        raw = read_file(ini, &n, &err);
-        expect(raw != nullptr, "editor ini text");
-        if (raw != nullptr)
-            expect(text_has(raw, "theme=default") == 1,
-                    "ini keeps the editor theme");
+                ui->session_button_label(4),
+                "Rename") == 1,
+            "rename button");
+    expect(text_same(
+                ui->session_button_label(5),
+                "Duplicate") == 1,
+            "duplicate button");
+    saw = -1;
+    i = 0;
+    while (i < ui->session_count()) {
+        if (text_same(ui->session_name_at(i), "work") == 1)
+            saw = i;
+        i = i + 1;
     }
+    expect(saw >= 0, "dialog lists work");
+    expect(ui->session_files_at(saw) == 2, "work has two files");
+    expect(text_length(ui->session_opened_at(saw)) == 10,
+            "work shows a date");
+    ui->pick_session(saw);
+    ui->set_session_name_text("work-copy");
+    ui->answer_session(6);
+    expect(ui->session_dialog_open() == 1,
+            "duplicate leaves the dialog");
+    saw = -1;
+    i = 0;
+    while (i < ui->session_count()) {
+        if (text_same(ui->session_name_at(i), "work") == 1)
+            saw = i;
+        i = i + 1;
+    }
+    expect(saw >= 0, "work remains after the copy");
+    ui->pick_session(saw);
+    ui->set_session_name_text("work-two");
+    ui->answer_session(5);
+    expect(ui->session_dialog_open() == 1,
+            "rename leaves the dialog");
+    saw = -1;
+    i = 0;
+    while (i < ui->session_count()) {
+        if (text_same(
+                    ui->session_name_at(i),
+                    "work-copy") == 1)
+            saw = i;
+        i = i + 1;
+    }
+    expect(saw >= 0, "copy is listed");
+    ui->pick_session(saw);
+    ui->answer_session(3);
+    expect(ui->session_dialog_open() == 1,
+            "delete leaves the dialog");
+    expect(file_exists(one) == 1, "delete leaves the file");
+    expect(file_exists(two) == 1, "delete leaves the other");
     mark_clean_all(editor);
-    expect(ui->close_named_project() == 1, "close project");
-    expect(text_same(ui->project_name(), "") == 1,
-            "close clears the project");
-    expect(text_same(ui->theme_choice(), "default") == 1,
-            "close restores the editor theme");
-    expect(ui->open_named_project("pagejob") == 1,
-            "reopen keeps the theme");
-    expect(text_same(ui->theme_choice(), "pagetheme") == 1,
-            "saved theme returns");
+    ui->answer_session(4);
+    expect(ui->session_dialog_open() == 0,
+            "close leaves the dialog");
+    expect(text_same(ui->current_session(), "work-two") == 1,
+            "close opens the latest");
+    expect(ui->recent_sessions() >= 1, "recent sessions");
+    expect(text_same(ui->recent_session(0), "work-two") == 1,
+            "recent is the latest");
     mark_clean_all(editor);
-    expect(ui->open_named_project("pagecopy") == 1,
-            "open copy to delete");
-    expect(ui->delete_named_project() == 1, "delete copy");
-    expect(ui->open_named_project("pagecopy") == 0,
-            "copy is gone");
-    expect(ui->open_named_project("pagejob") == 1,
-            "original remains");
+    ui->on_session_menu("New Session");
+    expect(text_same(ui->current_session(), "") == 1,
+            "menu new session");
+    ui->open_path(one);
+    editor->active()->buffer()->move_to(3, 1);
+    ui->on_session_menu("Save Session");
+    expect(text_same(ui->current_session(), "") == 1,
+            "unnamed save asks");
+    expect(ui->save_session_as("later") == 1, "save as later");
     mark_clean_all(editor);
-    expect(ui->delete_named_project() == 1,
-            "delete original");
-    expect(text_same(ui->theme_choice(), "default") == 1,
-            "delete restores the editor theme");
-    expect(ui->show_folder(dir) == 1, "files after project");
+    ui->on_session_menu("New Session");
+    ui->open_recent_session("later");
+    expect(text_same(ui->current_session(), "later") == 1,
+            "recent opens it");
+    expect(text_same(editor->active()->path(), one) == 1,
+            "recent restores the file");
+    expect(editor->active()->buffer()->cursor_line() == 3,
+            "recent restores the line");
+    ui->on_session_menu("All Sessions");
+    expect(ui->session_dialog_open() == 1, "all sessions");
+    mark_clean_all(editor);
+    ui->answer_session(2);
+    expect(ui->session_dialog_open() == 0, "new session closes it");
+    expect(editor->count() == 1, "new session has no files");
+    expect(ui->save_session_as("later") == 0,
+            "save as refuses an existing name");
 }
+
 
 void check_keys(Ui *ui) {
     int which;
@@ -1604,7 +1141,6 @@ int main(void) {
 
             expect(ui->show_folder(dir) == 1,
                     "panel folder");
-            check_project_list(ui, editor, pathA);
             saw = 0;
             i = 0;
             while (i < ui->panel_files()) {
@@ -1620,7 +1156,6 @@ int main(void) {
                 i = i + 1;
             }
             expect(saw == 1, "panel lists a");
-            check_cmake_project(ui, dir, io);
             ui->open_path(pathA);
             ui->open_path(pathB);
             path_join(sym, EDITOR_PATH, dir, "sym.scpp");
@@ -2565,9 +2100,7 @@ int main(void) {
                     "//") == 1,
                 "reset line comment");
         check_context_menus(ui, editor, dir, io);
-        check_project_page(ui, editor, dir);
-        check_projects(ui, editor, dir, io);
-        check_template_browse(ui, dir);
+        check_sessions(ui, editor, dir, io);
         ui->on_menu("Quit");
         expect(ui->is_leaving() == 1, "quit left");
         unlink(pathA);

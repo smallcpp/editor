@@ -9,7 +9,7 @@
 #include "editor.shpp"
 #include "minimap.shpp"
 #include "panel.shpp"
-#include "project.shpp"
+#include "session.shpp"
 #include "settings.shpp"
 #include "syntax.shpp"
 #include "language.shpp"
@@ -73,7 +73,7 @@ public:
     void refresh(void);
     void handle(int code);
     void on_menu(const char *label);
-    void on_project_menu(const char *label);
+    void on_session_menu(const char *label);
     void open_path(const char *path);
     void open_recent(const char *path);
     void answer_missing(int response);
@@ -178,7 +178,6 @@ public:
     const char *theme_swatch(int slot);
     const char *frame_css(void);
     void choose_theme_list(void);
-    void choose_project_theme(void);
     void save_theme_entry(void);
     int language_total(void);
     const char *language_choice(void);
@@ -282,52 +281,33 @@ public:
     long panel_width(void);
     void set_panel_width(long width);
     int show_folder(const char *path);
-    int make_project(
-            const char *name,
-            const char *kind,
-            const char *path);
-    int add_project_file(const char *path);
-    int open_named_project(const char *name);
-    int close_named_project(void);
-    int save_named_project(void);
-    int save_named_project_as(const char *name);
-    int delete_named_project(void);
-    const char *project_theme(void);
-    int set_project_theme(const char *name);
     const char *editor_theme(void);
-    int project_setup_count(void);
-    const char *project_setup_label(int index);
-    int known_projects(void);
-    const char *known_project(int index);
-    int open_known_project(int index);
-    const char *project_name(void);
-    const char *project_path(void);
-    int project_row_dir(int index);
-    int create_from_template(const char *dir);
-    void show_template_project(void);
-    void accept_template_project(void);
-    void hide_template_project(void);
-    void browse_template_dir(void);
-    void prepare_template_browse(void);
-    const char *template_browse_at(void);
-    int template_browse_aimed(void);
-    int template_browse_named(void);
-    const char *template_directory(void);
-    void use_template_dir(const char *path);
-    void show_from_project(
-            const char *kind,
-            const char *title,
-            const char *pathLabel);
-    void accept_from_project(void);
-    void add_from_project_file(void);
-    void hide_from_project(void);
-    void browse_from_path(void);
-    void use_from_path(const char *path);
-    void show_open_project(void);
-    void hide_open_project(void);
-    void show_save_as_project(void);
-    void accept_save_as_project(void);
-    void hide_save_as_project(void);
+    int save_current_session(void);
+    int save_session_as(const char *name);
+    int open_session(const char *name);
+    int new_session(void);
+    int delete_session(const char *name);
+    int rename_session(const char *from, const char *to);
+    int duplicate_session(const char *from, const char *to);
+    int session_count(void);
+    const char *session_name_at(int index);
+    int session_files_at(int index);
+    const char *session_opened_at(int index);
+    const char *current_session(void);
+    void show_sessions(void);
+    int session_dialog_open(void);
+    void answer_session(int response);
+    void set_session_name_text(const char *text);
+    const char *session_name_text(void);
+    void pick_session(int index);
+    int picked_session(void);
+    int session_button_count(void);
+    const char *session_button_label(int index);
+    int recent_sessions(void);
+    const char *recent_session(int index);
+    void open_recent_session(const char *name);
+    void accept_session_save(void);
+    void hide_session_save(void);
     int recovery_place(char *dest, long cap);
     int panel_files(void);
     const char *panel_file(int index);
@@ -340,14 +320,8 @@ public:
     void scroll_panel_tabs(int direction);
     void show_panel_page(int index);
     int panel_page(void);
-    int panel_project_files(void);
-    const char *panel_project_file(int index);
-    const char *shown_project_file(int index);
-    void open_project_file(int index);
-    int project_clicks(void);
     void align_file_names(void);
     int files_left(void);
-    int project_files_left(void);
     int panel_documents(void);
     const char *shown_document(int index);
     void open_document(int index);
@@ -383,14 +357,10 @@ private:
     Button *panelTabRight;
     ScrolledWindow *panelTabScroll;
     ColumnView *fileView;
-    ColumnView *projectFiles;
     ColumnView *docView;
     ColumnView *targetView;
     ColumnView *commandView;
     ColumnView *symbolView;
-    Label *projectLabel;
-    Label *cmakeLabel;
-    Entry *projectEntry;
     Label *status;
     EditPage pages[EDITOR_PAGES];
     PageRef refs[EDITOR_PAGES];
@@ -415,7 +385,6 @@ private:
     char themeName[THEME_NAME];
     char editorTheme[THEME_NAME];
     int themeFromProject;
-    int projectThemeOn;
     EditorConfig *themeBase;
     void *themeCss;
     EditorConfig *themeConfig;
@@ -468,7 +437,6 @@ private:
     SpinButton *mapFontSize;
     SpinButton *mapWidthSpin;
     DropDown *themePick;
-    DropDown *projectThemeDrop;
     Entry *themeSaveEntry;
     FileDialog *files;
     FontDialog *fonts;
@@ -492,7 +460,7 @@ private:
     int mapSpinHold;
     int mapSave;
     long fileMenu;
-    long projectMenu;
+    long sessionMenu;
     long searchMenu;
     long viewMenu;
     CheckButton *wrapCheck;
@@ -569,27 +537,24 @@ private:
     Entry *recoverEntry;
     Entry *keepEntry;
     DropDown *langDrop;
-    DropDown *projectDrop;
-    EditProject *named;
-    Dialog *openProjectDialog;
-    ColumnView *openProjectList;
-    Dialog *saveAsDialog;
-    Entry *saveAsName;
-    Dialog *templateDialog;
-    Entry *templateDir;
-    Dialog *fromDialog;
-    Entry *fromName;
-    Entry *fromPath;
-    Label *fromPathLabel;
-    Button *fromAdd;
-    char fromKind[16];
-    int knownUsed;
-    char knownName[PROJECT_KNOWN][PROJECT_NAME];
-    char projectStore[EDITOR_PATH];
-    int projectHold;
-    char holdName[PROJECT_NAME];
-    char holdKind[16];
-    char holdPath[EDITOR_PATH];
+    EditSession *session;
+    Dialog *sessionDialog;
+    ColumnView *sessionView;
+    Entry *sessionEntry;
+    Dialog *sessionSaveDialog;
+    Entry *sessionSaveEntry;
+    int sessionUsed;
+    int sessionPick;
+    int sessionAsk;
+    int sessionHold;
+    int sessionShown;
+    char sessionNames[SESSION_LIST][SESSION_NAME];
+    int sessionCounts[SESSION_LIST];
+    char sessionDates[SESSION_LIST][SESSION_DATE];
+    char sessionCountText[SESSION_LIST][8];
+    char holdName[SESSION_NAME];
+    char recentSession[8][SESSION_NAME];
+    int recentSessionCount;
     Entry *langName;
     Entry *langSuffix;
     Entry *langNames;
@@ -603,11 +568,8 @@ private:
     long dirtySlot[EDITOR_PAGES];
     int recentCount;
     int recentUsed;
-    int projectUsed;
-    int choosingProject;
     int openCount;
     char recentPath[EDITOR_RECENT_MAX][EDITOR_PATH];
-    char projectPath[EDITOR_RECENT_MAX][EDITOR_PATH];
     char openPath[EDITOR_OPEN_MAX][EDITOR_PATH];
     char activePath[EDITOR_PATH];
     void build(void);
@@ -623,10 +585,13 @@ private:
     void write_config(const char *path, EditorConfig *item);
     void note_recent(const char *path);
     void show_recent(void);
-    void refresh_known(void);
+    void refresh_sessions(void);
+    void refresh_recent_menu(void);
     void capture_place(void);
     void apply_place(void);
-    void fill_open_projects(void);
+    void fill_session_rows(void);
+    void present_editor(void);
+    void show_session_save(void);
     void drop_recovery_copy(const char *path);
     void restore_files(void);
     void note_loaded(void);
@@ -635,7 +600,6 @@ private:
     void show_replace(void);
     Widget *mount_panel(void);
     void fill_files(void);
-    void fill_project_files(void);
     void mount_row_menus(void);
     void *hook_row_menu(ColumnView *view, void *page);
     void arm_buffer_menu(void *view);
@@ -658,14 +622,12 @@ private:
     void *actSave;
     void *actRemove;
     void *filePop;
-    void *projectPop;
     void *docPop;
     int menuPage;
     int menuRow;
     int removeWait;
     int take_buffers(void);
-    void reveal_project(void);
-    void complete_held_project(void);
+    void complete_held_session(void);
     void place_map(long index);
     void note_map_split(long index);
     void sync_map_spin(void);
@@ -673,8 +635,6 @@ private:
     void scroll_map_y(long index, long y);
     int in_map_band(long page, long y);
     long band_top(long page);
-    void make_project_controls(void);
-    void place_project_controls(Box *parent);
     void fill_symbols(void);
     void add_page(long index);
     void rebuild(void);
@@ -704,9 +664,6 @@ private:
             char *shown,
             const char *color);
     void fill_themes(void);
-    void fill_project_themes(void);
-    void apply_project_theme(void);
-    void restore_editor_theme(void);
     void keep_theme_base(const EditorConfig *item);
     void give_theme_base(EditorConfig *item);
     void fill_languages(void);

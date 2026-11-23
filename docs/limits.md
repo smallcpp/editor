@@ -41,9 +41,9 @@ second copy. The wrapper has no mini-map widget, so the
 column is drawn directly. The text view's own menu
 includes Insert Emoji. The editor turns on the no-emoji
 input hint, which hides that item, and adds Insert date
-and Insert color. A right-click menu on Files, the
-project tree, and the open documents is an ordinary
-popover. The project tree is on the Documents page.
+and Insert color. A right-click menu on Files and the
+open documents is an ordinary popover. Documents lists
+the files open in the current session.
 Open, Close, Save,
 and Remove are disabled until the click is on a file.
 A line Enter just created is numbered before it has
@@ -80,26 +80,12 @@ one path. It has no folder mode. The first dialog starts in the
 process current directory, and later dialogs start in the
 directory last chosen
 during this session. The left panel cannot ask for a
-folder, because the dialog has no folder mode. Create
-New and the directory, git, and CMake items ask for a
-directory, which is typed. Create New, Browse opens in
-the directory where the editor was started, not the
-folder last chosen by another dialog. The user types a
-directory name, including one that does not exist yet,
-or chooses an existing directory. A chosen file still
-names that file's directory. Create New creates a
-missing directory and unpacks the template into it. An
-existing directory is used as before. The project stores
-that directory as an absolute path, so a later session
-started somewhere else still uses it. Individual files
-asks for the
-files themselves. The template archive is
-`$HOME/.config/smallcpp/template.tar.gz`. Files lists
-the folder the user is browsing.
-That folder is not a project. A CMake project collects
-source names from `CMakeLists.txt`. It does not run
-CMake or list targets and commands. Symbols are
-a scan of the current buffer, not a compiler's view.
+folder, because the dialog has no folder mode. Files
+lists the folder the user is browsing. That folder is
+not a session. A session is only the files open in the
+editor, the current file, and the caret line. Symbols
+are a scan of the current buffer, not a compiler's
+view.
 The panel does not keep a second copy of the text.
 Tab titles are the file name. A modified
 tab draws a dot before that name. The dirty star is on the
@@ -184,6 +170,7 @@ Assign moves it and clears the old one. Cancel leaves
 both. Shortcut buttons stay a fixed width. The notebook fills the
 dialog. The left tabs stay fixed, and the page scrolls.
 
-This editor opens a named project as a list of files.
-It does not run builds, talk to a language
-server, load plugins, or show a message pane or a debugger.
+This editor opens a named session as the set of files
+being edited. It does not run builds, talk to a
+language server, load plugins, or show a message pane
+or a debugger.

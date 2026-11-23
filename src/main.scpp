@@ -64,8 +64,6 @@ int main(int argc, char **argv) {
         }
         i = i + 1;
     }
-    if (editor->count() == 0)
-        editor->new_file();
     ui = new Ui(editor);
     try {
         code = ui->start();
