@@ -607,6 +607,7 @@ private:
     Widget *mount_panel(void);
     void fill_files(void);
     void mount_row_menus(void);
+    void drop_row_menus(void);
     void *hook_row_menu(ColumnView *view, void *page);
     void arm_buffer_menu(void *view);
     void insert_at_caret(const char *text);

@@ -7,6 +7,10 @@ column view, with a single selection so the theme
 draws that row. Up and Down move the highlight. Open,
 Delete, Rename, and Duplicate use that row.
 
+Quit detaches the Files and Documents right-click
+menus from their column views before those views are
+destroyed.
+
 The window title is the current session name. When no
 session is open, the title is `<No Session>`. Opening,
 creating, renaming, saving, saving as, or closing a
