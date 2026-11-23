@@ -500,6 +500,7 @@ EditProject::EditProject() {
 void EditProject::clear(void) {
     nameText[0] = 0;
     kindText[0] = 0;
+    themeText[0] = 0;
     rootPath[0] = 0;
     activePath[0] = 0;
     placeLine = 1;
@@ -516,6 +517,19 @@ const char *EditProject::name(void) {
 
 const char *EditProject::kind_name(void) {
     return kindText;
+}
+
+const char *EditProject::theme_name(void) {
+    return themeText;
+}
+
+void EditProject::set_theme(const char *name) {
+    if (name == nullptr || name[0] == 0
+            || text_same(name, "default") == 1) {
+        themeText[0] = 0;
+        return;
+    }
+    text_copy(themeText, 32, name);
 }
 
 const char *EditProject::root(void) {
@@ -1051,6 +1065,10 @@ int EditProject::save(void) {
     text->append(nameText);
     text->append("\nkind=");
     text->append(kindText);
+    if (themeText[0] != 0) {
+        text->append("\ntheme=");
+        text->append(themeText);
+    }
     text->append("\nroot=");
     text->append(rootPath);
     text->append("\nactive=");
@@ -1140,6 +1158,8 @@ int EditProject::load(const char *wanted) {
         take_line(raw, n, &at, line, EDITOR_PATH);
         if (split_key(line, "kind", value, 16) == 1)
             text_copy(kindText, 16, value);
+        else if (split_key(line, "theme", value, 32) == 1)
+            text_copy(themeText, 32, value);
         else if (split_key(line, "root", value, EDITOR_PATH) == 1)
             text_copy(rootPath, EDITOR_PATH, value);
         else if (split_key(line, "active", value, EDITOR_PATH) == 1)

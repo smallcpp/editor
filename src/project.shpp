@@ -43,6 +43,8 @@ public:
     void note_active(const char *path, int line);
     const char *name(void);
     const char *kind_name(void);
+    const char *theme_name(void);
+    void set_theme(const char *name);
     const char *root(void);
     const char *active_path(void);
     int active_line(void);
@@ -59,6 +61,7 @@ public:
 private:
     char nameText[PROJECT_NAME];
     char kindText[16];
+    char themeText[32];
     char rootPath[EDITOR_PATH];
     char activePath[EDITOR_PATH];
     int placeLine;
