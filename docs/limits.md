@@ -31,7 +31,8 @@ buffer and leaves the caret where it was. The mouse wheel
 over the column scrolls the buffer by one line for each
 notch and leaves the caret where it was. The bar beside
 the column and Map width in Settings both set its width,
-and that width stays until one of those changes it.
+from 24 to 500, and that width stays until one of those
+changes it. A saved width in that range is kept.
 The column reads the editor buffer and does not keep a
 second copy. The wrapper has no mini-map widget, so the
 column is drawn directly. A line Enter just created is numbered before it has

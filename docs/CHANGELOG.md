@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+The mini-map width can be set from 24 to 500. The
+setup spin, the drag bar, and a saved map-width all
+use that range. A width already saved stays as it is.
+The column does not change width on its own.
+
 A Color button is filled with the chosen color, so the
 color shows without opening the chooser. Clicking it
 still opens the chooser. The label stays readable on

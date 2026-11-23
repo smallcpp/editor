@@ -451,6 +451,22 @@ void check_map_controls(Ui *ui) {
     pump(20);
     expect(ui->map_width() > wide - 3, "chosen width holds");
     expect(ui->map_width() < wide + 3, "map does not resize itself");
+    wide = ui->map_width();
+    ui->set_map_width(500);
+    pump(10);
+    expect(ui->map_spin() == 500, "spin accepts 500");
+    expect(ui->map_width() >= 24, "map stays at least 24 wide");
+    expect(ui->map_width() <= 500, "map stays within 500");
+    ui->set_map_width(640);
+    pump(10);
+    expect(ui->map_spin() == 500, "spin stops at 500");
+    ui->set_map_width(24);
+    expect(ui->map_spin() == 24, "spin minimum stays 24");
+    ui->set_map_width(8);
+    expect(ui->map_spin() == 24, "spin stays at least 24");
+    pump(20);
+    expect(ui->map_spin() == 24, "map width stays put");
+    ui->set_map_width(wide);
 }
 
 void check_map_click(Ui *ui, Editor *editor) {

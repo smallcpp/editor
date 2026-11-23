@@ -1197,6 +1197,10 @@ int config_read(const char *path, EditorConfig *item) {
         item->recoveryKeep = 20;
     if (item->recentUsed > item->recentCount)
         item->recentUsed = item->recentCount;
+    if (item->mapWidth < MAP_WIDE_MIN)
+        item->mapWidth = MAP_WIDE_MIN;
+    if (item->mapWidth > MAP_WIDE_MAX)
+        item->mapWidth = MAP_WIDE_MAX;
     return 1;
 }
 

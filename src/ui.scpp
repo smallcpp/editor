@@ -3080,10 +3080,10 @@ void Ui::keep_map_width(long index) {
     if (pages[index].map->splitWide == (long)panedWide) {
         pages[index].map->splitPos = pos;
         end = (long)panedWide - mapGap - pos;
-        if (end < 24)
-            end = 24;
-        if (end > 240)
-            end = 240;
+        if (end < MAP_WIDE_MIN)
+            end = MAP_WIDE_MIN;
+        if (end > MAP_WIDE_MAX)
+            end = MAP_WIDE_MAX;
         if (end == mapWide)
             return;
         mapWide = end;
@@ -3134,10 +3134,10 @@ void Ui::pin_map(long index) {
     }
     if (mapFollow == 1) {
         end = (long)got;
-        if (end < 24)
-            end = 24;
-        if (end > 240)
-            end = 240;
+        if (end < MAP_WIDE_MIN)
+            end = MAP_WIDE_MIN;
+        if (end > MAP_WIDE_MAX)
+            end = MAP_WIDE_MAX;
         mapFollow = 0;
         if (end != mapWide) {
             mapWide = end;
@@ -3199,10 +3199,10 @@ void Ui::move_map_bar(long endWidth) {
 void Ui::set_map_width(long width) {
     long i;
 
-    if (width < 24)
-        width = 24;
-    if (width > 240)
-        width = 240;
+    if (width < MAP_WIDE_MIN)
+        width = MAP_WIDE_MIN;
+    if (width > MAP_WIDE_MAX)
+        width = MAP_WIDE_MAX;
     mapWide = width;
     i = 0;
     while (i < pageCount) {
@@ -7374,7 +7374,10 @@ void Ui::show_settings(void) {
         fontButton->on_clicked(ui_font_button, nullptr);
         mapFontButton = new Button(mapFont);
         mapFontButton->on_clicked(ui_map_font_button, nullptr);
-        mapWidthSpin = new SpinButton(24, 240, (double)mapWide);
+        mapWidthSpin = new SpinButton(
+                MAP_WIDE_MIN,
+                MAP_WIDE_MAX,
+                (double)mapWide);
         mapWidthSpin->set_width_chars(12);
         mapWidthSpin->on_changed(
                 ui_map_width_spin,
