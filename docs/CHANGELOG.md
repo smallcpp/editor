@@ -2,11 +2,14 @@
 
 ## Unreleased
 
-A click on a session row opens that session. The
-dialog buttons sit in a column beside the list, with
-no Open button. From the top they are New Session,
-Delete, Close, Rename, and Duplicate, with a gap
-before Delete and a gap before Rename.
+The Sessions dialog has no name field. Rename and
+Duplicate each ask for the name in a small prompt.
+Open is back at the top of the button column. A click
+selects a row and does not open it. Moving the mouse
+over a row does not change the selection. From the
+top the buttons are Open, New Session, Delete, Close,
+Rename, and Duplicate, with a gap before Delete and
+a gap before Rename.
 
 The Sessions list highlights one row. It stays a
 column view, with a single selection so the theme

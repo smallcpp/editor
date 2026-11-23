@@ -285,11 +285,14 @@ void ui_session_recent(void *data, const char *label) {
     editorUi->open_recent_session(label);
 }
 
-void ui_session_row(void *data, long row) {
+static void session_name_response(void *data, int response) {
     (void)data;
     if (editorUi == nullptr)
         return;
-    editorUi->activate_session_row(row);
+    if (response == 1)
+        editorUi->accept_session_name();
+    else
+        editorUi->hide_session_name();
 }
 
 static void session_press(void *data) {
@@ -300,7 +303,9 @@ static void session_press(void *data) {
         return;
     label = (const char *)data;
     code = 0;
-    if (text_same(label, "New Session") == 1)
+    if (text_same(label, "Open") == 1)
+        code = 1;
+    else if (text_same(label, "New Session") == 1)
         code = 2;
     else if (text_same(label, "Delete") == 1)
         code = 3;
@@ -1114,12 +1119,17 @@ Ui::Ui(Editor *editor) {
     sessionDialog = nullptr;
     sessionView = nullptr;
     sessionSelect = nullptr;
-    sessionEntry = nullptr;
+    sessionNameDialog = nullptr;
+    sessionNameEntry = nullptr;
+    sessionNameMode = 0;
+    sessionNameShown = 0;
+    sessionNameFrom[0] = 0;
     sessionButton[0] = nullptr;
     sessionButton[1] = nullptr;
     sessionButton[2] = nullptr;
     sessionButton[3] = nullptr;
     sessionButton[4] = nullptr;
+    sessionButton[5] = nullptr;
     sessionSaveDialog = nullptr;
     sessionSaveEntry = nullptr;
     sessionUsed = 0;
@@ -2096,24 +2106,98 @@ int Ui::session_highlight(void) {
 void Ui::set_session_name_text(const char *text) {
     if (text == nullptr)
         text = "";
-    if (sessionEntry != nullptr)
-        sessionEntry->set_text(text);
+    if (sessionNameEntry != nullptr)
+        sessionNameEntry->set_text(text);
 }
 
 const char *Ui::session_name_text(void) {
-    if (sessionEntry == nullptr)
+    if (sessionNameEntry == nullptr)
         return "";
-    return sessionEntry->text();
+    return sessionNameEntry->text();
+}
+
+void Ui::ask_session_name(int mode) {
+    const char *title;
+    Box *box;
+    void (*fn)(void *, int);
+
+    if (sessionPick < 0 || sessionPick >= sessionUsed)
+        return;
+    if (sessionNames[sessionPick][0] == 0)
+        return;
+    text_copy(
+            sessionNameFrom,
+            SESSION_NAME,
+            sessionNames[sessionPick]);
+    sessionNameMode = mode;
+    title = "Rename";
+    if (mode == 6)
+        title = "Duplicate";
+    if (sessionNameDialog == nullptr) {
+        box = new Box(GTK_VERTICAL, 8);
+        sessionNameEntry = new Entry("");
+        box->append((Widget *)new Label("Name"));
+        box->append((Widget *)sessionNameEntry);
+        sessionNameDialog = new Dialog(title);
+        sessionNameDialog->set_content((Widget *)box);
+        sessionNameDialog->add_button("Cancel", 0);
+        sessionNameDialog->add_button("OK", 1);
+        fn = session_name_response;
+        sessionNameDialog->on_response(fn, nullptr);
+        sessionNameDialog->set_transient(mainWindow);
+        sessionNameDialog->set_default_size(360, 140);
+    }
+    sessionNameDialog->set_title(title);
+    if (sessionNameEntry != nullptr)
+        sessionNameEntry->set_text("");
+    sessionNameShown = 1;
+    sessionNameDialog->present();
+}
+
+void Ui::accept_session_name(void) {
+    const char *name;
+    int ok;
+
+    name = "";
+    if (sessionNameEntry != nullptr)
+        name = sessionNameEntry->text();
+    ok = 0;
+    if (sessionNameMode == 5)
+        ok = rename_session(sessionNameFrom, name);
+    else if (sessionNameMode == 6)
+        ok = duplicate_session(sessionNameFrom, name);
+    if (ok == 1)
+        hide_session_name();
+}
+
+void Ui::hide_session_name(void) {
+    sessionNameMode = 0;
+    sessionNameShown = 0;
+    if (sessionNameDialog != nullptr)
+        sessionNameDialog->set_visible(false);
+}
+
+int Ui::session_name_open(void) {
+    return sessionNameShown;
+}
+
+int Ui::session_row_clicks(void) {
+    if (sessionView == nullptr)
+        return 0;
+    if (sessionView->native == nullptr)
+        return 0;
+    return gtk_column_view_get_single_click_activate(
+            sessionView->native);
 }
 
 int Ui::session_button_count(void) {
-    return 5;
+    return 6;
 }
 
 const char *Ui::session_button_label(int index) {
     if (sessionButton[0] == nullptr)
         return "";
-    if (index < 0 || index >= 5)
+    if (index < 0 || index >= 6)
         return "";
     if (sessionButton[index] == nullptr)
         return "";
@@ -2121,7 +2205,7 @@ const char *Ui::session_button_label(int index) {
 }
 
 int Ui::session_button_gap(int index) {
-    if (index < 0 || index >= 5)
+    if (index < 0 || index >= 6)
         return 0;
     if (sessionButton[index] == nullptr)
         return 0;
@@ -2131,11 +2215,6 @@ int Ui::session_button_gap(int index) {
                 sessionButton[index]->native) >= 12)
         return 1;
     return 0;
-}
-
-void Ui::activate_session_row(long row) {
-    pick_session((int)row);
-    answer_session(1);
 }
 
 int Ui::recent_sessions(void) {
@@ -2190,23 +2269,25 @@ void Ui::show_sessions(void) {
     Box *row;
     Box *listCol;
     Box *side;
-    const char *labels[5];
-    int gap[5];
+    const char *labels[6];
+    int gap[6];
     int i;
     void (*press)(void *);
 
     refresh_sessions();
     if (sessionDialog == nullptr) {
-        labels[0] = "New Session";
-        labels[1] = "Delete";
-        labels[2] = "Close";
-        labels[3] = "Rename";
-        labels[4] = "Duplicate";
+        labels[0] = "Open";
+        labels[1] = "New Session";
+        labels[2] = "Delete";
+        labels[3] = "Close";
+        labels[4] = "Rename";
+        labels[5] = "Duplicate";
         gap[0] = 0;
-        gap[1] = 1;
-        gap[2] = 0;
-        gap[3] = 1;
-        gap[4] = 0;
+        gap[1] = 0;
+        gap[2] = 1;
+        gap[3] = 0;
+        gap[4] = 1;
+        gap[5] = 0;
         row = new Box(GTK_HORIZONTAL, 12);
         listCol = new Box(GTK_VERTICAL, 8);
         listCol->set_h_expand(true);
@@ -2215,22 +2296,18 @@ void Ui::show_sessions(void) {
         sessionView->append_column("Name");
         sessionView->append_column("Files");
         sessionView->append_column("Opened");
-        sessionView->on_activate(ui_session_row, nullptr);
         gtk_column_view_set_single_click_activate(
                 sessionView->native,
-                1);
+                0);
         arm_session_list();
         sessionView->set_v_expand(true);
         sessionView->set_h_expand(true);
-        sessionEntry = new Entry("");
         listCol->append((Widget *)sessionView);
-        listCol->append((Widget *)new Label("Name"));
-        listCol->append((Widget *)sessionEntry);
         side = new Box(GTK_VERTICAL, 6);
         gtk_widget_set_valign(side->native, 1);
         press = session_press;
         i = 0;
-        while (i < 5) {
+        while (i < 6) {
             sessionButton[i] = new Button(labels[i]);
             sessionButton[i]->set_h_expand(true);
             if (gap[i] != 0)
@@ -2274,7 +2351,6 @@ int Ui::session_dialog_open(void) {
 
 void Ui::answer_session(int response) {
     char listed[SESSION_NAME];
-    const char *typed;
     int ok;
 
     listed[0] = 0;
@@ -2283,9 +2359,6 @@ void Ui::answer_session(int response) {
                 listed,
                 SESSION_NAME,
                 sessionNames[sessionPick]);
-    typed = "";
-    if (sessionEntry != nullptr)
-        typed = sessionEntry->text();
     ok = 0;
     if (response == 1)
         ok = open_session(listed);
@@ -2303,13 +2376,11 @@ void Ui::answer_session(int response) {
             ok = open_session(sessionNames[0]);
     }
     else if (response == 5) {
-        if (listed[0] != 0)
-            rename_session(listed, typed);
+        ask_session_name(5);
         return;
     }
     else if (response == 6) {
-        if (listed[0] != 0)
-            duplicate_session(listed, typed);
+        ask_session_name(6);
         return;
     }
     if (ok == 0)
@@ -9801,6 +9872,8 @@ void Ui::leave(void) {
         sessionDialog->set_visible(false);
     if (sessionSaveDialog != nullptr)
         sessionSaveDialog->set_visible(false);
+    if (sessionNameDialog != nullptr)
+        sessionNameDialog->set_visible(false);
     if (dirtyDialog != nullptr) {
         dirtyOpen = 0;
         dirtyDialog->set_visible(false);

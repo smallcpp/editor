@@ -96,19 +96,19 @@ before the window. The dialog lists each session by
 name, the number of files, and the date it was last
 opened. The most recently opened session is first.
 The list highlights one session. Up and Down move
-that highlight. A click on a row opens that session.
-The buttons stand in a column to the right of the
-list: New Session, then a gap, Delete and Close, then
-a gap, Rename and Duplicate. There is no Open button.
-Delete, Rename, and Duplicate use the highlighted
-row. New Session opens the editor with no
-files. Delete removes that session
-from the list and leaves its files on disk. The dialog
-stays open. Close opens the most recent session, or a
-blank editor when the list is empty. Rename changes
-the highlighted session to the name in the entry.
-Duplicate copies it to that name. A name already in
-use is refused.
+that highlight. A click selects a row and does not
+open it. Moving the mouse over a row does not change
+the selection. The buttons stand in a column to the
+right of the list: Open, New Session, then a gap,
+Delete and Close, then a gap, Rename and Duplicate.
+Open opens the highlighted session. New Session
+opens the editor with no files. Delete removes that
+session from the list and leaves its files on disk.
+The dialog stays open. Close opens the most recent
+session, or a blank editor when the list is empty.
+Rename and Duplicate each ask for a name in a small
+prompt, then change or copy the highlighted session.
+A name already in use is refused.
 The menus are File, Edit, Search, View, and Sessions.
 Sessions has New Session, Recent, All Sessions, Save
 Session, and Save As. Recent is the latest sessions.
