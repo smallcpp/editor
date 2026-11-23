@@ -51,12 +51,16 @@ editor and the column sets the column width. Map width in
 Settings sets that same width. The column keeps the width
 from the last of those and does not change it on its own.
 The column reads the buffer the editor already has.
-A panel on the left lists files, the project, and symbols.
+A panel on the left lists files, the project, symbols,
+and the open documents.
 Its left edge is the left edge of the window. Dragging the
 marker on the panel's right edge changes the panel width.
-The tab row has buttons that scroll the Files, Project, and
-Symbols labels when they do not fit. Files lists the
-current folder with each name starting at the left.
+The tab row has buttons that scroll the Files, Project,
+Symbols, and Documents labels when they do not fit. Files
+lists the current folder with each name starting at the
+left. Documents lists the open files the same way, and
+one click switches to that file. A name is shown as
+written, including an underscore.
 Project lists the files in the open project as a
 collapsible tree. Each row is a directory name or a
 file name, and one click opens a file or folds a
@@ -98,15 +102,14 @@ global choice. The editor does not build, run, or
 debug. The panel does not own the buffer. Opening a
 file uses the same path as File, Open. A symbol moves
 the cursor in the current buffer.
-The menus are File, Edit, Search, View, Project, and
-Documents. The status line shows the title, a dirty star, the line, the
+The menus are File, Edit, Search, View, and Project. The
+status line shows the title, a dirty star, the line, the
 column, and the language. Each tab has a dark border.
 A close button is drawn on the tab unless Settings turns it off.
 The mark closes that document, with the same dirty-file question
-as File, Close. Documents lists the loaded files and switches to
-the chosen one. A name is shown as written, including an
-underscore. Opening a file selects that tab and sets its title,
-including when the open replaces the single untitled buffer.
+as File, Close. Opening a file selects that tab and sets its
+title, including when the open replaces the single untitled
+buffer.
 
 File covers New, Open, Save, Save As, Save All, Close, and
 Quit. Open can select several files. Each selected file is
