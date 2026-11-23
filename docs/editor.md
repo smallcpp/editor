@@ -76,6 +76,11 @@ editor and the column sets the column width. Map width in
 Settings sets that same width, from 24 to 500. The column keeps the width
 from the last of those and does not change it on its own.
 The column reads the buffer the editor already has.
+A change in the window size, the side panel, or the
+text view's height redraws the column from that buffer
+and from the lines currently in view. A short file stays
+packed from the top, and the current-line mark stays on
+the current line.
 A panel on the left lists files, symbols, and the open
 documents. Its left edge is the left edge of the
 window. Dragging the marker on the panel's right edge
@@ -296,7 +301,9 @@ redo walk the editor
 buffer, including a change typed in the view.
 
 The text view shows line numbers in the left gutter, one per
-buffer line. The numbers scroll with the text. An empty buffer
+visible buffer line. The numbers scroll with the text. Every
+visible line is numbered, including a file longer than the
+window and a blank last line. An empty buffer
 shows line 1. The gutter is wide enough for four digits and
 one space before the text. The current line is highlighted,
 one line at a time, including a blank line at the end. Settings

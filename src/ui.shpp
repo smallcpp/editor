@@ -60,6 +60,7 @@ public:
     int userDepth;
     int pendingSync;
     int pendingIdle;
+    int pinWait;
 };
 
 class Ui {
@@ -99,6 +100,17 @@ public:
     void user_end(long index);
     void flush_sync(long index);
     TextBuffer *view_buffer(void);
+    void focus_view(void);
+    void name_window(const char *title);
+    void move_key(
+            long index,
+            int step,
+            int count,
+            int extend);
+    void queue_pin(long index);
+    void finish_pin(long index);
+    void queue_map_redraw(void);
+    void refresh_maps(void);
     const char *page_text(long index);
     const char *line_number_text(void);
     long gutter_line_y(long line);
@@ -490,6 +502,7 @@ private:
     int panelHold;
     int mapHold;
     int mapFollow;
+    int mapRedraw;
     int mapSpinHold;
     int mapSave;
     long fileMenu;

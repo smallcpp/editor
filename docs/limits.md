@@ -18,8 +18,10 @@ default. The current line is drawn under the cursor line, one
 line high, including a blank line. Line numbers are a gutter of
 the visible lines, wide enough for four digits and one space.
 Each number is drawn at its buffer line and scrolls with the
-text. A narrow column on the right draws the shape of the
-file from the length of its lines, a band for the lines
+text. Every visible line is numbered, including a file longer
+than the window and a blank last line. A narrow column on
+the right draws the shape of the file from the length of
+its lines, a band for the lines
 in view, and a mark on the current line. A short file is
 drawn at the mini-map font's line spacing from the top of
 the column. A long file still fills the column. A click in the
@@ -37,7 +39,10 @@ the column and Map width in Settings both set its width,
 from 24 to 500, and that width stays until one of those
 changes it. A saved width in that range is kept.
 The column reads the editor buffer and does not keep a
-second copy. The wrapper has no mini-map widget, so the
+second copy. A window, panel, or text-view size change
+redraws it from that buffer and the current view. A short
+file stays packed from the top, and the current-line mark
+stays on the current line. The wrapper has no mini-map widget, so the
 column is drawn directly. The text view's own menu
 includes Insert Emoji. The editor turns on the no-emoji
 input hint, which hides that item, and adds Insert date

@@ -235,6 +235,15 @@ extern void cairo_fill(void *cr);
 extern void cairo_save(void *cr);
 extern void cairo_restore(void *cr);
 extern void cairo_clip(void *cr);
+extern void cairo_reset_clip(void *cr);
+extern void g_signal_emit_by_name(
+        void *instance,
+        const char *name,
+        ...);
+extern void *gtk_event_controller_key_new(void);
+extern void gtk_text_view_set_cursor_visible(
+        void *view,
+        int visible);
 extern void cairo_move_to(void *cr, double x, double y);
 extern void *gtk_event_controller_motion_new(void);
 extern void *gtk_widget_create_pango_layout(
@@ -372,12 +381,50 @@ static void map_draw(
     if (column == nullptr || column->owner == nullptr)
         return;
     column->note_size((long)width, (long)height);
-    ((Ui *)column->owner)->pin_map(column->page);
     ((Ui *)column->owner)->paint_map(
             column,
             cr,
             width,
             height);
+    ((Ui *)column->owner)->queue_pin(column->page);
+}
+
+static int map_pin_idle(void *data) {
+    PageRef *ref;
+
+    ref = (PageRef *)data;
+    if (editorUi != nullptr && ref != nullptr)
+        editorUi->finish_pin(ref->index);
+    return 0;
+}
+
+static int map_redraw_idle(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->refresh_maps();
+    return 0;
+}
+
+static void view_sized(
+        void *widget,
+        void *spec,
+        void *data) {
+    (void)widget;
+    (void)spec;
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->queue_map_redraw();
+}
+
+static void panel_sized(
+        void *widget,
+        void *spec,
+        void *data) {
+    (void)widget;
+    (void)spec;
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->queue_map_redraw();
 }
 
 /* GdkEventType: motion 1, press 2, release 3, scroll 15.
@@ -457,6 +504,7 @@ static void map_split_moved(
     if (editorUi == nullptr || ref == nullptr)
         return;
     editorUi->keep_map_width(ref->index);
+    editorUi->queue_map_redraw();
 }
 
 static int view_scroll_event(
@@ -476,6 +524,132 @@ static int view_scroll_event(
         return 0;
     ref = (PageRef *)data;
     editorUi->buffer_wheel(ref->index, event);
+    return 1;
+}
+
+/* GtkMovementStep: visual 1, words 2, lines 3,
+ * line ends 4, paragraphs 5, pages 7, buffer 8.
+ * Alt is bit 3. Control is bit 2. Shift is bit 0.
+ * Super, hyper, and meta are left for the window. */
+static int nav_motion(
+        unsigned int keyval,
+        int ctrl,
+        int *step,
+        int *count) {
+    int kind;
+
+    kind = -1;
+    if (keyval == 0xff51 || keyval == 0xff96)
+        kind = 0;
+    if (keyval == 0xff53 || keyval == 0xff98)
+        kind = 1;
+    if (keyval == 0xff52 || keyval == 0xff97)
+        kind = 2;
+    if (keyval == 0xff54 || keyval == 0xff99)
+        kind = 3;
+    if (keyval == 0xff50 || keyval == 0xff95)
+        kind = 4;
+    if (keyval == 0xff57 || keyval == 0xff9c)
+        kind = 5;
+    if (keyval == 0xff55 || keyval == 0xff9a)
+        kind = 6;
+    if (keyval == 0xff56 || keyval == 0xff9b)
+        kind = 7;
+    if (kind < 0)
+        return 0;
+    if (kind == 6 || kind == 7) {
+        if (ctrl != 0)
+            return 0;
+    }
+    if (kind == 0) {
+        *count = -1;
+        if (ctrl == 0)
+            *step = 1;
+        else
+            *step = 2;
+    }
+    if (kind == 1) {
+        *count = 1;
+        if (ctrl == 0)
+            *step = 1;
+        else
+            *step = 2;
+    }
+    if (kind == 2) {
+        *count = -1;
+        if (ctrl == 0)
+            *step = 3;
+        else
+            *step = 5;
+    }
+    if (kind == 3) {
+        *count = 1;
+        if (ctrl == 0)
+            *step = 3;
+        else
+            *step = 5;
+    }
+    if (kind == 4) {
+        *count = -1;
+        if (ctrl == 0)
+            *step = 4;
+        else
+            *step = 8;
+    }
+    if (kind == 5) {
+        *count = 1;
+        if (ctrl == 0)
+            *step = 4;
+        else
+            *step = 8;
+    }
+    if (kind == 6) {
+        *count = -1;
+        *step = 7;
+    }
+    if (kind == 7) {
+        *count = 1;
+        *step = 7;
+    }
+    return 1;
+}
+
+static int view_nav_key(
+        void *controller,
+        unsigned int keyval,
+        unsigned int keycode,
+        unsigned int state,
+        void *data) {
+    PageRef *ref;
+    int step;
+    int count;
+    int extend;
+    int ctrl;
+
+    (void)controller;
+    (void)keycode;
+    if (editorUi == nullptr || data == nullptr)
+        return 0;
+    if ((state & (1 << 3)) != 0)
+        return 0;
+    if ((state & (1 << 26)) != 0)
+        return 0;
+    if ((state & (1 << 27)) != 0)
+        return 0;
+    if ((state & (1 << 28)) != 0)
+        return 0;
+    ctrl = 0;
+    if ((state & (1 << 2)) != 0)
+        ctrl = 1;
+    extend = 0;
+    if ((state & 1) != 0)
+        extend = 1;
+    step = 0;
+    count = 0;
+    if (nav_motion(keyval, ctrl, &step, &count) == 0)
+        return 0;
+    ref = (PageRef *)data;
+    editorUi->move_key(ref->index, step, count, extend);
     return 1;
 }
 
@@ -1089,6 +1263,7 @@ Ui::Ui(Editor *editor) {
     panelHold = 0;
     mapHold = 0;
     mapFollow = 0;
+    mapRedraw = 0;
     mapSpinHold = 0;
     mapSave = 0;
     fileMenu = 0;
@@ -1271,6 +1446,7 @@ Ui::Ui(Editor *editor) {
         pages[i].userDepth = 0;
         pages[i].pendingSync = 0;
         pages[i].pendingIdle = 0;
+        pages[i].pinWait = 0;
         tabTitle[i] = nullptr;
         docName[i][0] = 0;
         refs[i].index = i;
@@ -1624,6 +1800,13 @@ Widget *Ui::mount_panel(void) {
     gtk_paned_set_wide_handle(split->native, 1);
     split->set_position(200);
     editorSplit = split;
+    g_signal_connect_data(
+            split->native,
+            "notify::position",
+            (void *)panel_sized,
+            nullptr,
+            nullptr,
+            0);
     split->set_v_expand(true);
     mount_row_menus();
     return (Widget *)split;
@@ -3538,6 +3721,7 @@ void Ui::paint_map(
         return;
     if (width < 1 || height < 1)
         return;
+    cairo_reset_clip(cr);
     cairo_set_source_rgba(cr, 0.93, 0.93, 0.94, 1.0);
     cairo_rectangle(cr, 0, 0, (double)width, (double)height);
     cairo_fill(cr);
@@ -4212,9 +4396,45 @@ void Ui::add_page(long index) {
                 pages[index].view->native,
                 wheel);
     }
+    {
+        void *keys;
+        int (*on_key)(
+                void *,
+                unsigned int,
+                unsigned int,
+                unsigned int,
+                void *);
+
+        keys = gtk_event_controller_key_new();
+        gtk_event_controller_set_propagation_phase(
+                keys,
+                1);
+        on_key = view_nav_key;
+        g_signal_connect_data(
+                keys,
+                "key-pressed",
+                (void *)on_key,
+                (void *)&refs[index],
+                nullptr,
+                0);
+        gtk_widget_add_controller(
+                pages[index].view->native,
+                keys);
+    }
+    gtk_text_view_set_cursor_visible(
+            pages[index].view->native,
+            1);
+    g_signal_connect_data(
+            pages[index].view->native,
+            "notify::height",
+            (void *)view_sized,
+            nullptr,
+            nullptr,
+            0);
     pages[index].userDepth = 0;
     pages[index].pendingSync = 0;
     pages[index].pendingIdle = 0;
+    pages[index].pinWait = 0;
     scroll = new ScrolledWindow();
     scroll->set_policy(
             GTK_POLICY_AUTOMATIC,
@@ -4296,6 +4516,8 @@ void Ui::add_page(long index) {
     highlight(index);
     place_cursor(index);
     paint_line(index);
+    if (state->index() == index)
+        focus_view();
 }
 
 void Ui::rebuild(void) {
@@ -4320,6 +4542,7 @@ void Ui::rebuild(void) {
         pages[i].userDepth = 0;
         pages[i].pendingSync = 0;
         pages[i].pendingIdle = 0;
+        pages[i].pinWait = 0;
         tabTitle[i] = nullptr;
         i = i + 1;
     }
@@ -4393,6 +4616,92 @@ TextView *Ui::current_view(void) {
     if (index < 0 || index >= pageCount)
         return nullptr;
     return pages[index].view;
+}
+
+void Ui::focus_view(void) {
+    TextView *view;
+
+    view = current_view();
+    if (view == nullptr || view->native == nullptr)
+        return;
+    gtk_widget_grab_focus(view->native);
+}
+
+void Ui::name_window(const char *title) {
+    if (mainWindow == nullptr || title == nullptr)
+        return;
+    mainWindow->set_title(title);
+}
+
+void Ui::move_key(
+        long index,
+        int step,
+        int count,
+        int extend) {
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].view == nullptr)
+        return;
+    if (pages[index].view->native == nullptr)
+        return;
+    gtk_text_view_set_cursor_visible(
+            pages[index].view->native,
+            1);
+    g_signal_emit_by_name(
+            pages[index].view->native,
+            "move-cursor",
+            step,
+            count,
+            extend);
+}
+
+void Ui::queue_pin(long index) {
+    int got;
+
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].pinWait != 0)
+        return;
+    if (pages[index].map == nullptr)
+        return;
+    if (pages[index].map->native == nullptr)
+        return;
+    got = gtk_widget_get_width(pages[index].map->native);
+    if (got < 1)
+        return;
+    if (got > (int)mapWide - 3 && got < (int)mapWide + 3)
+        return;
+    pages[index].pinWait = 1;
+    g_idle_add(
+            (void *)map_pin_idle,
+            (void *)&refs[index]);
+}
+
+void Ui::finish_pin(long index) {
+    if (index < 0 || index >= pageCount)
+        return;
+    pages[index].pinWait = 0;
+    pin_map(index);
+}
+
+void Ui::queue_map_redraw(void) {
+    if (leaving == 1)
+        return;
+    if (mapRedraw != 0)
+        return;
+    mapRedraw = 1;
+    g_idle_add((void *)map_redraw_idle, nullptr);
+}
+
+void Ui::refresh_maps(void) {
+    long i;
+
+    mapRedraw = 0;
+    i = 0;
+    while (i < pageCount) {
+        redraw_map(i);
+        i = i + 1;
+    }
 }
 
 void Ui::record_macro(int on) {
@@ -9522,6 +9831,7 @@ void Ui::note_size(long width, long height) {
         sizeSeen = 1;
         seenWidth = (int)width;
         seenHeight = (int)height;
+        queue_map_redraw();
         return;
     }
     if (width == seenWidth && height == seenHeight)
@@ -9531,6 +9841,7 @@ void Ui::note_size(long width, long height) {
     windowWidth = (int)width;
     windowHeight = (int)height;
     store_session();
+    queue_map_redraw();
 }
 
 void Ui::collect_open(EditorConfig *item) {
