@@ -1420,6 +1420,73 @@ static void check_project_page(
     expect(ui->show_folder(dir) == 1, "files after project");
 }
 
+void check_keys(Ui *ui) {
+    int which;
+    long wide;
+
+    which = key_index("key-indent=");
+    expect(text_same(ui->key_shown(which), "<Control>]") == 1,
+            "indent shows ]");
+    which = key_index("key-unindent=");
+    expect(text_same(ui->key_shown(which), "<Control>[") == 1,
+            "unindent shows [");
+    which = key_index("key-comment=");
+    expect(text_same(ui->key_shown(which), "<Control>/") == 1,
+            "comment shows /");
+    wide = ui->key_button_width();
+    expect(wide >= 160, "shortcut width");
+    expect(ui->key_button_grows() == 0, "shortcut stays fixed");
+    expect(ui->assign_key(0, "<Control>o") == 0,
+            "duplicate asks");
+    expect(ui->key_clash() == 1, "clash waits");
+    expect(text_has(ui->key_clash_text(), "Open") == 1,
+            "names the command");
+    expect(text_same(ui->key_text(0), "<Control>n") == 1,
+            "keeps New");
+    expect(text_same(ui->key_text(1), "<Control>o") == 1,
+            "keeps Open");
+    ui->answer_key_clash(0);
+    expect(ui->key_clash() == 0, "cancel closes");
+    expect(text_same(ui->key_text(0), "<Control>n") == 1,
+            "cancel keeps New");
+    expect(text_same(ui->key_text(1), "<Control>o") == 1,
+            "cancel keeps Open");
+    expect(ui->assign_key(0, "<Control>o") == 0,
+            "asks again");
+    ui->answer_key_clash(1);
+    expect(text_same(ui->key_text(0), "<Control>o") == 1,
+            "New takes the combo");
+    expect(text_same(ui->key_text(1), "") == 1,
+            "Open is blank");
+    ui->reset_key(1);
+    expect(ui->key_clash() == 1, "default asks");
+    ui->answer_key_clash(0);
+    expect(text_same(ui->key_text(1), "") == 1,
+            "default cancel stays blank");
+    expect(text_same(ui->key_text(0), "<Control>o") == 1,
+            "New still has it");
+    ui->reset_key(1);
+    ui->answer_key_clash(1);
+    expect(text_same(ui->key_text(1), "<Control>o") == 1,
+            "Open default");
+    expect(text_same(ui->key_text(0), "") == 1,
+            "New cleared");
+    ui->reset_key(0);
+    expect(ui->key_clash() == 0, "New default is free");
+    expect(text_same(ui->key_text(0), "<Control>n") == 1,
+            "New default");
+    expect(ui->key_button_width() == wide,
+            "width stays after a change");
+    ui->apply_settings();
+    which = key_index("key-indent=");
+    expect(text_same(
+                ui->key_text(which),
+                "<Control>bracketright") == 1,
+            "indent stays stored");
+    expect(text_same(ui->key_shown(which), "<Control>]") == 1,
+            "indent still shows ]");
+}
+
 int main(void) {
     char pattern[64];
     char pathA[EDITOR_PATH];
@@ -2114,14 +2181,7 @@ int main(void) {
                     ui->key_help(),
                     "Escape cancels") == 1,
                 "key help");
-        expect(ui->assign_key(0, "<Control>o") == 0,
-                "duplicate key");
-        expect(text_has(ui->key_warning(), "Open") == 1,
-                "names the command");
-        expect(text_same(
-                    ui->key_text(0),
-                    "<Control>n") == 1,
-                "keeps New");
+        check_keys(ui);
         ui->apply_settings();
         {
             char path[EDITOR_PATH];

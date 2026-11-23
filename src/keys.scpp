@@ -84,6 +84,92 @@ void key_info(
             label, command, config, accel);
 }
 
+static int key_glyph(const char *name) {
+    if (name == nullptr)
+        return 0;
+    if (name[0] == 'K' && name[1] == 'P' && name[2] == '_'
+            && name[3] >= '0' && name[3] <= '9'
+            && name[4] == 0)
+        return (int)name[3];
+    if (text_same(name, "space") == 1
+            || text_same(name, "KP_Space") == 1)
+        return ' ';
+    if (text_same(name, "exclam") == 1)
+        return '!';
+    if (text_same(name, "quotedbl") == 1)
+        return '"';
+    if (text_same(name, "numbersign") == 1)
+        return '#';
+    if (text_same(name, "dollar") == 1)
+        return '$';
+    if (text_same(name, "percent") == 1)
+        return '%';
+    if (text_same(name, "ampersand") == 1)
+        return '&';
+    if (text_same(name, "apostrophe") == 1
+            || text_same(name, "quoteright") == 1)
+        return '\'';
+    if (text_same(name, "parenleft") == 1)
+        return '(';
+    if (text_same(name, "parenright") == 1)
+        return ')';
+    if (text_same(name, "asterisk") == 1
+            || text_same(name, "KP_Multiply") == 1)
+        return '*';
+    if (text_same(name, "plus") == 1
+            || text_same(name, "KP_Add") == 1)
+        return '+';
+    if (text_same(name, "comma") == 1
+            || text_same(name, "KP_Separator") == 1)
+        return ',';
+    if (text_same(name, "minus") == 1
+            || text_same(name, "KP_Subtract") == 1)
+        return '-';
+    if (text_same(name, "period") == 1
+            || text_same(name, "KP_Decimal") == 1)
+        return '.';
+    if (text_same(name, "slash") == 1
+            || text_same(name, "KP_Divide") == 1)
+        return '/';
+    if (text_same(name, "colon") == 1)
+        return ':';
+    if (text_same(name, "semicolon") == 1)
+        return ';';
+    if (text_same(name, "less") == 1)
+        return '<';
+    if (text_same(name, "equal") == 1
+            || text_same(name, "KP_Equal") == 1)
+        return '=';
+    if (text_same(name, "greater") == 1)
+        return '>';
+    if (text_same(name, "question") == 1)
+        return '?';
+    if (text_same(name, "at") == 1)
+        return '@';
+    if (text_same(name, "bracketleft") == 1)
+        return '[';
+    if (text_same(name, "backslash") == 1)
+        return '\\';
+    if (text_same(name, "bracketright") == 1)
+        return ']';
+    if (text_same(name, "asciicircum") == 1)
+        return '^';
+    if (text_same(name, "underscore") == 1)
+        return '_';
+    if (text_same(name, "grave") == 1
+            || text_same(name, "quoteleft") == 1)
+        return '`';
+    if (text_same(name, "braceleft") == 1)
+        return '{';
+    if (text_same(name, "bar") == 1)
+        return '|';
+    if (text_same(name, "braceright") == 1)
+        return '}';
+    if (text_same(name, "asciitilde") == 1)
+        return '~';
+    return 0;
+}
+
 void accel_shown(
         char *dest,
         long cap,
@@ -101,15 +187,46 @@ void accel_shown(
     i = 0;
     n = 0;
     while (accel[i] != 0 && n + 1 < cap) {
-        if (text_starts(accel + i, "slash") == 1) {
-            dest[n] = '/';
-            n = n + 1;
-            i = i + 5;
+        if (accel[i] == '<') {
+            while (accel[i] != 0 && n + 1 < cap) {
+                dest[n] = accel[i];
+                n = n + 1;
+                if (accel[i] == '>') {
+                    i = i + 1;
+                    break;
+                }
+                i = i + 1;
+            }
         }
         else {
-            dest[n] = accel[i];
-            n = n + 1;
-            i = i + 1;
+            char token[64];
+            long t;
+            long k;
+            int glyph;
+
+            t = 0;
+            while (accel[i] != 0 && accel[i] != '<'
+                    && t + 1 < 64) {
+                token[t] = accel[i];
+                t = t + 1;
+                i = i + 1;
+            }
+            token[t] = 0;
+            glyph = 0;
+            if (t > 1)
+                glyph = key_glyph(token);
+            if (glyph != 0) {
+                dest[n] = (char)glyph;
+                n = n + 1;
+            }
+            else {
+                k = 0;
+                while (k < t && n + 1 < cap) {
+                    dest[n] = token[k];
+                    n = n + 1;
+                    k = k + 1;
+                }
+            }
         }
     }
     dest[n] = 0;

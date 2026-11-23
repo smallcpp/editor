@@ -65,6 +65,7 @@ extern void gtk_column_view_set_single_click_activate(
         int single);
 extern int gtk_column_view_get_single_click_activate(void *view);
 extern int gtk_widget_get_width(void *widget);
+extern int gtk_widget_get_hexpand(void *widget);
 extern void gtk_paned_set_resize_start_child(void *paned, int resize);
 extern void gtk_paned_set_shrink_start_child(void *paned, int shrink);
 extern void gtk_paned_set_resize_end_child(void *paned, int resize);
@@ -529,6 +530,18 @@ void ui_key_click(void *data) {
 
     slot = (int *)data;
     editorUi->arm_key(*slot);
+}
+
+void ui_key_default(void *data) {
+    int *slot;
+
+    slot = (int *)data;
+    editorUi->reset_key(*slot);
+}
+
+void ui_key_clash(void *data, int response) {
+    (void)data;
+    editorUi->answer_key_clash(response);
 }
 
 void ui_recent(void *data, const char *path) {
@@ -1218,6 +1231,13 @@ Ui::Ui(Editor *editor) {
     keyCapture = -1;
     keyWarn[0] = 0;
     keyPrompt[0] = 0;
+    keyClashDialog = nullptr;
+    keyClashLabel = nullptr;
+    keyClashWait = 0;
+    keyClashIndex = -1;
+    keyClashOther = -1;
+    keyClashNext[0] = 0;
+    keyButtonWide = 0;
     searchText[0] = 0;
     replaceText[0] = 0;
     withText[0] = 0;
@@ -1252,6 +1272,7 @@ Ui::Ui(Editor *editor) {
         const char *accel;
 
         keyButton[i] = nullptr;
+        keyDefault[i] = nullptr;
         key_info(
                 (int)i,
                 &label,
@@ -1461,6 +1482,14 @@ void Ui::build(void) {
             2);
     removeDialog->add_button("Cancel", 0);
     removeDialog->on_response(ui_remove_response, nullptr);
+    keyClashDialog = new Dialog("Shortcut");
+    keyClashDialog->set_transient(mainWindow);
+    keyClashLabel = new Label(
+            "That shortcut is already used.");
+    keyClashDialog->set_content((Widget *)keyClashLabel);
+    keyClashDialog->add_button("Assign", 1);
+    keyClashDialog->add_button("Cancel", 0);
+    keyClashDialog->on_response(ui_key_clash, nullptr);
     dirtyDialog = new Dialog("Save changes?");
     dirtyDialog->set_transient(mainWindow);
     dirtyDialog->add_button("Save all", EDITOR_SAVE);
@@ -5574,6 +5603,24 @@ static void add_dot(char *buf, long cap) {
     }
 }
 
+static void add_text(char *buf, long cap, const char *extra) {
+    long n;
+    long i;
+
+    n = 0;
+    while (buf[n] != 0)
+        n = n + 1;
+    if (extra == nullptr)
+        return;
+    i = 0;
+    while (extra[i] != 0 && n + 1 < cap) {
+        buf[n] = extra[i];
+        n = n + 1;
+        i = i + 1;
+    }
+    buf[n] = 0;
+}
+
 static void button_text(const char *accel, char *buf, long cap) {
     accel_shown(buf, cap, accel);
 }
@@ -5587,8 +5634,22 @@ void Ui::show_key_note(void) {
         keyState->set_text(keyWarn);
 }
 
+static char keyHelpText[96];
+static int keyHelpReady;
+
 const char *Ui::key_help(void) {
-    return "Click a shortcut, press the new keys. Escape cancels.";
+    if (keyHelpReady == 0) {
+        text_copy(
+                keyHelpText,
+                96,
+                "Click a shortcut, press the new keys. ");
+        add_text(
+                keyHelpText,
+                96,
+                "Escape cancels. Default restores it.");
+        keyHelpReady = 1;
+    }
+    return keyHelpText;
 }
 
 const char *Ui::key_warning(void) {
@@ -5638,6 +5699,56 @@ int Ui::take_key(const char *accel, int escape) {
     return 1;
 }
 
+void Ui::write_key(int index, const char *accel) {
+    char shown[64];
+
+    if (index < 0 || index >= EDITOR_KEY_COUNT)
+        return;
+    if (accel == nullptr)
+        accel = "";
+    text_copy(keyAccel[index], 64, accel);
+    if (keyButton[index] == nullptr)
+        return;
+    button_text(accel, shown, 64);
+    keyButton[index]->set_label(shown);
+}
+
+void Ui::finish_keys(void) {
+    keyWarn[0] = 0;
+    show_key_note();
+    apply_settings();
+}
+
+void Ui::ask_key_clash(
+        int index,
+        int other,
+        const char *accel) {
+    const char *label;
+    const char *command;
+    const char *config;
+    const char *saved;
+    char shown[64];
+    char text[160];
+
+    key_info(other, &label, &command, &config, &saved);
+    keyClashIndex = index;
+    keyClashOther = other;
+    text_copy(keyClashNext, 64, accel);
+    button_text(accel, shown, 64);
+    fill_span(text, 160, label, " already uses ", shown);
+    add_text(
+            text,
+            160,
+            ". Assign it here and clear that one?");
+    if (keyClashLabel != nullptr)
+        keyClashLabel->set_text(text);
+    keyWarn[0] = 0;
+    show_key_note();
+    keyClashWait = 1;
+    if (keyClashDialog != nullptr)
+        keyClashDialog->present();
+}
+
 int Ui::assign_key(int index, const char *accel) {
     char next[64];
     char other[64];
@@ -5664,39 +5775,77 @@ int Ui::assign_key(int index, const char *accel) {
                     other,
                     64);
             if (same == 1 && text_same(next, other) == 1) {
-                const char *label;
-                const char *command;
-                const char *config;
-                const char *saved;
-
-                key_info(
-                        i,
-                        &label,
-                        &command,
-                        &config,
-                        &saved);
-                fill_span(
-                        keyWarn,
-                        160,
-                        label,
-                        " already uses ",
-                        other);
-                add_dot(keyWarn, 160);
-                show_key_note();
+                ask_key_clash(index, i, next);
                 return 0;
             }
         }
         i = i + 1;
     }
-    text_copy(keyAccel[index], 64, next);
-    if (keyButton[index] != nullptr) {
-        button_text(next, other, 64);
-        keyButton[index]->set_label(other);
-    }
-    keyWarn[0] = 0;
-    show_key_note();
-    apply_settings();
+    write_key(index, next);
+    finish_keys();
     return 1;
+}
+
+void Ui::reset_key(int index) {
+    const char *label;
+    const char *command;
+    const char *config;
+    const char *accel;
+
+    if (index < 0 || index >= EDITOR_KEY_COUNT)
+        return;
+    key_info(index, &label, &command, &config, &accel);
+    assign_key(index, accel);
+}
+
+int Ui::key_clash(void) {
+    return keyClashWait;
+}
+
+const char *Ui::key_clash_text(void) {
+    if (keyClashLabel == nullptr)
+        return "";
+    return keyClashLabel->text();
+}
+
+void Ui::answer_key_clash(int response) {
+    int index;
+    int other;
+    char next[64];
+
+    if (keyClashWait == 0)
+        return;
+    keyClashWait = 0;
+    index = keyClashIndex;
+    other = keyClashOther;
+    text_copy(next, 64, keyClashNext);
+    if (keyClashDialog != nullptr)
+        keyClashDialog->set_visible(false);
+    if (response != 1)
+        return;
+    if (other >= 0 && other < EDITOR_KEY_COUNT
+            && other != index)
+        write_key(other, "");
+    write_key(index, next);
+    finish_keys();
+}
+
+const char *Ui::key_shown(int index) {
+    if (index < 0 || index >= EDITOR_KEY_COUNT)
+        return "";
+    if (keyButton[index] != nullptr)
+        return keyButton[index]->label();
+    return "";
+}
+
+long Ui::key_button_width(void) {
+    return keyButtonWide;
+}
+
+int Ui::key_button_grows(void) {
+    if (keyButton[0] == nullptr || keyButton[0]->native == nullptr)
+        return 1;
+    return gtk_widget_get_hexpand(keyButton[0]->native);
 }
 
 void Ui::read_keys(void) {
@@ -7714,6 +7863,38 @@ int Ui::language_builtin_reset(const char *name) {
     return 1;
 }
 
+static long shortcut_pixels(void *widget) {
+    void *sample;
+    int wide;
+    int tall;
+    int other;
+
+    wide = 0;
+    tall = 0;
+    other = 0;
+    if (widget == nullptr)
+        return (long)280;
+    sample = gtk_widget_create_pango_layout(
+            widget,
+            "Control Alt Sys Shift X");
+    if (sample != nullptr) {
+        pango_layout_get_pixel_size(sample, &wide, &tall);
+        g_object_unref(sample);
+    }
+    sample = gtk_widget_create_pango_layout(
+            widget,
+            "<Control><Alt><Super><Shift>X");
+    if (sample != nullptr) {
+        pango_layout_get_pixel_size(sample, &other, &tall);
+        g_object_unref(sample);
+    }
+    if (other > wide)
+        wide = other;
+    if (wide < 160)
+        wide = 160;
+    return (long)wide + 48;
+}
+
 void Ui::show_settings(void) {
     Box *box;
     Box *search;
@@ -8026,8 +8207,8 @@ void Ui::show_settings(void) {
         }
         keyHelp = new Label(key_help());
         keyState = new Label("");
-        keys->attach((Widget *)keyHelp, 0, 0, 2, 1);
-        keys->attach((Widget *)keyState, 0, 1, 2, 1);
+        keys->attach((Widget *)keyHelp, 0, 0, 3, 1);
+        keys->attach((Widget *)keyState, 0, 1, 3, 1);
         keys->attach(
                 (Widget *)new Label("Command"),
                 0,
@@ -8037,6 +8218,12 @@ void Ui::show_settings(void) {
         keys->attach(
                 (Widget *)new Label("Shortcut"),
                 1,
+                2,
+                1,
+                1);
+        keys->attach(
+                (Widget *)new Label("Default"),
+                2,
                 2,
                 1,
                 1);
@@ -8056,6 +8243,7 @@ void Ui::show_settings(void) {
             const char *accel;
             Label *name;
             Button *entry;
+            Button *reset;
             char shown[64];
 
             key_info(
@@ -8067,13 +8255,24 @@ void Ui::show_settings(void) {
             name = new Label(label);
             button_text(keyAccel[n], shown, 64);
             entry = new Button(shown);
-            entry->set_h_expand(true);
+            entry->set_h_expand(false);
+            if (keyButtonWide < 1)
+                keyButtonWide = shortcut_pixels(entry->native);
+            entry->set_width_request(keyButtonWide);
+            gtk_widget_set_halign(entry->native, 1);
             entry->on_clicked(
                     ui_key_click,
                     (void *)&keySlots[n]);
             keyButton[n] = entry;
+            reset = new Button("Default");
+            reset->set_h_expand(false);
+            reset->on_clicked(
+                    ui_key_default,
+                    (void *)&keySlots[n]);
+            keyDefault[n] = reset;
             keys->attach((Widget *)name, 0, n + 3, 1, 1);
             keys->attach((Widget *)entry, 1, n + 3, 1, 1);
+            keys->attach((Widget *)reset, 2, n + 3, 1, 1);
             n = n + 1;
         }
         pages->set_h_expand(true);
@@ -8485,8 +8684,9 @@ int Ui::template_browse_aimed(void) {
     file = gtk_file_dialog_get_initial_folder(files->native);
     if (file == nullptr)
         return 0;
+    /* This GTK returns the dialog's own folder, with no
+     * extra reference. Releasing it frees the folder. */
     path = g_file_get_path(file);
-    g_object_unref(file);
     if (path == nullptr)
         return 0;
     same = 0;
@@ -9947,6 +10147,9 @@ void Ui::leave(void) {
         mapFontDialog->set_visible(false);
     if (removeDialog != nullptr)
         removeDialog->set_visible(false);
+    keyClashWait = 0;
+    if (keyClashDialog != nullptr)
+        keyClashDialog->set_visible(false);
     if (dirtyDialog != nullptr) {
         dirtyOpen = 0;
         dirtyDialog->set_visible(false);

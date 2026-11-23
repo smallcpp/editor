@@ -177,8 +177,11 @@ sets the column-marker color. Each Color button is
 filled with that color, and clicking it still opens
 the chooser. Indent width is a character count. Keyboard
 is a grid of command and shortcut. Click a shortcut, press
-the new keys, and Escape cancels. A shortcut that
-another command already uses is refused. The notebook fills the
+the new keys, and Escape cancels. A key that has a
+character shows that character. Default restores the
+built-in shortcut. A combo already in use asks first.
+Assign moves it and clears the old one. Cancel leaves
+both. Shortcut buttons stay a fixed width. The notebook fills the
 dialog. The left tabs stay fixed, and the page scrolls.
 
 This editor opens a named project as a list of files.
