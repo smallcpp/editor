@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+Startup with no files keeps the Sessions dialog open.
+The editor window is registered first and stays hidden
+until a session is chosen, so GTK does not quit and
+then disconnect shortcut handlers that were never
+attached to a widget. Closing the dialog opens the
+most recent session, or a blank editor.
+
 A session is the set of files being edited. There is
 no project menu, project page, project file, project
 kind, template, or project theme. Startup with no
