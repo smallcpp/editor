@@ -1,9 +1,12 @@
 #include "ui.shpp"
 
 extern void *g_file_new_for_path(const char *path);
+extern char *g_file_get_path(void *file);
+extern void *gtk_file_dialog_get_initial_folder(void *dialog);
 extern void gtk_file_dialog_set_initial_folder(
         void *dialog,
         void *folder);
+extern void g_free(void *memory);
 extern void g_object_unref(void *object);
 extern void *g_object_ref_sink(void *object);
 extern unsigned g_idle_add(void *func, void *data);
@@ -1017,6 +1020,8 @@ Ui::Ui(Editor *editor) {
         i = i + 1;
     }
     lastDir[0] = 0;
+    if (startup_directory(startDir, EDITOR_PATH) == 0)
+        startDir[0] = 0;
     i = 0;
     while (i < EDITOR_PAGES) {
         pages[i].buffer = nullptr;
@@ -7642,7 +7647,7 @@ int Ui::create_from_template(const char *dir) {
 
     if (dir == nullptr || dir[0] == 0)
         return 0;
-    if (path_normalize(dest, EDITOR_PATH, dir) == 0)
+    if (path_in_start(dest, EDITOR_PATH, dir) == 0)
         return 0;
     if (file_is_reg(dest) == 1)
         path_dir(dest, EDITOR_PATH, dest);
@@ -7700,10 +7705,56 @@ void Ui::accept_template_project(void) {
         hide_template_project();
 }
 
+const char *Ui::template_browse_at(void) {
+    if (startDir[0] == 0)
+        return "";
+    return startDir;
+}
+
+void Ui::prepare_template_browse(void) {
+    void *file;
+
+    if (files == nullptr || files->native == nullptr)
+        return;
+    if (startDir[0] == 0)
+        return;
+    files->set_parent(mainWindow);
+    file = g_file_new_for_path(startDir);
+    if (file == nullptr)
+        return;
+    gtk_file_dialog_set_initial_folder(files->native, file);
+    g_object_unref(file);
+}
+
+int Ui::template_browse_aimed(void) {
+    void *file;
+    char *path;
+    int same;
+
+    prepare_template_browse();
+    if (files == nullptr || files->native == nullptr)
+        return 0;
+    if (startDir[0] == 0)
+        return 0;
+    file = gtk_file_dialog_get_initial_folder(files->native);
+    if (file == nullptr)
+        return 0;
+    path = g_file_get_path(file);
+    g_object_unref(file);
+    if (path == nullptr)
+        return 0;
+    same = 0;
+    if (text_same(path, startDir) == 1)
+        same = 1;
+    g_free((void *)path);
+    return same;
+}
+
 void Ui::browse_template_dir(void) {
     if (files == nullptr || files->pending != 0)
         return;
     files->set_title("Directory");
+    prepare_template_browse();
     files->open(ui_template_picked, nullptr);
 }
 

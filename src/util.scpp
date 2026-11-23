@@ -266,6 +266,41 @@ int current_directory(char *dest, long cap) {
     return 1;
 }
 
+static char startedIn[EDITOR_PATH];
+static int startedSet = 0;
+
+int startup_directory(char *dest, long cap) {
+    if (startedSet == 0) {
+        if (current_directory(startedIn, EDITOR_PATH) == 0)
+            return 0;
+        startedSet = 1;
+    }
+    if (dest == nullptr || cap < 2)
+        return 0;
+    text_copy(dest, cap, startedIn);
+    if (dest[0] == 0)
+        return 0;
+    return 1;
+}
+
+int path_in_start(char *dest, long cap, const char *path) {
+    char base[EDITOR_PATH];
+    char joined[EDITOR_PATH];
+
+    if (dest == nullptr || cap < 2)
+        return 0;
+    if (path == nullptr || path[0] == 0)
+        return 0;
+    if (path_is_abs(path) == 1)
+        return path_normalize(dest, cap, path);
+    if (startup_directory(base, EDITOR_PATH) == 0)
+        return 0;
+    path_join(joined, EDITOR_PATH, base, path);
+    if (joined[0] == 0)
+        return 0;
+    return path_normalize(dest, cap, joined);
+}
+
 int dialog_folder(
         char *dest,
         long cap,

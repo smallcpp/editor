@@ -47,6 +47,8 @@ void append_range(
         long to);
 String *slice_text(const char *src, long from, long to);
 int current_directory(char *dest, long cap);
+int startup_directory(char *dest, long cap);
+int path_in_start(char *dest, long cap, const char *path);
 int dialog_folder(
         char *dest,
         long cap,

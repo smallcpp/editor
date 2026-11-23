@@ -7,6 +7,7 @@
 #include "../src/syntax.shpp"
 
 extern int system(const char *command);
+extern int chdir(const char *path);
 
 extern int setenv(
         const char *name,
@@ -171,7 +172,6 @@ void check_project(const char *dir, const char *io) {
         expect(text_has(body, "kind=cmake") == 1, "cmake kind");
         expect(text_has(body, "add_executable") == 0,
                 "cmake stores no targets");
-        free((void *)body);
     }
     project->clear_opens();
     expect(project->note_open(fileA) == 1, "note open");
@@ -219,6 +219,48 @@ void check_project(const char *dir, const char *io) {
         expect(text_same(project->kind_name(), "git") == 1,
                 "git kind");
     }
+    expect(startup_directory(home, EDITOR_PATH) == 1,
+            "start directory");
+    path_join(folder, EDITOR_PATH, home, "anchor-proj");
+    path_join(fileA, EDITOR_PATH, folder, "hello.txt");
+    unlink(fileA);
+    rmdir(folder);
+    expect(mkdir(folder, 448) == 0, "anchor folder");
+    expect(write_file(fileA, "hi\n", &io) == 1, "anchor hello");
+    expect(project->make(
+                "anchor",
+                "directory",
+                "anchor-proj") == 1,
+            "relative create");
+    expect(project->store_path(store, EDITOR_PATH) == 1,
+            "anchor store");
+    n = 0;
+    body = read_file(store, &n, &io);
+    expect(body != nullptr, "anchor text");
+    if (body != nullptr) {
+        expect(text_has(body, home) == 1,
+                "root keeps the start directory");
+        expect(text_has(body, "anchor-proj") == 1,
+                "root keeps the chosen folder");
+    }
+    expect(current_directory(other, EDITOR_PATH) == 1,
+            "remember directory");
+    expect(chdir(side) == 0, "start elsewhere");
+    project = new EditProject();
+    row = project->load("anchor");
+    expect(chdir(other) == 0, "restore cwd");
+    expect(row == 1, "open from another directory");
+    row = row_named(project, "hello.txt");
+    expect(row >= 0, "hello from the chosen directory");
+    if (row >= 0) {
+        expect(text_starts(project->row_path(row), home) == 1,
+                "path stays in the start directory");
+        expect(file_exists(project->row_path(row)) == 1,
+                "chosen file still exists");
+    }
+    project->remove_store();
+    unlink(fileA);
+    rmdir(folder);
 }
 
 void check_template(const char *dir, const char *io) {
