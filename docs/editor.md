@@ -49,7 +49,9 @@ like the top of a longer file. A longer file still fills
 the column. A click outside the highlighted band
 scrolls the buffer. Pressing the highlighted area and
 moving the mouse scrolls the buffer with the pointer.
-The caret stays where it was. Dragging the bar between the
+The caret stays where it was. The mouse wheel over the
+column scrolls the buffer by one line for each notch and
+leaves the caret where it was. Dragging the bar between the
 editor and the column sets the column width. Map width in
 Settings sets that same width. The column keeps the width
 from the last of those and does not change it on its own.

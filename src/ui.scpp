@@ -80,6 +80,13 @@ extern int gdk_event_get_position(
         double *x,
         double *y);
 extern int gdk_button_event_get_button(void *event);
+extern int gdk_scroll_event_get_direction(void *event);
+extern void gdk_scroll_event_get_deltas(
+        void *event,
+        double *deltaX,
+        double *deltaY);
+extern int gdk_scroll_event_get_unit(void *event);
+extern int gdk_scroll_event_is_stop(void *event);
 extern unsigned long g_signal_connect_data(
         void *instance,
         const char *signal,
@@ -311,7 +318,9 @@ static void map_draw(
             height);
 }
 
-/* GdkEventType: motion 1, press 2, release 3.
+/* GdkEventType: motion 1, press 2, release 3, scroll 15.
+ * ScrollDirection: up 0, down 1, smooth 4.
+ * ScrollUnit: wheel 0, surface 1.
  * Capture phase is 1. Motion keeps scrolling until release.
  */
 static int map_event(
@@ -333,6 +342,10 @@ static int map_event(
         return 0;
     ui = (Ui *)column->owner;
     kind = gdk_event_get_event_type(event);
+    if (kind == 15) {
+        ui->map_wheel(column->page, event);
+        return 1;
+    }
     x = 0;
     y = 0;
     if (gdk_event_get_position(event, &x, &y) == 0) {
@@ -2466,6 +2479,114 @@ void Ui::scroll_line(long index, long line) {
     if (value > limit)
         value = limit;
     gtk_adjustment_set_value(adjust, value);
+}
+
+int Ui::text_line_height(long index) {
+    long words[12];
+    int top;
+    int tall;
+    int i;
+
+    tall = 16;
+    if (index < 0 || index >= pageCount)
+        return tall;
+    if (pages[index].view == nullptr)
+        return tall;
+    if (pages[index].buffer == nullptr)
+        return tall;
+    i = 0;
+    while (i < 12) {
+        words[i] = 0;
+        i = i + 1;
+    }
+    if (gtk_text_buffer_get_iter_at_line_offset(
+                pages[index].buffer->native,
+                (void *)words,
+                0,
+                0) == 0)
+        return tall;
+    top = 0;
+    tall = 0;
+    gtk_text_view_get_line_yrange(
+            pages[index].view->native,
+            (void *)words,
+            &top,
+            &tall);
+    if (tall < 1)
+        tall = 16;
+    return tall;
+}
+
+void Ui::scroll_map_pixels(long index, double pixels) {
+    void *adjust;
+    double value;
+    double upper;
+    double page;
+    double limit;
+
+    if (pixels == 0)
+        return;
+    if (index < 0 || index >= pageCount)
+        return;
+    if (pages[index].view == nullptr)
+        return;
+    adjust = gtk_scrollable_get_vadjustment(
+            pages[index].view->native);
+    if (adjust == nullptr)
+        return;
+    value = gtk_adjustment_get_value(adjust) + pixels;
+    upper = gtk_adjustment_get_upper(adjust);
+    page = gtk_adjustment_get_page_size(adjust);
+    limit = upper - page;
+    if (limit < 0)
+        limit = 0;
+    if (value < 0)
+        value = 0;
+    if (value > limit)
+        value = limit;
+    gtk_adjustment_set_value(adjust, value);
+    redraw_map(index);
+}
+
+void Ui::scroll_map_wheel(long index, int steps) {
+    int tall;
+
+    if (steps == 0)
+        return;
+    tall = text_line_height(index);
+    scroll_map_pixels(index, (double)steps * (double)tall);
+}
+
+void Ui::map_wheel(long index, void *event) {
+    int direction;
+    int unit;
+    double across;
+    double down;
+    int tall;
+
+    if (event == nullptr)
+        return;
+    if (gdk_scroll_event_is_stop(event) != 0)
+        return;
+    direction = gdk_scroll_event_get_direction(event);
+    across = 0;
+    down = 0;
+    gdk_scroll_event_get_deltas(event, &across, &down);
+    (void)across;
+    if (direction == 4) {
+        unit = gdk_scroll_event_get_unit(event);
+        if (unit == 1) {
+            scroll_map_pixels(index, down);
+            return;
+        }
+        tall = text_line_height(index);
+        scroll_map_pixels(index, down * (double)tall);
+        return;
+    }
+    if (direction == 0)
+        scroll_map_wheel(index, -1);
+    if (direction == 1)
+        scroll_map_wheel(index, 1);
 }
 
 void Ui::paint_map(

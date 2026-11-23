@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+The mouse wheel over the mini-map scrolls the buffer.
+Each notch moves the view by one line. The caret stays
+where it was, and the highlight follows the lines now in
+view. Dragging the highlight still scrolls without moving
+the caret. A click in the buffer still moves the
+current-line mark. The column width stays fixed, and a
+short file stays packed from the top.
+
 A short file in the mini-map is drawn at the mini-map
 font's line spacing, packed from the top of the column.
 It looks like the top of a longer file. A file that does
