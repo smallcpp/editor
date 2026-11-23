@@ -1,0 +1,66 @@
+#ifndef EDITOR_SESSION
+#define EDITOR_SESSION
+
+/* A session is the set of files open in the editor.
+ * It stores the current file, the caret line, and
+ * the date the session was last opened. It is not
+ * a project: there is no root, kind, theme, or tree.
+ */
+#include "util.shpp"
+
+enum {
+    SESSION_OPEN = 32,
+    SESSION_NAME = 64,
+    SESSION_DATE = 16,
+    SESSION_LIST = 32
+};
+
+class EditSession {
+public:
+    EditSession();
+    void clear(void);
+    int load(const char *wanted);
+    int save(void);
+    int save_as(const char *next);
+    int remove_store(void);
+    void note_open(const char *path);
+    void clear_opens(void);
+    void note_active(const char *path, int line);
+    const char *name(void);
+    const char *opened(void);
+    const char *active_path(void);
+    int active_line(void);
+    int open_count(void);
+    const char *open_at(int index);
+    int store_path(char *dest, long cap);
+    void set_name(const char *next);
+
+private:
+    char nameText[SESSION_NAME];
+    char openedText[SESSION_DATE];
+    char activePath[EDITOR_PATH];
+    int placeLine;
+    int opens;
+    char openPath[SESSION_OPEN][EDITOR_PATH];
+};
+
+int session_home(char *dest, long cap);
+int session_path(
+        char *dest,
+        long cap,
+        const char *name);
+int session_catalog(
+        char names[][SESSION_NAME],
+        int *files,
+        char opened[][SESSION_DATE],
+        int cap);
+int session_exists(const char *name);
+int session_remove(const char *name);
+int session_rename(
+        const char *from,
+        const char *to);
+int session_copy(
+        const char *from,
+        const char *to);
+
+#endif

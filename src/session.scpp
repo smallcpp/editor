@@ -1,0 +1,647 @@
+#include "session.shpp"
+#include <dirent>
+
+extern int remove(const char *path);
+extern int rename(
+        const char *from,
+        const char *to);
+
+static int name_ok(const char *name) {
+    long n;
+    long i;
+
+    if (name == nullptr || name[0] == 0)
+        return 0;
+    if (text_same(name, ".") == 1)
+        return 0;
+    if (text_same(name, "..") == 1)
+        return 0;
+    n = text_length(name);
+    if (n <= 0 || n >= SESSION_NAME)
+        return 0;
+    i = 0;
+    while (i < n) {
+        int ch;
+        int ok;
+
+        ch = byte_at(name, i);
+        ok = 0;
+        if (ch >= 'a' && ch <= 'z')
+            ok = 1;
+        if (ch >= 'A' && ch <= 'Z')
+            ok = 1;
+        if (ch >= '0' && ch <= '9')
+            ok = 1;
+        if (ch == ' ' || ch == '_' || ch == '-')
+            ok = 1;
+        if (ch == '.')
+            ok = 1;
+        if (ok == 0)
+            return 0;
+        i = i + 1;
+    }
+    return 1;
+}
+
+static int ends_with(
+        const char *text,
+        const char *suffix) {
+    long n;
+    long m;
+    long i;
+
+    if (text == nullptr || suffix == nullptr)
+        return 0;
+    n = text_length(text);
+    m = text_length(suffix);
+    if (m <= 0 || n < m)
+        return 0;
+    i = 0;
+    while (i < m) {
+        if (text[n - m + i] != suffix[i])
+            return 0;
+        i = i + 1;
+    }
+    return 1;
+}
+
+static void write_digits(
+        char *dest,
+        long cap,
+        int value) {
+    char tmp[16];
+    int n;
+    int i;
+
+    if (dest == nullptr || cap < 2)
+        return;
+    if (value < 0)
+        value = 0;
+    n = 0;
+    if (value == 0) {
+        tmp[0] = '0';
+        n = 1;
+    }
+    while (value > 0 && n < 15) {
+        tmp[n] = (char)('0' + (value % 10));
+        value = value / 10;
+        n = n + 1;
+    }
+    i = 0;
+    while (i < n && i + 1 < cap) {
+        dest[i] = tmp[n - 1 - i];
+        i = i + 1;
+    }
+    dest[i] = 0;
+}
+
+static void stamp_opened(char *dest, long cap) {
+    char clock[40];
+
+    if (dest == nullptr || cap < 2)
+        return;
+    dest[0] = 0;
+    format_clock(clock, 40, (long)time(nullptr));
+    if (text_length(clock) < 10)
+        return;
+    text_copy(dest, cap, clock);
+    if (cap > 10)
+        dest[10] = 0;
+}
+
+static int read_value(
+        const char *raw,
+        long n,
+        long *at,
+        char *dest,
+        long cap) {
+    long i;
+    long k;
+
+    if (raw == nullptr || at == nullptr || dest == nullptr)
+        return 0;
+    i = *at;
+    k = 0;
+    dest[0] = 0;
+    while (i < n) {
+        int ch;
+
+        ch = byte_at(raw, i);
+        if (ch == '\n' || ch == '\r')
+            break;
+        if (k + 1 < cap) {
+            dest[k] = (char)ch;
+            k = k + 1;
+        }
+        i = i + 1;
+    }
+    dest[k] = 0;
+    if (i < n && byte_at(raw, i) == '\r')
+        i = i + 1;
+    if (i < n && byte_at(raw, i) == '\n')
+        i = i + 1;
+    *at = i;
+    return 1;
+}
+
+static int read_number(const char *text) {
+    long i;
+    int value;
+
+    if (text == nullptr)
+        return 0;
+    i = 0;
+    value = 0;
+    while (text[i] >= '0' && text[i] <= '9') {
+        value = value * 10 + (int)(text[i] - '0');
+        i = i + 1;
+    }
+    return value;
+}
+
+int session_home(char *dest, long cap) {
+    char *home;
+    char config[EDITOR_PATH];
+    char small[EDITOR_PATH];
+
+    if (dest == nullptr || cap < 2)
+        return 0;
+    dest[0] = 0;
+    home = getenv("HOME");
+    if (home == nullptr || home[0] == 0)
+        return 0;
+    path_join(config, EDITOR_PATH, home, ".config");
+    if (ensure_dir(config) == 0)
+        return 0;
+    path_join(small, EDITOR_PATH, config, "smallcpp");
+    if (ensure_dir(small) == 0)
+        return 0;
+    path_join(dest, cap, small, "sessions");
+    if (dest[0] == 0)
+        return 0;
+    if (ensure_dir(dest) == 0)
+        return 0;
+    return 1;
+}
+
+int session_path(
+        char *dest,
+        long cap,
+        const char *name) {
+    char dir[EDITOR_PATH];
+    char file[SESSION_NAME + 16];
+
+    if (dest == nullptr || name_ok(name) == 0)
+        return 0;
+    if (session_home(dir, EDITOR_PATH) == 0)
+        return 0;
+    text_copy(file, SESSION_NAME + 16, name);
+    text_copy(
+            file + text_length(name),
+            16,
+            ".session");
+    path_join(dest, cap, dir, file);
+    if (dest[0] == 0)
+        return 0;
+    return 1;
+}
+
+static void read_brief(
+        const char *path,
+        int *files,
+        char *opened,
+        long cap) {
+    char *raw;
+    long n;
+    long at;
+    const char *err;
+
+    if (files != nullptr)
+        *files = 0;
+    if (opened != nullptr && cap > 0)
+        opened[0] = 0;
+    err = "";
+    n = 0;
+    raw = read_file(path, &n, &err);
+    if (raw == nullptr)
+        return;
+    at = 0;
+    while (at < n) {
+        char line[EDITOR_PATH];
+
+        if (read_value(raw, n, &at, line, EDITOR_PATH) == 0)
+            break;
+        if (text_starts(line, "open=") == 1) {
+            if (files != nullptr)
+                *files = *files + 1;
+        }
+        if (text_starts(line, "opened=") == 1
+                && opened != nullptr)
+            text_copy(opened, cap, line + 7);
+    }
+}
+
+int session_catalog(
+        char names[][SESSION_NAME],
+        int *files,
+        char opened[][SESSION_DATE],
+        int cap) {
+    char dir[EDITOR_PATH];
+    char path[EDITOR_PATH];
+    long when[SESSION_LIST];
+    DIR *listing;
+    struct dirent *entry;
+    int count;
+    int i;
+
+    if (names == nullptr || cap <= 0)
+        return 0;
+    if (cap > SESSION_LIST)
+        cap = SESSION_LIST;
+    if (session_home(dir, EDITOR_PATH) == 0)
+        return 0;
+    listing = opendir(dir);
+    if (listing == nullptr)
+        return 0;
+    count = 0;
+    entry = readdir(listing);
+    while (entry != nullptr && count < cap) {
+        long n;
+        long m;
+
+        m = text_length(".session");
+        n = text_length(entry->d_name);
+        if (ends_with(entry->d_name, ".session") == 1
+                && n > m
+                && n - m < SESSION_NAME) {
+            long k;
+
+            k = 0;
+            while (k < n - m) {
+                names[count][k] = entry->d_name[k];
+                k = k + 1;
+            }
+            names[count][k] = 0;
+            if (name_ok(names[count]) == 1) {
+                path_join(
+                        path,
+                        EDITOR_PATH,
+                        dir,
+                        entry->d_name);
+                if (files != nullptr)
+                    files[count] = 0;
+                if (opened != nullptr)
+                    opened[count][0] = 0;
+                if (files != nullptr && opened != nullptr)
+                    read_brief(
+                            path,
+                            &files[count],
+                            opened[count],
+                            SESSION_DATE);
+                when[count] = file_mtime(path);
+                count = count + 1;
+            }
+        }
+        entry = readdir(listing);
+    }
+    closedir(listing);
+    i = 1;
+    while (i < count) {
+        char saved[SESSION_NAME];
+        char savedDate[SESSION_DATE];
+        int savedFiles;
+        long savedWhen;
+        int j;
+
+        text_copy(saved, SESSION_NAME, names[i]);
+        savedDate[0] = 0;
+        if (opened != nullptr)
+            text_copy(
+                    savedDate,
+                    SESSION_DATE,
+                    opened[i]);
+        savedFiles = 0;
+        if (files != nullptr)
+            savedFiles = files[i];
+        savedWhen = when[i];
+        j = i;
+        while (j > 0 && savedWhen > when[j - 1]) {
+            text_copy(
+                    names[j],
+                    SESSION_NAME,
+                    names[j - 1]);
+            if (opened != nullptr)
+                text_copy(
+                        opened[j],
+                        SESSION_DATE,
+                        opened[j - 1]);
+            if (files != nullptr)
+                files[j] = files[j - 1];
+            when[j] = when[j - 1];
+            j = j - 1;
+        }
+        text_copy(names[j], SESSION_NAME, saved);
+        if (opened != nullptr)
+            text_copy(
+                    opened[j],
+                    SESSION_DATE,
+                    savedDate);
+        if (files != nullptr)
+            files[j] = savedFiles;
+        when[j] = savedWhen;
+        i = i + 1;
+    }
+    return count;
+}
+
+int session_exists(const char *name) {
+    char path[EDITOR_PATH];
+
+    if (session_path(path, EDITOR_PATH, name) == 0)
+        return 0;
+    return file_exists(path);
+}
+
+int session_remove(const char *name) {
+    char path[EDITOR_PATH];
+
+    if (session_path(path, EDITOR_PATH, name) == 0)
+        return 0;
+    if (file_exists(path) == 0)
+        return 0;
+    if (remove(path) != 0)
+        return 0;
+    return 1;
+}
+
+int session_rename(
+        const char *from,
+        const char *to) {
+    char src[EDITOR_PATH];
+    char dest[EDITOR_PATH];
+    char *raw;
+    long n;
+    const char *err;
+    String *text;
+    long at;
+
+    if (name_ok(from) == 0 || name_ok(to) == 0)
+        return 0;
+    if (text_same(from, to) == 1)
+        return 1;
+    if (session_exists(to) == 1)
+        return 0;
+    if (session_path(src, EDITOR_PATH, from) == 0)
+        return 0;
+    if (session_path(dest, EDITOR_PATH, to) == 0)
+        return 0;
+    err = "";
+    n = 0;
+    raw = read_file(src, &n, &err);
+    if (raw == nullptr)
+        return 0;
+    text = new String();
+    at = 0;
+    while (at < n) {
+        char line[EDITOR_PATH];
+
+        if (read_value(raw, n, &at, line, EDITOR_PATH) == 0)
+            break;
+        if (text_starts(line, "name=") == 1) {
+            text->append("name=");
+            text->append(to);
+        }
+        else
+            text->append(line);
+        text->append("\n");
+    }
+    err = "";
+    if (write_file(dest, text->c_str(), &err) == 0)
+        return 0;
+    if (remove(src) != 0)
+        return 0;
+    return 1;
+}
+
+int session_copy(const char *from, const char *to) {
+    char src[EDITOR_PATH];
+    char dest[EDITOR_PATH];
+    char *raw;
+    long n;
+    const char *err;
+    String *text;
+    long at;
+
+    if (name_ok(from) == 0 || name_ok(to) == 0)
+        return 0;
+    if (text_same(from, to) == 1)
+        return 0;
+    if (session_exists(to) == 1)
+        return 0;
+    if (session_path(src, EDITOR_PATH, from) == 0)
+        return 0;
+    if (session_path(dest, EDITOR_PATH, to) == 0)
+        return 0;
+    err = "";
+    n = 0;
+    raw = read_file(src, &n, &err);
+    if (raw == nullptr)
+        return 0;
+    text = new String();
+    at = 0;
+    while (at < n) {
+        char line[EDITOR_PATH];
+
+        if (read_value(raw, n, &at, line, EDITOR_PATH) == 0)
+            break;
+        if (text_starts(line, "name=") == 1) {
+            text->append("name=");
+            text->append(to);
+        }
+        else
+            text->append(line);
+        text->append("\n");
+    }
+    err = "";
+    if (write_file(dest, text->c_str(), &err) == 0)
+        return 0;
+    return 1;
+}
+
+EditSession::EditSession() {
+    clear();
+}
+
+void EditSession::clear(void) {
+    nameText[0] = 0;
+    openedText[0] = 0;
+    activePath[0] = 0;
+    placeLine = 1;
+    opens = 0;
+}
+
+void EditSession::set_name(const char *next) {
+    if (name_ok(next) == 0) {
+        nameText[0] = 0;
+        return;
+    }
+    text_copy(nameText, SESSION_NAME, next);
+}
+
+const char *EditSession::name(void) {
+    return nameText;
+}
+
+const char *EditSession::opened(void) {
+    return openedText;
+}
+
+const char *EditSession::active_path(void) {
+    return activePath;
+}
+
+int EditSession::active_line(void) {
+    return placeLine;
+}
+
+int EditSession::open_count(void) {
+    return opens;
+}
+
+const char *EditSession::open_at(int index) {
+    if (index < 0 || index >= opens)
+        return "";
+    return openPath[index];
+}
+
+void EditSession::clear_opens(void) {
+    opens = 0;
+}
+
+void EditSession::note_open(const char *path) {
+    int i;
+
+    if (path == nullptr || path[0] == 0)
+        return;
+    if (opens >= SESSION_OPEN)
+        return;
+    i = 0;
+    while (i < opens) {
+        if (text_same(openPath[i], path) == 1)
+            return;
+        i = i + 1;
+    }
+    text_copy(openPath[opens], EDITOR_PATH, path);
+    opens = opens + 1;
+}
+
+void EditSession::note_active(
+        const char *path,
+        int line) {
+    if (path == nullptr)
+        path = "";
+    text_copy(activePath, EDITOR_PATH, path);
+    if (line < 1)
+        line = 1;
+    placeLine = line;
+}
+
+int EditSession::store_path(char *dest, long cap) {
+    return session_path(dest, cap, nameText);
+}
+
+int EditSession::save(void) {
+    char path[EDITOR_PATH];
+    char digits[16];
+    String *text;
+    const char *err;
+    int i;
+
+    if (name_ok(nameText) == 0)
+        return 0;
+    if (store_path(path, EDITOR_PATH) == 0)
+        return 0;
+    stamp_opened(openedText, SESSION_DATE);
+    text = new String();
+    text->append("name=");
+    text->append(nameText);
+    text->append("\nopened=");
+    text->append(openedText);
+    text->append("\nactive=");
+    text->append(activePath);
+    text->append("\nline=");
+    write_digits(digits, 16, placeLine);
+    text->append(digits);
+    text->append("\n");
+    i = 0;
+    while (i < opens) {
+        text->append("open=");
+        text->append(openPath[i]);
+        text->append("\n");
+        i = i + 1;
+    }
+    err = "";
+    if (write_file(path, text->c_str(), &err) == 0)
+        return 0;
+    return 1;
+}
+
+int EditSession::save_as(const char *next) {
+    if (name_ok(next) == 0)
+        return 0;
+    if (session_exists(next) == 1
+            && text_same(nameText, next) == 0)
+        return 0;
+    text_copy(nameText, SESSION_NAME, next);
+    return save();
+}
+
+int EditSession::remove_store(void) {
+    if (session_remove(nameText) == 0)
+        return 0;
+    clear();
+    return 1;
+}
+
+int EditSession::load(const char *wanted) {
+    char path[EDITOR_PATH];
+    char *raw;
+    long n;
+    long at;
+    const char *err;
+
+    if (name_ok(wanted) == 0)
+        return 0;
+    clear();
+    text_copy(nameText, SESSION_NAME, wanted);
+    if (store_path(path, EDITOR_PATH) == 0) {
+        clear();
+        return 0;
+    }
+    err = "";
+    n = 0;
+    raw = read_file(path, &n, &err);
+    if (raw == nullptr) {
+        clear();
+        return 0;
+    }
+    at = 0;
+    while (at < n) {
+        char line[EDITOR_PATH];
+
+        if (read_value(raw, n, &at, line, EDITOR_PATH) == 0)
+            break;
+        if (text_starts(line, "name=") == 1)
+            text_copy(nameText, SESSION_NAME, line + 5);
+        else if (text_starts(line, "opened=") == 1)
+            text_copy(openedText, SESSION_DATE, line + 7);
+        else if (text_starts(line, "active=") == 1)
+            text_copy(activePath, EDITOR_PATH, line + 7);
+        else if (text_starts(line, "line=") == 1)
+            placeLine = read_number(line + 5);
+        else if (text_starts(line, "open=") == 1)
+            note_open(line + 5);
+    }
+    stamp_opened(openedText, SESSION_DATE);
+    return save();
+}

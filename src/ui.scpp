@@ -243,110 +243,35 @@ void ui_menu(void *data, const char *label) {
     editorUi->on_menu(label);
 }
 
-void ui_project_menu(void *data, const char *label) {
+void ui_session_menu(void *data, const char *label) {
     (void)data;
-    editorUi->on_project_menu(label);
+    editorUi->on_session_menu(label);
 }
 
-void ui_project_from(void *data, const char *label) {
+void ui_session_recent(void *data, const char *label) {
     (void)data;
-    if (editorUi == nullptr || label == nullptr)
-        return;
-    if (text_same(label, "Individual files") == 1)
-        editorUi->show_from_project(
-                "files",
-                "Individual files",
-                "File");
-    else if (text_same(label, "From directory") == 1)
-        editorUi->show_from_project(
-                "directory",
-                "From directory",
-                "Directory");
-    else if (text_same(label, "Git repo") == 1)
-        editorUi->show_from_project(
-                "git",
-                "Git repo",
-                "Repository");
-    else if (text_same(label, "CMake build") == 1)
-        editorUi->show_from_project(
-                "cmake",
-                "CMake build",
-                "Directory");
+    editorUi->open_recent_session(label);
 }
 
-void ui_template_project(void *data, int response) {
+void ui_session_row(void *data, long row) {
+    (void)data;
+    editorUi->pick_session((int)row);
+}
+
+void ui_session_response(void *data, int response) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->answer_session(response);
+}
+
+void ui_session_save(void *data, int response) {
     (void)data;
     if (editorUi == nullptr)
         return;
     if (response == 1)
-        editorUi->accept_template_project();
+        editorUi->accept_session_save();
     else
-        editorUi->hide_template_project();
-}
-
-void ui_template_browse(void *data) {
-    (void)data;
-    if (editorUi != nullptr)
-        editorUi->browse_template_dir();
-}
-
-void ui_template_picked(void *data, const char *path) {
-    (void)data;
-    if (editorUi != nullptr)
-        editorUi->use_template_dir(path);
-}
-
-void ui_from_project(void *data, int response) {
-    (void)data;
-    if (editorUi == nullptr)
-        return;
-    if (response == 1)
-        editorUi->accept_from_project();
-    else
-        editorUi->hide_from_project();
-}
-
-void ui_from_add(void *data) {
-    (void)data;
-    if (editorUi != nullptr)
-        editorUi->add_from_project_file();
-}
-
-void ui_from_browse(void *data) {
-    (void)data;
-    if (editorUi != nullptr)
-        editorUi->browse_from_path();
-}
-
-void ui_from_picked(void *data, const char *path) {
-    (void)data;
-    if (editorUi != nullptr)
-        editorUi->use_from_path(path);
-}
-
-void ui_open_project_row(void *data, long row) {
-    (void)data;
-    if (editorUi == nullptr)
-        return;
-    editorUi->open_known_project((int)row);
-    editorUi->hide_open_project();
-}
-
-void ui_open_project_close(void *data, int response) {
-    (void)data;
-    (void)response;
-    if (editorUi != nullptr)
-        editorUi->hide_open_project();
-}
-
-void ui_save_as_project(void *data, int response) {
-    (void)data;
-    if (editorUi == nullptr)
-        return;
-    if (response == 1)
-        editorUi->accept_save_as_project();
-    else
-        editorUi->hide_save_as_project();
+        editorUi->hide_session_save();
 }
 
 void ui_opened(void *data, const char *path) {
@@ -476,11 +401,6 @@ static void map_mapped(void *widget, void *data) {
 void ui_panel_file(void *data, long row) {
     (void)data;
     editorUi->open_panel_file((int)row);
-}
-
-void ui_project_file_row(void *data, long row) {
-    (void)data;
-    editorUi->open_project_file((int)row);
 }
 
 void ui_panel_tab_files(void *data) {
@@ -714,7 +634,6 @@ void ui_panel_doc(void *data, long row) {
 }
 
 static int menuFilesPage = 0;
-static int menuProjectPage = 1;
 static int menuDocsPage = 3;
 static char menuShown[64];
 
@@ -776,66 +695,6 @@ void ui_remove_response(void *data, int response) {
 void ui_panel_tab_documents(void *data) {
     (void)data;
     editorUi->show_panel_page(2);
-}
-
-static const char *setup_label(int index) {
-    if (index == 0)
-        return "Create New";
-    if (index == 1)
-        return "Individual files";
-    if (index == 2)
-        return "From directory";
-    if (index == 3)
-        return "Git repo";
-    if (index == 4)
-        return "CMake build";
-    if (index == 5)
-        return "Open";
-    if (index == 6)
-        return "Close";
-    if (index == 7)
-        return "Save";
-    if (index == 8)
-        return "Save As";
-    if (index == 9)
-        return "Delete";
-    return "";
-}
-
-void ui_setup_project(void *data) {
-    const char *label;
-
-    label = (const char *)data;
-    if (editorUi == nullptr || label == nullptr)
-        return;
-    if (text_same(label, "Individual files") == 1)
-        editorUi->show_from_project(
-                "files",
-                "Individual files",
-                "File");
-    else if (text_same(label, "From directory") == 1)
-        editorUi->show_from_project(
-                "directory",
-                "From directory",
-                "Directory");
-    else if (text_same(label, "Git repo") == 1)
-        editorUi->show_from_project(
-                "git",
-                "Git repo",
-                "Repository");
-    else if (text_same(label, "CMake build") == 1)
-        editorUi->show_from_project(
-                "cmake",
-                "CMake build",
-                "Directory");
-    else
-        editorUi->on_project_menu(label);
-}
-
-void ui_project_theme(void *data) {
-    (void)data;
-    if (editorUi != nullptr)
-        editorUi->choose_project_theme();
 }
 
 void ui_tab_close(void *data) {
@@ -1058,7 +917,6 @@ Ui::Ui(Editor *editor) {
     actSave = nullptr;
     actRemove = nullptr;
     filePop = nullptr;
-    projectPop = nullptr;
     docPop = nullptr;
     menuPage = 0;
     menuRow = -1;
@@ -1178,26 +1036,32 @@ Ui::Ui(Editor *editor) {
     recoverEntry = nullptr;
     keepEntry = nullptr;
     langDrop = nullptr;
-    projectDrop = nullptr;
-    named = new EditProject();
-    openProjectDialog = nullptr;
-    openProjectList = nullptr;
-    saveAsDialog = nullptr;
-    saveAsName = nullptr;
-    templateDialog = nullptr;
-    templateDir = nullptr;
-    fromDialog = nullptr;
-    fromName = nullptr;
-    fromPath = nullptr;
-    fromPathLabel = nullptr;
-    fromAdd = nullptr;
-    fromKind[0] = 0;
-    knownUsed = 0;
-    projectStore[0] = 0;
-    projectHold = 0;
+    session = new EditSession();
+    sessionDialog = nullptr;
+    sessionView = nullptr;
+    sessionEntry = nullptr;
+    sessionSaveDialog = nullptr;
+    sessionSaveEntry = nullptr;
+    sessionUsed = 0;
+    sessionPick = 0;
+    sessionAsk = 1;
+    sessionHold = 0;
+    sessionShown = 0;
     holdName[0] = 0;
-    holdKind[0] = 0;
-    holdPath[0] = 0;
+    recentSessionCount = 0;
+    if (state != nullptr) {
+        long n;
+
+        n = 0;
+        while (n < state->count()) {
+            Document *doc;
+
+            doc = state->at(n);
+            if (doc != nullptr && doc->untitled() == 0)
+                sessionAsk = 0;
+            n = n + 1;
+        }
+    }
     langName = nullptr;
     langSuffix = nullptr;
     langNames = nullptr;
@@ -1210,8 +1074,6 @@ Ui::Ui(Editor *editor) {
     dirtyOpen = 0;
     recentCount = 10;
     recentUsed = 0;
-    projectUsed = 0;
-    choosingProject = 0;
     openCount = 0;
     activePath[0] = 0;
     wrapCheck = nullptr;
@@ -1253,14 +1115,12 @@ Ui::Ui(Editor *editor) {
     text_copy(themeName, THEME_NAME, "default");
     text_copy(editorTheme, THEME_NAME, "default");
     themeFromProject = 0;
-    projectThemeOn = 0;
     themeConfig = new EditorConfig();
     themeBase = new EditorConfig();
     config_defaults(themeConfig);
     config_defaults(themeBase);
     themeCss = nullptr;
     themePick = nullptr;
-    projectThemeDrop = nullptr;
     themeSaveEntry = nullptr;
     fontDesc[0] = 0;
     text_copy(mapFont, 128, "Monospace 3");
@@ -1308,14 +1168,10 @@ Ui::Ui(Editor *editor) {
     panelTabRight = nullptr;
     panelTabScroll = nullptr;
     fileView = nullptr;
-    projectFiles = nullptr;
     docView = nullptr;
     targetView = nullptr;
     commandView = nullptr;
     symbolView = nullptr;
-    projectLabel = nullptr;
-    cmakeLabel = nullptr;
-    projectEntry = nullptr;
     editorUi = this;
     load_settings();
 }
@@ -1329,8 +1185,7 @@ void Ui::build(void) {
     const char *editLabels[16];
     const char *searchLabels[6];
     const char *viewLabels[6];
-    const char *projectLabels[7];
-    const char *fromLabels[4];
+    const char *sessionLabels[5];
     long fileMenu;
     long editMenu;
     Box *outer;
@@ -1368,17 +1223,11 @@ void Ui::build(void) {
     viewLabels[3] = "Remember files";
     viewLabels[4] = "Left panel";
     viewLabels[5] = "Right panel";
-    projectLabels[0] = "Create New";
-    projectLabels[1] = "Create From";
-    projectLabels[2] = "Open";
-    projectLabels[3] = "Close";
-    projectLabels[4] = "Save";
-    projectLabels[5] = "Save As";
-    projectLabels[6] = "Delete";
-    fromLabels[0] = "Individual files";
-    fromLabels[1] = "From directory";
-    fromLabels[2] = "Git repo";
-    fromLabels[3] = "CMake build";
+    sessionLabels[0] = "New Session";
+    sessionLabels[1] = "Recent";
+    sessionLabels[2] = "All Sessions";
+    sessionLabels[3] = "Save Session";
+    sessionLabels[4] = "Save As";
     editLabels[0] = "Undo";
     editLabels[1] = "Redo";
     editLabels[2] = "Cut";
@@ -1419,19 +1268,14 @@ void Ui::build(void) {
             6,
             ui_menu,
             nullptr);
-    projectMenu = menuBar->add_menu(
-            "Project",
-            projectLabels,
-            7,
-            ui_project_menu,
+    sessionMenu = menuBar->add_menu(
+            "Sessions",
+            sessionLabels,
+            5,
+            ui_session_menu,
             nullptr);
-    menuBar->set_submenu(
-            projectMenu,
-            1,
-            fromLabels,
-            4,
-            ui_project_from,
-            nullptr);
+    menuBar->set_separator(sessionMenu, 3);
+    refresh_sessions();
     menuBar->set_separator(fileMenu, 3);
     menuBar->set_separator(fileMenu, 6);
     menuBar->set_separator(fileMenu, 8);
@@ -1475,10 +1319,10 @@ void Ui::build(void) {
     removeLabel = new Label("Remove this file?");
     removeDialog->set_content((Widget *)removeLabel);
     removeDialog->add_button(
-            "Remove from the project",
+            "Remove from the list",
             1);
     removeDialog->add_button(
-            "Remove from the project and the disk",
+            "Remove from the list and the disk",
             2);
     removeDialog->add_button("Cancel", 0);
     removeDialog->on_response(ui_remove_response, nullptr);
@@ -1582,13 +1426,11 @@ Widget *Ui::mount_panel(void) {
     Button *filesTab;
     Button *symbolsTab;
     ScrolledWindow *fileScroll;
-    ScrolledWindow *projectScroll;
     ScrolledWindow *symbolScroll;
     ScrolledWindow *docScroll;
     Button *documentsTab;
     Box *docs;
 
-    make_project_controls();
     panelBook = new Notebook();
     panelBook->set_scrollable(true);
     panelBook->set_v_expand(true);
@@ -1600,14 +1442,6 @@ Widget *Ui::mount_panel(void) {
     expand_column(fileView);
     fileScroll = panel_scroll((Widget *)fileView);
     panelBook->append_page((Widget *)fileScroll, "Files");
-    projectFiles = new ColumnView();
-    projectFiles->append_column("Name");
-    projectFiles->on_activate(ui_project_file_row, nullptr);
-    gtk_column_view_set_single_click_activate(
-            projectFiles->native,
-            1);
-    expand_column(projectFiles);
-    projectScroll = panel_scroll((Widget *)projectFiles);
     symbolView = new ColumnView();
     symbolView->append_column("Symbol");
     symbolView->append_column("Line");
@@ -1627,11 +1461,8 @@ Widget *Ui::mount_panel(void) {
     docs = new Box(GTK_VERTICAL, 4);
     docs->set_v_expand(true);
     docScroll->set_v_expand(true);
-    projectScroll->set_v_expand(true);
     docs->append((Widget *)new Label("Open"));
     docs->append((Widget *)docScroll);
-    docs->append((Widget *)new Label("Project"));
-    docs->append((Widget *)projectScroll);
     panelBook->append_page((Widget *)docs, "Documents");
     frame = new Box(GTK_VERTICAL, 0);
     frame->set_v_expand(true);
@@ -1682,32 +1513,6 @@ Widget *Ui::mount_panel(void) {
     return (Widget *)split;
 }
 
-void Ui::make_project_controls(void) {
-}
-
-void Ui::place_project_controls(Box *parent) {
-    int i;
-
-    if (parent == nullptr)
-        return;
-    i = 0;
-    while (i < 10) {
-        Button *button;
-
-        button = new Button(setup_label(i));
-        button->on_clicked(
-                ui_setup_project,
-                (void *)setup_label(i));
-        parent->append((Widget *)button);
-        i = i + 1;
-    }
-    projectThemeDrop = new DropDown();
-    projectThemeDrop->on_changed(ui_project_theme, nullptr);
-    parent->append((Widget *)new Label("Theme"));
-    parent->append((Widget *)projectThemeDrop);
-    fill_project_themes();
-}
-
 void Ui::fill_files(void) {
     int i;
 
@@ -1731,25 +1536,6 @@ void Ui::fill_files(void) {
         }
         cells[0] = shown;
         fileView->append_row(cells, 1);
-        i = i + 1;
-    }
-    g_idle_add((void *)ui_align_idle, nullptr);
-}
-
-void Ui::fill_project_files(void) {
-    int i;
-
-    if (projectFiles == nullptr)
-        return;
-    projectFiles->clear_rows();
-    if (named == nullptr)
-        return;
-    i = 0;
-    while (i < named->row_count()) {
-        const char *cells[1];
-
-        cells[0] = named->row_label(i);
-        projectFiles->append_row(cells, 1);
         i = i + 1;
     }
     g_idle_add((void *)ui_align_idle, nullptr);
@@ -1793,19 +1579,28 @@ int Ui::show_folder(const char *path) {
     return 1;
 }
 
-void Ui::refresh_known(void) {
-    knownUsed = project_known(knownName, PROJECT_KNOWN);
-    if (knownUsed < 0)
-        knownUsed = 0;
+void Ui::refresh_sessions(void) {
+    sessionUsed = session_catalog(
+            sessionNames,
+            sessionCounts,
+            sessionDates,
+            SESSION_LIST);
+    if (sessionUsed < 0)
+        sessionUsed = 0;
+    recentSessionCount = sessionUsed;
+    if (recentSessionCount > 8)
+        recentSessionCount = 8;
+    fill_session_rows();
+    refresh_recent_menu();
 }
 
 void Ui::capture_place(void) {
     long i;
     Document *doc;
 
-    if (named == nullptr)
+    if (session == nullptr)
         return;
-    named->clear_opens();
+    session->clear_opens();
     if (state == nullptr)
         return;
     i = 0;
@@ -1815,7 +1610,7 @@ void Ui::capture_place(void) {
                 && doc->untitled() == 0
                 && doc->path() != nullptr
                 && doc->path()[0] != 0)
-            named->note_open(doc->path());
+            session->note_open(doc->path());
         i = i + 1;
     }
     doc = state->active();
@@ -1824,11 +1619,11 @@ void Ui::capture_place(void) {
             && doc->path() != nullptr
             && doc->path()[0] != 0
             && doc->buffer() != nullptr)
-        named->note_active(
+        session->note_active(
                 doc->path(),
                 (int)doc->buffer()->cursor_line());
     else
-        named->note_active("", 1);
+        session->note_active("", 1);
 }
 
 void Ui::apply_place(void) {
@@ -1836,14 +1631,14 @@ void Ui::apply_place(void) {
     int line;
     const char *active;
 
-    if (named == nullptr || state == nullptr)
+    if (session == nullptr || state == nullptr)
         return;
     i = 0;
-    while (i < named->open_count()) {
-        open_path(named->open_at(i));
+    while (i < session->open_count()) {
+        open_path(session->open_at(i));
         i = i + 1;
     }
-    active = named->active_path();
+    active = session->active_path();
     if (active == nullptr || active[0] == 0)
         return;
     open_path(active);
@@ -1851,7 +1646,7 @@ void Ui::apply_place(void) {
         return;
     if (state->active()->buffer() == nullptr)
         return;
-    line = named->active_line();
+    line = session->active_line();
     if (line < 1)
         line = 1;
     state->active()->buffer()->move_to((long)line, (long)1);
@@ -1873,290 +1668,471 @@ int Ui::take_buffers(void) {
     return 0;
 }
 
-void Ui::reveal_project(void) {
-    if (showLeft == 0) {
-        showLeft = 1;
-        if (menuBar != nullptr)
-            menuBar->set_check(viewMenu, 4, 1);
-        apply_panels();
-    }
-    show_panel_page(2);
+void Ui::present_editor(void) {
+    refresh();
+    if (mainWindow != nullptr)
+        mainWindow->present();
+    arm_tick();
+    offer_recovery();
 }
 
-void Ui::complete_held_project(void) {
+void Ui::fill_session_rows(void) {
+    int i;
+
+    if (sessionView == nullptr)
+        return;
+    sessionView->clear_rows();
+    i = 0;
+    while (i < sessionUsed) {
+        const char *cells[3];
+
+        panel_digits(
+                sessionCountText[i],
+                8,
+                (long)sessionCounts[i]);
+        cells[0] = sessionNames[i];
+        cells[1] = sessionCountText[i];
+        cells[2] = sessionDates[i];
+        sessionView->append_row(cells, 3);
+        i = i + 1;
+    }
+    if (sessionPick < 0)
+        sessionPick = 0;
+    if (sessionUsed == 0)
+        sessionPick = 0;
+    else if (sessionPick >= sessionUsed)
+        sessionPick = 0;
+}
+
+void Ui::refresh_recent_menu(void) {
+    const char *labels[8];
+    int i;
+
+    if (menuBar == nullptr)
+        return;
+    i = 0;
+    while (i < recentSessionCount && i < 8) {
+        text_copy(
+                recentSession[i],
+                SESSION_NAME,
+                sessionNames[i]);
+        labels[i] = recentSession[i];
+        i = i + 1;
+    }
+    menuBar->set_submenu(
+            sessionMenu,
+            1,
+            labels,
+            (long)i,
+            ui_session_recent,
+            nullptr);
+}
+
+void Ui::complete_held_session(void) {
     int mode;
     int ok;
-    char name[PROJECT_NAME];
-    char kind[16];
-    char path[EDITOR_PATH];
+    char name[SESSION_NAME];
 
-    if (projectHold == 0)
+    if (sessionHold == 0)
         return;
-    mode = projectHold;
-    text_copy(name, PROJECT_NAME, holdName);
-    text_copy(kind, 16, holdKind);
-    text_copy(path, EDITOR_PATH, holdPath);
-    projectHold = 0;
+    mode = sessionHold;
+    text_copy(name, SESSION_NAME, holdName);
+    sessionHold = 0;
     ok = 0;
     if (mode == 1)
-        ok = make_project(name, kind, path);
+        ok = open_session(name);
     else if (mode == 2)
-        ok = open_named_project(name);
+        ok = new_session();
     if (ok == 1) {
-        hide_template_project();
-        hide_from_project();
+        sessionShown = 0;
+        if (sessionDialog != nullptr)
+            sessionDialog->set_visible(false);
+        sessionAsk = 0;
+        present_editor();
     }
 }
 
-int Ui::make_project(
-        const char *name,
-        const char *kind,
-        const char *path) {
+int Ui::open_session(const char *name) {
     int ready;
 
-    if (name == nullptr || kind == nullptr || path == nullptr)
+    if (session == nullptr || name == nullptr)
+        return 0;
+    if (name[0] == 0)
         return 0;
     ready = take_buffers();
     if (ready < 0) {
-        text_copy(holdName, PROJECT_NAME, name);
-        text_copy(holdKind, 16, kind);
-        text_copy(holdPath, EDITOR_PATH, path);
-        projectHold = 1;
+        text_copy(holdName, SESSION_NAME, name);
+        sessionHold = 1;
         return 0;
     }
     if (ready == 0)
         return 0;
-    if (named == nullptr)
-        named = new EditProject();
-    if (named->make(name, kind, path) == 0) {
+    if (session->load(name) == 0) {
         if (status != nullptr)
-            status->set_text("Could not create the project");
+            status->set_text("Could not open the session");
         return 0;
     }
-    fill_project_files();
-    reveal_project();
-    refresh_known();
-    apply_project_theme();
-    if (status != nullptr)
-        status->set_text("Created the project");
-    return 1;
-}
-
-int Ui::add_project_file(const char *path) {
-    if (named == nullptr)
-        return 0;
-    if (named->add_file(path) == 0)
-        return 0;
-    fill_project_files();
-    return 1;
-}
-
-int Ui::open_named_project(const char *name) {
-    int ready;
-
-    if (name == nullptr || name[0] == 0)
-        return 0;
-    ready = take_buffers();
-    if (ready < 0) {
-        text_copy(holdName, PROJECT_NAME, name);
-        holdKind[0] = 0;
-        holdPath[0] = 0;
-        projectHold = 2;
-        return 0;
-    }
-    if (ready == 0)
-        return 0;
-    if (named == nullptr)
-        named = new EditProject();
-    if (named->load(name) == 0) {
-        fill_project_files();
-        if (status != nullptr)
-            status->set_text("Could not open the project");
-        return 0;
-    }
-    fill_project_files();
-    reveal_project();
     apply_place();
-    refresh_known();
-    apply_project_theme();
+    if (state != nullptr && state->count() == 0)
+        state->new_file();
+    sessionAsk = 0;
+    refresh_sessions();
+    refresh();
     if (status != nullptr)
-        status->set_text("Opened the project");
+        status->set_text("Opened the session");
     return 1;
 }
 
-int Ui::close_named_project(void) {
-    if (named == nullptr || named->name()[0] == 0) {
-        if (status != nullptr)
-            status->set_text("No project");
+int Ui::new_session(void) {
+    int ready;
+
+    ready = take_buffers();
+    if (ready < 0) {
+        holdName[0] = 0;
+        sessionHold = 2;
+        return 0;
+    }
+    if (ready == 0)
+        return 0;
+    if (session == nullptr)
+        session = new EditSession();
+    session->clear();
+    if (state != nullptr && state->count() == 0)
+        state->new_file();
+    sessionAsk = 0;
+    refresh();
+    if (status != nullptr)
+        status->set_text("New session");
+    return 1;
+}
+
+int Ui::save_current_session(void) {
+    if (session == nullptr)
+        return 0;
+    if (session->name()[0] == 0) {
+        show_session_save();
         return 0;
     }
     capture_place();
-    if (named->save() == 0) {
+    if (session->save() == 0) {
         if (status != nullptr)
-            status->set_text("Could not close the project");
+            status->set_text("Could not save the session");
         return 0;
     }
-    restore_editor_theme();
-    named->clear();
-    fill_project_files();
+    refresh_sessions();
     if (status != nullptr)
-        status->set_text("Closed the project");
+        status->set_text("Saved the session");
     return 1;
 }
 
-int Ui::save_named_project(void) {
+int Ui::save_session_as(const char *name) {
+    if (session == nullptr || name == nullptr)
+        return 0;
+    capture_place();
+    if (session->save_as(name) == 0) {
+        if (status != nullptr)
+            status->set_text("Could not save the session");
+        return 0;
+    }
+    refresh_sessions();
+    if (status != nullptr)
+        status->set_text("Saved the session");
+    return 1;
+}
+
+int Ui::delete_session(const char *name) {
+    if (session_remove(name) == 0) {
+        if (status != nullptr)
+            status->set_text("Could not delete the session");
+        return 0;
+    }
+    if (session != nullptr
+            && text_same(session->name(), name) == 1)
+        session->set_name("");
+    refresh_sessions();
+    if (status != nullptr)
+        status->set_text("Deleted the session");
+    return 1;
+}
+
+int Ui::rename_session(
+        const char *from,
+        const char *to) {
+    if (session_rename(from, to) == 0) {
+        if (status != nullptr)
+            status->set_text("Could not rename the session");
+        return 0;
+    }
+    if (session != nullptr
+            && text_same(session->name(), from) == 1)
+        session->set_name(to);
+    refresh_sessions();
+    if (status != nullptr)
+        status->set_text("Renamed the session");
+    return 1;
+}
+
+int Ui::duplicate_session(
+        const char *from,
+        const char *to) {
+    if (session_copy(from, to) == 0) {
+        if (status != nullptr)
+            status->set_text(
+                    "Could not duplicate the session");
+        return 0;
+    }
+    refresh_sessions();
+    if (status != nullptr)
+        status->set_text("Duplicated the session");
+    return 1;
+}
+
+int Ui::session_count(void) {
+    return sessionUsed;
+}
+
+const char *Ui::session_name_at(int index) {
+    if (index < 0 || index >= sessionUsed)
+        return "";
+    return sessionNames[index];
+}
+
+int Ui::session_files_at(int index) {
+    if (index < 0 || index >= sessionUsed)
+        return 0;
+    return sessionCounts[index];
+}
+
+const char *Ui::session_opened_at(int index) {
+    if (index < 0 || index >= sessionUsed)
+        return "";
+    return sessionDates[index];
+}
+
+const char *Ui::current_session(void) {
+    if (session == nullptr)
+        return "";
+    return session->name();
+}
+
+void Ui::pick_session(int index) {
+    if (index < 0 || index >= sessionUsed)
+        return;
+    sessionPick = index;
+}
+
+int Ui::picked_session(void) {
+    return sessionPick;
+}
+
+void Ui::set_session_name_text(const char *text) {
+    if (text == nullptr)
+        text = "";
+    if (sessionEntry != nullptr)
+        sessionEntry->set_text(text);
+}
+
+const char *Ui::session_name_text(void) {
+    if (sessionEntry == nullptr)
+        return "";
+    return sessionEntry->text();
+}
+
+int Ui::session_button_count(void) {
+    return 6;
+}
+
+const char *Ui::session_button_label(int index) {
+    if (index == 0)
+        return "Open";
+    if (index == 1)
+        return "New Session";
+    if (index == 2)
+        return "Delete";
+    if (index == 3)
+        return "Close";
+    if (index == 4)
+        return "Rename";
+    if (index == 5)
+        return "Duplicate";
+    return "";
+}
+
+int Ui::recent_sessions(void) {
+    return recentSessionCount;
+}
+
+const char *Ui::recent_session(int index) {
+    if (index < 0 || index >= recentSessionCount)
+        return "";
+    return recentSession[index];
+}
+
+void Ui::show_session_save(void) {
+    Box *box;
+
+    if (sessionSaveDialog == nullptr) {
+        box = new Box(GTK_VERTICAL, 8);
+        sessionSaveEntry = new Entry("");
+        box->append((Widget *)new Label("Name"));
+        box->append((Widget *)sessionSaveEntry);
+        sessionSaveDialog = new Dialog("Save session");
+        sessionSaveDialog->set_content((Widget *)box);
+        sessionSaveDialog->add_button("Cancel", 0);
+        sessionSaveDialog->add_button("Save", 1);
+        sessionSaveDialog->on_response(
+                ui_session_save,
+                nullptr);
+        sessionSaveDialog->set_transient(mainWindow);
+        sessionSaveDialog->set_default_size(360, 140);
+    }
+    if (sessionSaveEntry != nullptr)
+        sessionSaveEntry->set_text("");
+    sessionSaveDialog->present();
+}
+
+void Ui::hide_session_save(void) {
+    if (sessionSaveDialog != nullptr)
+        sessionSaveDialog->set_visible(false);
+}
+
+void Ui::accept_session_save(void) {
+    const char *name;
+
+    name = "";
+    if (sessionSaveEntry != nullptr)
+        name = sessionSaveEntry->text();
+    if (save_session_as(name) == 1)
+        hide_session_save();
+}
+
+void Ui::show_sessions(void) {
+    Box *box;
+
+    refresh_sessions();
+    if (sessionDialog == nullptr) {
+        box = new Box(GTK_VERTICAL, 8);
+        sessionView = new ColumnView();
+        sessionView->append_column("Name");
+        sessionView->append_column("Files");
+        sessionView->append_column("Opened");
+        sessionView->on_activate(ui_session_row, nullptr);
+        gtk_column_view_set_single_click_activate(
+                sessionView->native,
+                1);
+        sessionEntry = new Entry("");
+        box->append((Widget *)sessionView);
+        box->append((Widget *)new Label("Name"));
+        box->append((Widget *)sessionEntry);
+        sessionDialog = new Dialog("Sessions");
+        sessionDialog->set_content((Widget *)box);
+        sessionDialog->add_button("Open", 1);
+        sessionDialog->add_button("New Session", 2);
+        sessionDialog->add_button("Delete", 3);
+        sessionDialog->add_button("Close", 4);
+        sessionDialog->add_button("Rename", 5);
+        sessionDialog->add_button("Duplicate", 6);
+        sessionDialog->on_response(
+                ui_session_response,
+                nullptr);
+        sessionDialog->set_transient(mainWindow);
+        sessionDialog->set_default_size(520, 360);
+        fill_session_rows();
+    }
+    sessionShown = 1;
+    sessionDialog->present();
+}
+
+int Ui::session_dialog_open(void) {
+    return sessionShown;
+}
+
+void Ui::answer_session(int response) {
+    char listed[SESSION_NAME];
+    const char *typed;
     int ok;
 
-    if (named == nullptr || named->name()[0] == 0) {
-        if (status != nullptr)
-            status->set_text("No project");
-        return 0;
+    listed[0] = 0;
+    if (sessionPick >= 0 && sessionPick < sessionUsed)
+        text_copy(
+                listed,
+                SESSION_NAME,
+                sessionNames[sessionPick]);
+    typed = "";
+    if (sessionEntry != nullptr)
+        typed = sessionEntry->text();
+    ok = 0;
+    if (response == 1)
+        ok = open_session(listed);
+    else if (response == 2)
+        ok = new_session();
+    else if (response == 3) {
+        if (listed[0] != 0)
+            delete_session(listed);
+        return;
     }
-    capture_place();
-    ok = named->save();
-    if (ok == 0) {
-        if (status != nullptr)
-            status->set_text("Could not save the project");
-        return 0;
+    else if (response == 4) {
+        if (sessionUsed == 0)
+            ok = new_session();
+        else
+            ok = open_session(sessionNames[0]);
     }
-    if (status != nullptr)
-        status->set_text("Saved the project");
-    return 1;
-}
-
-int Ui::save_named_project_as(const char *name) {
-    char kept[PROJECT_NAME];
-
-    if (named == nullptr || named->name()[0] == 0) {
-        if (status != nullptr)
-            status->set_text("No project");
-        return 0;
+    else if (response == 5) {
+        if (listed[0] != 0)
+            rename_session(listed, typed);
+        return;
     }
-    if (name == nullptr || name[0] == 0
-            || text_same(named->name(), name) == 1) {
-        if (status != nullptr)
-            status->set_text("Choose a new project name");
-        return 0;
+    else if (response == 6) {
+        if (listed[0] != 0)
+            duplicate_session(listed, typed);
+        return;
     }
-    text_copy(kept, PROJECT_NAME, named->name());
-    capture_place();
-    if (named->save() == 0) {
-        if (status != nullptr)
-            status->set_text("Could not save the project");
-        return 0;
+    if (ok == 0)
+        return;
+    sessionShown = 0;
+    sessionAsk = 0;
+    if (sessionDialog != nullptr)
+        sessionDialog->set_visible(false);
+    present_editor();
+}
+
+void Ui::on_session_menu(const char *label) {
+    int ok;
+
+    if (label == nullptr)
+        return;
+    ok = 0;
+    if (text_same(label, "New Session") == 1)
+        ok = new_session();
+    else if (text_same(label, "All Sessions") == 1) {
+        show_sessions();
+        return;
     }
-    if (named->save_as(name) == 0) {
-        if (status != nullptr)
-            status->set_text("Could not save the project");
-        return 0;
+    else if (text_same(label, "Save Session") == 1) {
+        save_current_session();
+        return;
     }
-    if (named->load(kept) == 0) {
-        if (status != nullptr)
-            status->set_text("Could not save the project");
-        return 0;
+    else if (text_same(label, "Save As") == 1) {
+        show_session_save();
+        return;
     }
-    fill_project_files();
-    refresh_known();
-    apply_project_theme();
-    if (status != nullptr)
-        status->set_text("Saved a copy of the project");
-    return 1;
+    if (ok == 0)
+        return;
+    sessionShown = 0;
+    sessionAsk = 0;
+    if (sessionDialog != nullptr)
+        sessionDialog->set_visible(false);
+    present_editor();
 }
 
-int Ui::delete_named_project(void) {
-    if (named == nullptr || named->name()[0] == 0) {
-        if (status != nullptr)
-            status->set_text("No project");
-        return 0;
-    }
-    if (named->remove_store() == 0) {
-        if (status != nullptr)
-            status->set_text("Could not delete the project");
-        return 0;
-    }
-    restore_editor_theme();
-    named->clear();
-    fill_project_files();
-    refresh_known();
-    if (status != nullptr)
-        status->set_text("Deleted the project");
-    return 1;
-}
-
-const char *Ui::project_theme(void) {
-    if (named == nullptr || named->theme_name()[0] == 0)
-        return "default";
-    return named->theme_name();
-}
-
-int Ui::set_project_theme(const char *name) {
-    if (named == nullptr || named->name()[0] == 0)
-        return 0;
-    if (name == nullptr)
-        return 0;
-    named->set_theme(name);
-    apply_project_theme();
-    if (projectThemeOn == 0
-            && theme_is_default(name) == 0
-            && text_same(name, editorTheme) == 0) {
-        named->set_theme("");
-        return 0;
-    }
-    if (named->save() == 0)
-        return 0;
-    fill_project_themes();
-    return 1;
-}
-
-const char *Ui::editor_theme(void) {
-    return editorTheme;
-}
-
-int Ui::project_setup_count(void) {
-    if (projectThemeDrop == nullptr)
-        return 0;
-    return 10;
-}
-
-const char *Ui::project_setup_label(int index) {
-    if (index < 0 || index >= 10)
-        return "";
-    return setup_label(index);
-}
-
-int Ui::known_projects(void) {
-    refresh_known();
-    return knownUsed;
-}
-
-const char *Ui::known_project(int index) {
-    if (index < 0 || index >= knownUsed)
-        return "";
-    return knownName[index];
-}
-
-int Ui::open_known_project(int index) {
-    char saved[PROJECT_NAME];
-
-    if (index < 0 || index >= knownUsed)
-        return 0;
-    text_copy(saved, PROJECT_NAME, knownName[index]);
-    return open_named_project(saved);
-}
-
-const char *Ui::project_name(void) {
-    if (named == nullptr)
-        return "";
-    return named->name();
-}
-
-const char *Ui::project_path(void) {
-    projectStore[0] = 0;
-    if (named == nullptr)
-        return "";
-    if (named->store_path(projectStore, EDITOR_PATH) == 0)
-        return "";
-    return projectStore;
+void Ui::open_recent_session(const char *name) {
+    if (open_session(name) == 0)
+        return;
+    sessionShown = 0;
+    sessionAsk = 0;
+    if (sessionDialog != nullptr)
+        sessionDialog->set_visible(false);
+    present_editor();
 }
 
 int Ui::recovery_place(char *dest, long cap) {
@@ -2280,53 +2256,6 @@ int Ui::panel_page(void) {
     return (int)panelBook->current_page();
 }
 
-int Ui::panel_project_files(void) {
-    if (named == nullptr)
-        return 0;
-    return named->row_count();
-}
-
-const char *Ui::panel_project_file(int index) {
-    if (named == nullptr)
-        return "";
-    return named->row_name(index);
-}
-
-int Ui::project_row_dir(int index) {
-    if (named == nullptr)
-        return 0;
-    return named->row_is_dir(index);
-}
-
-const char *Ui::shown_project_file(int index) {
-    if (projectFiles == nullptr)
-        return "";
-    if (index < 0 || index >= projectFiles->row_count())
-        return "";
-    return projectFiles->cell(index, 0);
-}
-
-void Ui::open_project_file(int index) {
-    if (named == nullptr)
-        return;
-    if (named->row_is_dir(index) == 1) {
-        named->toggle_row(index);
-        fill_project_files();
-        return;
-    }
-    if (named->row_path(index)[0] == 0)
-        return;
-    open_path(named->row_path(index));
-}
-
-int Ui::project_clicks(void) {
-    if (projectFiles == nullptr
-            || projectFiles->native == nullptr)
-        return 0;
-    return gtk_column_view_get_single_click_activate(
-            projectFiles->native);
-}
-
 static void align_labels(void *widget) {
     const char *name;
     void *child;
@@ -2371,9 +2300,6 @@ static int labels_left(void *widget, int *seen) {
 void Ui::align_file_names(void) {
     if (fileView != nullptr && fileView->native != nullptr)
         align_labels(fileView->native);
-    if (projectFiles != nullptr
-            && projectFiles->native != nullptr)
-        align_labels(projectFiles->native);
     if (docView != nullptr && docView->native != nullptr)
         align_labels(docView->native);
 }
@@ -2385,18 +2311,6 @@ int Ui::files_left(void) {
         return 0;
     seen = 0;
     if (labels_left(fileView->native, &seen) == 0)
-        return 0;
-    return seen;
-}
-
-int Ui::project_files_left(void) {
-    int seen;
-
-    if (projectFiles == nullptr
-            || projectFiles->native == nullptr)
-        return 0;
-    seen = 0;
-    if (labels_left(projectFiles->native, &seen) == 0)
         return 0;
     return seen;
 }
@@ -4477,10 +4391,11 @@ void Ui::refresh(void) {
 }
 
 void Ui::show_main(void) {
-    refresh();
-    mainWindow->present();
-    arm_tick();
-    offer_recovery();
+    if (sessionAsk == 1) {
+        show_sessions();
+        return;
+    }
+    present_editor();
 }
 
 void Ui::show_choice(const char *title, int mode) {
@@ -4893,9 +4808,9 @@ void Ui::finish_choice(int code) {
     }
     handle(code);
     if (code == EDITOR_CANCELLED)
-        projectHold = 0;
+        sessionHold = 0;
     else if (code == EDITOR_OK)
-        complete_held_project();
+        complete_held_session();
     if (state->quit_ready() == 1)
         leave();
 }
@@ -7440,90 +7355,10 @@ void Ui::fill_themes(void) {
     }
     if (n > 0)
         themePick->set_selected((long)sel);
-    fill_project_themes();
 }
 
-void Ui::fill_project_themes(void) {
-    char listed[THEME_LIST][THEME_NAME];
-    const char *items[THEME_LIST];
-    const char *chosen;
-    int n;
-    int i;
-    int sel;
-    int held;
-
-    if (projectThemeDrop == nullptr)
-        return;
-    n = theme_list(listed, THEME_LIST);
-    i = 0;
-    while (i < n) {
-        items[i] = listed[i];
-        i = i + 1;
-    }
-    chosen = project_theme();
-    sel = 0;
-    i = 0;
-    while (i < n) {
-        if (text_same(listed[i], chosen) == 1)
-            sel = i;
-        i = i + 1;
-    }
-    held = settingsHold;
-    settingsHold = 1;
-    projectThemeDrop->set_items(items, n);
-    if (n > 0)
-        projectThemeDrop->set_selected((long)sel);
-    settingsHold = held;
-}
-
-void Ui::choose_project_theme(void) {
-    const char *name;
-
-    if (settingsHold != 0 || projectThemeDrop == nullptr)
-        return;
-    name = projectThemeDrop->selected_string();
-    if (name == nullptr)
-        return;
-    if (named == nullptr || named->name()[0] == 0) {
-        if (status != nullptr)
-            status->set_text("No project");
-        fill_project_themes();
-        return;
-    }
-    if (text_same(name, project_theme()) == 1)
-        return;
-    set_project_theme(name);
-}
-
-void Ui::apply_project_theme(void) {
-    const char *name;
-
-    name = "";
-    if (named != nullptr)
-        name = named->theme_name();
-    if (name == nullptr || name[0] == 0
-            || text_same(name, "default") == 1
-            || text_same(name, editorTheme) == 1) {
-        restore_editor_theme();
-        return;
-    }
-    themeFromProject = 1;
-    if (theme_pick(name) == 0) {
-        themeFromProject = 0;
-        named->set_theme("");
-        restore_editor_theme();
-        return;
-    }
-    themeFromProject = 0;
-    projectThemeOn = 1;
-}
-
-void Ui::restore_editor_theme(void) {
-    if (projectThemeOn == 0)
-        return;
-    projectThemeOn = 0;
-    themeFromProject = 0;
-    theme_pick(editorTheme);
+const char *Ui::editor_theme(void) {
+    return editorTheme;
 }
 
 const char *Ui::theme_choice(void) {
@@ -8281,16 +8116,6 @@ void Ui::show_settings(void) {
         pages->append_page(
                 (Widget *)page_scroll((Widget *)box),
                 "General");
-        {
-            Box *projects;
-
-            projects = new Box(GTK_VERTICAL, 8);
-            projects->set_h_expand(true);
-            place_project_controls(projects);
-            pages->append_page(
-                    (Widget *)page_scroll((Widget *)projects),
-                    "Project");
-        }
         pages->append_page(
                 (Widget *)page_scroll((Widget *)search),
                 "Search");
@@ -8464,428 +8289,6 @@ void Ui::show_settings(void) {
     settingsHold = 0;
     push_options();
     settingsDialog->present();
-}
-
-void Ui::fill_open_projects(void) {
-    int i;
-
-    if (openProjectList == nullptr)
-        return;
-    openProjectList->clear_rows();
-    i = 0;
-    while (i < knownUsed) {
-        const char *cells[1];
-
-        cells[0] = knownName[i];
-        openProjectList->append_row(cells, 1);
-        i = i + 1;
-    }
-}
-
-void Ui::show_open_project(void) {
-    Box *box;
-
-    refresh_known();
-    if (openProjectDialog == nullptr) {
-        box = new Box(GTK_VERTICAL, 8);
-        openProjectList = new ColumnView();
-        openProjectList->append_column("Project");
-        openProjectList->on_activate(ui_open_project_row, nullptr);
-        gtk_column_view_set_single_click_activate(
-                openProjectList->native,
-                1);
-        box->append((Widget *)openProjectList);
-        openProjectDialog = new Dialog("Open project");
-        openProjectDialog->set_content((Widget *)box);
-        openProjectDialog->add_button("Close", 0);
-        openProjectDialog->on_response(
-                ui_open_project_close,
-                nullptr);
-        openProjectDialog->set_transient(mainWindow);
-        openProjectDialog->set_default_size(360, 320);
-    }
-    fill_open_projects();
-    openProjectDialog->present();
-}
-
-void Ui::hide_open_project(void) {
-    if (openProjectDialog != nullptr)
-        openProjectDialog->set_visible(false);
-}
-
-void Ui::show_save_as_project(void) {
-    Box *box;
-
-    if (named == nullptr || named->name()[0] == 0) {
-        if (status != nullptr)
-            status->set_text("No project");
-        return;
-    }
-    if (saveAsDialog == nullptr) {
-        box = new Box(GTK_VERTICAL, 8);
-        saveAsName = new Entry("");
-        box->append((Widget *)new Label("Name"));
-        box->append((Widget *)saveAsName);
-        saveAsDialog = new Dialog("Save project as");
-        saveAsDialog->set_content((Widget *)box);
-        saveAsDialog->add_button("Cancel", 0);
-        saveAsDialog->add_button("Save", 1);
-        saveAsDialog->on_response(ui_save_as_project, nullptr);
-        saveAsDialog->set_transient(mainWindow);
-        saveAsDialog->set_default_size(360, 160);
-    }
-    if (saveAsName != nullptr)
-        saveAsName->set_text("");
-    saveAsDialog->present();
-}
-
-void Ui::hide_save_as_project(void) {
-    if (saveAsDialog != nullptr)
-        saveAsDialog->set_visible(false);
-}
-
-void Ui::accept_save_as_project(void) {
-    if (saveAsName == nullptr)
-        return;
-    if (save_named_project_as(saveAsName->text()) == 1)
-        hide_save_as_project();
-}
-
-static void directory_of(char *dest, long cap, const char *path) {
-    if (dest == nullptr || cap < 2)
-        return;
-    dest[0] = 0;
-    if (path == nullptr || path[0] == 0)
-        return;
-    if (file_is_dir(path) == 1)
-        text_copy(dest, cap, path);
-    else
-        path_dir(dest, cap, path);
-}
-
-static void clear_file_choice(void *dialog) {
-    if (dialog == nullptr)
-        return;
-    gtk_file_dialog_set_accept_label(dialog, nullptr);
-    gtk_file_dialog_set_initial_name(dialog, nullptr);
-}
-
-int Ui::create_from_template(const char *dir) {
-    char dest[EDITOR_PATH];
-    char archive[EDITOR_PATH];
-    const char *base;
-
-    if (dir == nullptr || dir[0] == 0)
-        return 0;
-    if (path_in_start(dest, EDITOR_PATH, dir) == 0)
-        return 0;
-    if (file_is_reg(dest) == 1)
-        path_dir(dest, EDITOR_PATH, dest);
-    if (dest[0] == 0)
-        return 0;
-    if (template_archive(archive, EDITOR_PATH) == 0
-            || file_exists(archive) == 0) {
-        if (status != nullptr)
-            status->set_text(
-                    "The project template is not installed");
-        return 0;
-    }
-    if (file_is_dir(dest) == 0 && ensure_dir(dest) == 0) {
-        if (status != nullptr)
-            status->set_text(
-                    "Could not create the directory");
-        return 0;
-    }
-    if (unpack_template(dest) == 0) {
-        if (status != nullptr)
-            status->set_text(
-                    "Could not create the project");
-        return 0;
-    }
-    base = path_base(dest);
-    if (make_project(base, "directory", dest) == 0) {
-        if (status != nullptr)
-            status->set_text("Could not create the project");
-        return 0;
-    }
-    return 1;
-}
-
-void Ui::show_template_project(void) {
-    Box *box;
-    Button *browse;
-
-    if (templateDialog == nullptr) {
-        box = new Box(GTK_VERTICAL, 8);
-        templateDir = new Entry("");
-        browse = new Button("Browse");
-        browse->on_clicked(ui_template_browse, nullptr);
-        box->append((Widget *)new Label("Directory"));
-        box->append((Widget *)templateDir);
-        box->append((Widget *)browse);
-        templateDialog = new Dialog("Create New");
-        templateDialog->set_content((Widget *)box);
-        templateDialog->add_button("Close", 0);
-        templateDialog->add_button("Create", 1);
-        templateDialog->on_response(ui_template_project, nullptr);
-        templateDialog->set_transient(mainWindow);
-        templateDialog->set_default_size(420, 180);
-    }
-    if (templateDir != nullptr)
-        templateDir->set_text("");
-    templateDialog->present();
-}
-
-void Ui::hide_template_project(void) {
-    if (templateDialog != nullptr)
-        templateDialog->set_visible(false);
-}
-
-void Ui::accept_template_project(void) {
-    if (templateDir == nullptr)
-        return;
-    if (create_from_template(templateDir->text()) == 1)
-        hide_template_project();
-}
-
-const char *Ui::template_browse_at(void) {
-    if (startDir[0] == 0)
-        return "";
-    return startDir;
-}
-
-void Ui::prepare_template_browse(void) {
-    void *file;
-
-    if (files == nullptr || files->native == nullptr)
-        return;
-    if (startDir[0] == 0)
-        return;
-    files->set_parent(mainWindow);
-    file = g_file_new_for_path(startDir);
-    if (file == nullptr)
-        return;
-    gtk_file_dialog_set_initial_folder(files->native, file);
-    g_object_unref(file);
-    gtk_file_dialog_set_initial_name(files->native, nullptr);
-    gtk_file_dialog_set_accept_label(files->native, "Select");
-}
-
-int Ui::template_browse_aimed(void) {
-    void *file;
-    char *path;
-    int same;
-
-    prepare_template_browse();
-    if (files == nullptr || files->native == nullptr)
-        return 0;
-    if (startDir[0] == 0)
-        return 0;
-    file = gtk_file_dialog_get_initial_folder(files->native);
-    if (file == nullptr)
-        return 0;
-    /* This GTK returns the dialog's own folder, with no
-     * extra reference. Releasing it frees the folder. */
-    path = g_file_get_path(file);
-    if (path == nullptr)
-        return 0;
-    same = 0;
-    if (text_same(path, startDir) == 1)
-        same = 1;
-    g_free((void *)path);
-    return same;
-}
-
-int Ui::template_browse_named(void) {
-    const char *label;
-    const char *name;
-
-    prepare_template_browse();
-    if (files == nullptr || files->native == nullptr)
-        return 0;
-    label = gtk_file_dialog_get_accept_label(files->native);
-    if (label == nullptr
-            || text_same(label, "Select") == 0)
-        return 0;
-    name = gtk_file_dialog_get_initial_name(files->native);
-    if (name != nullptr && name[0] != 0)
-        return 0;
-    return 1;
-}
-
-const char *Ui::template_directory(void) {
-    if (templateDir == nullptr)
-        return "";
-    return templateDir->text();
-}
-
-void Ui::browse_template_dir(void) {
-    if (files == nullptr || files->pending != 0)
-        return;
-    files->set_title("Directory name");
-    prepare_template_browse();
-    /* A save dialog accepts a name that is not there yet. */
-    files->save(ui_template_picked, nullptr);
-}
-
-void Ui::use_template_dir(const char *path) {
-    char clean[EDITOR_PATH];
-    char dir[EDITOR_PATH];
-
-    if (templateDir == nullptr)
-        return;
-    if (files != nullptr)
-        clear_file_choice(files->native);
-    if (path == nullptr || path[0] == 0)
-        return;
-    if (path_normalize(clean, EDITOR_PATH, path) == 0)
-        return;
-    if (file_is_dir(clean) == 1)
-        text_copy(dir, EDITOR_PATH, clean);
-    else if (file_exists(clean) == 1)
-        path_dir(dir, EDITOR_PATH, clean);
-    else
-        text_copy(dir, EDITOR_PATH, clean);
-    if (dir[0] == 0)
-        return;
-    templateDir->set_text(dir);
-}
-
-void Ui::show_from_project(
-        const char *kind,
-        const char *title,
-        const char *pathLabel) {
-    Box *box;
-    Button *browse;
-
-    if (kind == nullptr || title == nullptr || pathLabel == nullptr)
-        return;
-    text_copy(fromKind, 16, kind);
-    if (fromDialog == nullptr) {
-        box = new Box(GTK_VERTICAL, 8);
-        fromName = new Entry("");
-        fromPathLabel = new Label(pathLabel);
-        fromPath = new Entry("");
-        browse = new Button("Browse");
-        browse->on_clicked(ui_from_browse, nullptr);
-        fromAdd = new Button("Add");
-        fromAdd->on_clicked(ui_from_add, nullptr);
-        box->append((Widget *)new Label("Name"));
-        box->append((Widget *)fromName);
-        box->append((Widget *)fromPathLabel);
-        box->append((Widget *)fromPath);
-        box->append((Widget *)browse);
-        box->append((Widget *)fromAdd);
-        fromDialog = new Dialog(title);
-        fromDialog->set_content((Widget *)box);
-        fromDialog->add_button("Close", 0);
-        fromDialog->add_button("Create", 1);
-        fromDialog->on_response(ui_from_project, nullptr);
-        fromDialog->set_transient(mainWindow);
-        fromDialog->set_default_size(420, 260);
-    }
-    fromDialog->set_title(title);
-    if (fromPathLabel != nullptr)
-        fromPathLabel->set_text(pathLabel);
-    if (fromName != nullptr)
-        fromName->set_text("");
-    if (fromPath != nullptr)
-        fromPath->set_text("");
-    if (fromAdd != nullptr) {
-        if (text_same(fromKind, "files") == 1)
-            fromAdd->set_visible(true);
-        else
-            fromAdd->set_visible(false);
-    }
-    fromDialog->present();
-}
-
-void Ui::hide_from_project(void) {
-    if (fromDialog != nullptr)
-        fromDialog->set_visible(false);
-}
-
-void Ui::accept_from_project(void) {
-    const char *name;
-    const char *path;
-
-    if (fromName == nullptr || fromPath == nullptr)
-        return;
-    name = fromName->text();
-    path = fromPath->text();
-    if (make_project(name, fromKind, path) == 1)
-        hide_from_project();
-}
-
-void Ui::add_from_project_file(void) {
-    const char *name;
-    const char *path;
-
-    if (text_same(fromKind, "files") == 0)
-        return;
-    if (fromName == nullptr || fromPath == nullptr)
-        return;
-    name = fromName->text();
-    path = fromPath->text();
-    if (named == nullptr
-            || named->name()[0] == 0
-            || text_same(named->name(), name) == 0
-            || text_same(named->kind_name(), "files") == 0) {
-        accept_from_project();
-        return;
-    }
-    add_project_file(path);
-}
-
-void Ui::browse_from_path(void) {
-    if (files == nullptr || files->pending != 0)
-        return;
-    clear_file_choice(files->native);
-    if (text_same(fromKind, "files") == 1)
-        files->set_title("File");
-    else
-        files->set_title("Directory");
-    files->open(ui_from_picked, nullptr);
-}
-
-void Ui::use_from_path(const char *path) {
-    char dir[EDITOR_PATH];
-
-    if (fromPath == nullptr || path == nullptr)
-        return;
-    if (text_same(fromKind, "files") == 1) {
-        fromPath->set_text(path);
-        return;
-    }
-    directory_of(dir, EDITOR_PATH, path);
-    fromPath->set_text(dir);
-}
-
-void Ui::on_project_menu(const char *label) {
-    if (label == nullptr)
-        return;
-    if (text_same(label, "Create New") == 1) {
-        show_template_project();
-        return;
-    }
-    if (text_same(label, "Open") == 1) {
-        show_open_project();
-        return;
-    }
-    if (text_same(label, "Close") == 1) {
-        close_named_project();
-        return;
-    }
-    if (text_same(label, "Save") == 1) {
-        save_named_project();
-        return;
-    }
-    if (text_same(label, "Save As") == 1) {
-        show_save_as_project();
-        return;
-    }
-    if (text_same(label, "Delete") == 1)
-        delete_named_project();
 }
 
 void Ui::on_menu(const char *label) {
@@ -9379,6 +8782,13 @@ void Ui::apply_view(long index) {
             showStops,
             state->tab_width());
     paint_paper(index);
+}
+
+static void clear_file_choice(void *dialog) {
+    if (dialog == nullptr)
+        return;
+    gtk_file_dialog_set_accept_label(dialog, nullptr);
+    gtk_file_dialog_set_initial_name(dialog, nullptr);
 }
 
 void Ui::arm_dialog(void) {
@@ -10150,6 +9560,11 @@ void Ui::leave(void) {
     keyClashWait = 0;
     if (keyClashDialog != nullptr)
         keyClashDialog->set_visible(false);
+    sessionShown = 0;
+    if (sessionDialog != nullptr)
+        sessionDialog->set_visible(false);
+    if (sessionSaveDialog != nullptr)
+        sessionSaveDialog->set_visible(false);
     if (dirtyDialog != nullptr) {
         dirtyOpen = 0;
         dirtyDialog->set_visible(false);
@@ -10895,16 +10310,6 @@ int Ui::row_path(
             return 0;
         return panel->file_path(row, dest, cap);
     }
-    if (page == 1) {
-        if (named == nullptr)
-            return 0;
-        if (named->row_is_dir(row) == 1)
-            return 0;
-        if (named->row_path(row)[0] == 0)
-            return 0;
-        text_copy(dest, cap, named->row_path(row));
-        return 1;
-    }
     if (page == 3) {
         if (state == nullptr || row >= state->count())
             return 0;
@@ -10938,11 +10343,6 @@ int Ui::can_make_file(void) {
         if (panel->listed()[0] == 0)
             return 0;
         if (file_is_dir(panel->listed()) == 0)
-            return 0;
-        return 1;
-    }
-    if (menuPage == 1) {
-        if (named == nullptr || named->name()[0] == 0)
             return 0;
         return 1;
     }
@@ -10982,8 +10382,6 @@ int Ui::row_at(int page, double x, double y) {
     view = nullptr;
     if (page == 0)
         view = fileView;
-    if (page == 1)
-        view = projectFiles;
     if (page == 3)
         view = docView;
     if (view == nullptr || view->native == nullptr)
@@ -11053,9 +10451,6 @@ void Ui::mount_row_menus(void) {
     filePop = hook_row_menu(
             fileView,
             (void *)&menuFilesPage);
-    projectPop = hook_row_menu(
-            projectFiles,
-            (void *)&menuProjectPage);
     docPop = hook_row_menu(
             docView,
             (void *)&menuDocsPage);
@@ -11072,8 +10467,6 @@ void Ui::show_row_menu(int page, double x, double y) {
     pop = nullptr;
     if (page == 0)
         pop = filePop;
-    if (page == 1)
-        pop = projectPop;
     if (page == 3)
         pop = docPop;
     if (pop == nullptr)
@@ -11231,12 +10624,6 @@ void Ui::apply_remove(int mode) {
         if (panel->hide_file(name) == 0)
             return;
         fill_files();
-    } else if (page == 1) {
-        if (named == nullptr)
-            return;
-        if (named->drop_path(path) == 0)
-            return;
-        fill_project_files();
     } else if (page == 3)
         close_named_path(path, 1);
     else

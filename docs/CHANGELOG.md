@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+A session is the set of files being edited. There is
+no project menu, project page, project file, project
+kind, template, or project theme. Startup with no
+files shows a dialog that lists sessions by name,
+file count, and the date last opened. Open, New
+Session, Delete, Close, Rename, and Duplicate act on
+that list. Delete removes the session record and
+leaves the files on disk. Close opens the most recent
+session. The Sessions menu has New Session, Recent,
+All Sessions, Save Session, and Save As. A session
+remembers the open files, the current file, and the
+caret line. The editor does not build, run, or debug.
+
 Keyboard shortcuts show the character when the key has
 one, so bracketright is ]. Escape, F1, and the arrows
 stay named. Each shortcut has Default, which restores
