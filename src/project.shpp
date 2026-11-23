@@ -20,7 +20,8 @@ enum {
     PROJECT_REL = 256,
     PROJECT_NAME = 64,
     PROJECT_KNOWN = 32,
-    PROJECT_EXPAND = 48
+    PROJECT_EXPAND = 48,
+    PROJECT_OMIT = 16
 };
 
 class EditProject {
@@ -32,6 +33,7 @@ public:
             const char *kind,
             const char *path);
     int add_file(const char *path);
+    int drop_path(const char *path);
     int load(const char *name);
     int save(void);
     int save_as(const char *name);
@@ -73,7 +75,13 @@ private:
     char rowKey[PROJECT_ROWS][PROJECT_REL];
     char rowPath[PROJECT_ROWS][EDITOR_PATH];
     char expandKey[PROJECT_EXPAND][PROJECT_REL];
+    int omits;
+    char omitPath[PROJECT_OMIT][EDITOR_PATH];
     int add_abs(const char *path);
+    int forget_one(const char *norm);
+    void forget_open(const char *norm);
+    void drop_omitted(void);
+    int note_omit(const char *path);
     void share_root(void);
     int collect(void);
     void walk(const char *dir, int depth);

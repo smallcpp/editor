@@ -10,6 +10,7 @@
 enum {
     PANEL_FILES = 128,
     PANEL_NAME = 256,
+    PANEL_HIDE = 16,
     PANEL_TARGETS = 32,
     PANEL_CMDS = 48,
     PANEL_CMD = 192,
@@ -26,6 +27,7 @@ public:
     const char *file_name(int index);
     int row_dir(int index);
     int file_path(int index, char *dest, long cap);
+    int hide_file(const char *name);
     int enter(int index);
     int tree_count(void);
     const char *tree_name(int index);
@@ -50,6 +52,10 @@ private:
     int files;
     int fileDir[PANEL_FILES];
     char fileName[PANEL_FILES][PANEL_NAME];
+    int hides;
+    char hideDir[PANEL_HIDE][EDITOR_PATH];
+    char hideName[PANEL_HIDE][PANEL_NAME];
+    int hidden_here(const char *name);
     int treeFiles;
     char treeName[PANEL_FILES][PANEL_NAME];
     int cmakeOn;
