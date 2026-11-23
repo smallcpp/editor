@@ -271,6 +271,21 @@ public:
     const char *project_name(void);
     const char *project_path(void);
     int project_row_dir(int index);
+    int create_from_template(const char *dir);
+    void show_template_project(void);
+    void accept_template_project(void);
+    void hide_template_project(void);
+    void browse_template_dir(void);
+    void use_template_dir(const char *path);
+    void show_from_project(
+            const char *kind,
+            const char *title,
+            const char *pathLabel);
+    void accept_from_project(void);
+    void add_from_project_file(void);
+    void hide_from_project(void);
+    void browse_from_path(void);
+    void use_from_path(const char *path);
     void show_new_project(void);
     void accept_new_project(void);
     void add_new_project_file(void);
@@ -405,6 +420,7 @@ private:
     int mapSpinHold;
     int mapSave;
     long fileMenu;
+    long projectMenu;
     long searchMenu;
     long viewMenu;
     CheckButton *wrapCheck;
@@ -483,6 +499,14 @@ private:
     ColumnView *openProjectList;
     Dialog *saveAsDialog;
     Entry *saveAsName;
+    Dialog *templateDialog;
+    Entry *templateDir;
+    Dialog *fromDialog;
+    Entry *fromName;
+    Entry *fromPath;
+    Label *fromPathLabel;
+    Button *fromAdd;
+    char fromKind[16];
     int knownUsed;
     char knownName[PROJECT_KNOWN][PROJECT_NAME];
     char projectStore[EDITOR_PATH];

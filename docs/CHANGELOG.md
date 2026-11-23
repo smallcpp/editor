@@ -2,10 +2,27 @@
 
 ## Unreleased
 
+Project, Create New asks for a directory, unpacks the
+project template there, and opens that directory as a
+project named for the directory. The editor build clones
+https://github.com/smallcpp/template, writes
+`template.tar.gz`, and deletes the clone. Installing the
+editor copies that archive to
+`$HOME/.config/smallcpp/template.tar.gz`.
+Project, Create From opens Individual files, From
+directory, Git repo, and CMake build. Individual files
+asks for a project name and the files. From directory
+asks for a project name and a directory. Git repo asks
+for a project name and the repository directory. CMake
+build asks for a project name and the directory that
+holds the CMake build. Each one creates a project of
+that kind.
+
 A project is a named list of files, and using one is
 optional. More than one project can describe the same
-directory. Project has New, Open, Close, Save, Save As,
-and Delete. Open lists the projects already saved. A
+directory. Project has New, Create New, Create From,
+Open, Close, Save, Save As, and Delete. Open lists the
+projects already saved. A
 project's files come from an explicit list, a directory,
 a git repository, or the sources named by a CMake build.
 The project panel shows those files as a collapsible

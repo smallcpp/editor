@@ -131,6 +131,36 @@ include(GNUInstallDirs)
 install(PROGRAMS "${EDITOR_PROGRAM}"
     DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
+# Pack https://github.com/smallcpp/template for Project, Create New.
+# The clone is removed after the archive is written. install copies
+# that archive into the user config directory.
+find_program(GIT_TOOL git)
+find_program(TAR_TOOL tar)
+if(NOT GIT_TOOL OR NOT TAR_TOOL)
+    message(FATAL_ERROR
+        "git and tar are required to pack the project template")
+endif()
+set(TEMPLATE_ARCHIVE "${CMAKE_BINARY_DIR}/template.tar.gz")
+set(TEMPLATE_CLONE "${CMAKE_BINARY_DIR}/template-clone")
+add_custom_command(
+    OUTPUT "${TEMPLATE_ARCHIVE}"
+    COMMAND "${CMAKE_COMMAND}" -E rm -rf "${TEMPLATE_CLONE}"
+    COMMAND "${GIT_TOOL}" clone --depth 1
+            https://github.com/smallcpp/template.git
+            "${TEMPLATE_CLONE}"
+    COMMAND "${TAR_TOOL}" --exclude=.git
+            -C "${TEMPLATE_CLONE}"
+            -czf "${TEMPLATE_ARCHIVE}" .
+    COMMAND "${CMAKE_COMMAND}" -E rm -rf "${TEMPLATE_CLONE}"
+    COMMENT "Packing the project template"
+    VERBATIM)
+add_custom_target(project-template ALL DEPENDS "${TEMPLATE_ARCHIVE}")
+add_dependencies(sedit project-template)
+if(DEFINED ENV{HOME} AND NOT "$ENV{HOME}" STREQUAL "")
+    install(FILES "${TEMPLATE_ARCHIVE}"
+        DESTINATION "$ENV{HOME}/.config/smallcpp")
+endif()
+
 add_subdirectory(tests)
 
 # CMake reserves the target name "test" (CMP0037). The built-in

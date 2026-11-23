@@ -221,6 +221,51 @@ void check_project(const char *dir, const char *io) {
     }
 }
 
+void check_template(const char *dir, const char *io) {
+    char src[EDITOR_PATH];
+    char dest[EDITOR_PATH];
+    char file[EDITOR_PATH];
+    char archive[EDITOR_PATH];
+    char config[EDITOR_PATH];
+    char small[EDITOR_PATH];
+    char got[EDITOR_PATH];
+    EditProject *project;
+    String *cmd;
+
+    path_join(src, EDITOR_PATH, dir, "packsrc");
+    expect(mkdir(src, 448) == 0, "template source");
+    path_join(file, EDITOR_PATH, src, "hello.txt");
+    expect(write_file(file, "hello\n", &io) == 1, "template hello");
+    path_join(config, EDITOR_PATH, dir, ".config");
+    if (file_is_dir(config) == 0)
+        expect(mkdir(config, 448) == 0, "config dir");
+    path_join(small, EDITOR_PATH, config, "smallcpp");
+    if (file_is_dir(small) == 0)
+        expect(mkdir(small, 448) == 0, "smallcpp dir");
+    expect(template_archive(archive, EDITOR_PATH) == 1,
+            "template path");
+    expect(text_has(
+                archive,
+                "/.config/smallcpp/template.tar.gz") == 1,
+            "template location");
+    cmd = new String();
+    cmd->append("tar -C '");
+    cmd->append(src);
+    cmd->append("' -czf '");
+    cmd->append(archive);
+    cmd->append("' .");
+    expect(system(cmd->c_str()) == 0, "pack template");
+    path_join(dest, EDITOR_PATH, dir, "fresh");
+    expect(unpack_template(dest) == 1, "unpack template");
+    path_join(got, EDITOR_PATH, dest, "hello.txt");
+    expect(file_exists(got) == 1, "unpacked hello");
+    project = new EditProject();
+    expect(project->make("fresh", "directory", dest) == 1,
+            "open unpacked");
+    expect(row_named(project, "hello.txt") >= 0,
+            "template file");
+}
+
 int main(void) {
     char pattern[64];
     char pathA[EDITOR_PATH];
@@ -1669,6 +1714,7 @@ int main(void) {
                 "cmake name");
     }
     check_project(dir, io);
+    check_template(dir, io);
     unlink(pathA);
     unlink(pathB);
     unlink(pathC);

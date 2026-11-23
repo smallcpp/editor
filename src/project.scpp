@@ -3,6 +3,7 @@
 
 extern File *popen(const char *command, const char *mode);
 extern int pclose(File *stream);
+extern int system(const char *command);
 
 static int name_ok(const char *name) {
     long n;
@@ -1207,5 +1208,56 @@ int EditProject::make(
         clear();
         return 0;
     }
+    return 1;
+}
+
+int template_archive(char *dest, long cap) {
+    char *home;
+    char config[EDITOR_PATH];
+    char small[EDITOR_PATH];
+
+    if (dest == nullptr || cap < 2)
+        return 0;
+    dest[0] = 0;
+    home = getenv("HOME");
+    if (home == nullptr || home[0] == 0)
+        return 0;
+    path_join(config, EDITOR_PATH, home, ".config");
+    path_join(small, EDITOR_PATH, config, "smallcpp");
+    path_join(dest, cap, small, "template.tar.gz");
+    if (dest[0] == 0)
+        return 0;
+    return 1;
+}
+
+int unpack_template(const char *dir) {
+    char archive[EDITOR_PATH];
+    char dest[EDITOR_PATH];
+    String *cmd;
+
+    if (dir == nullptr || dir[0] == 0)
+        return 0;
+    if (template_archive(archive, EDITOR_PATH) == 0)
+        return 0;
+    if (file_exists(archive) == 0)
+        return 0;
+    if (path_normalize(dest, EDITOR_PATH, dir) == 0)
+        return 0;
+    if (file_is_reg(dest) == 1)
+        path_dir(dest, EDITOR_PATH, dest);
+    if (dest[0] == 0)
+        return 0;
+    if (path_safe(archive) == 0 || path_safe(dest) == 0)
+        return 0;
+    if (ensure_dir(dest) == 0)
+        return 0;
+    cmd = new String();
+    cmd->append("tar -xzf '");
+    cmd->append(archive);
+    cmd->append("' -C '");
+    cmd->append(dest);
+    cmd->append("'");
+    if (system(cmd->c_str()) != 0)
+        return 0;
     return 1;
 }
