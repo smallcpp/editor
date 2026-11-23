@@ -104,5 +104,7 @@ int project_catalog(char *dest, long cap);
 int project_known(
         char dest[][PROJECT_NAME],
         int cap);
+int template_archive(char *dest, long cap);
+int unpack_template(const char *dir);
 
 #endif

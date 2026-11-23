@@ -64,8 +64,18 @@ directory. A project is optional. It is a named list
 of files, not a folder, and more than one project can
 describe the same directory. The files come from an
 explicit list, a directory, a git repository, or the
-sources named in a CMake build. Project has New, Open,
-Close, Save, Save As, and Delete. Open lists the known
+sources named in a CMake build. Project has New,
+Create New, Create From, Open, Close, Save, Save As,
+and Delete. Create New asks for a directory and unpacks
+the installed template there. That archive is
+`$HOME/.config/smallcpp/template.tar.gz`, packed from
+https://github.com/smallcpp/template when the editor is
+built. Create From has Individual files, From directory,
+Git repo, and CMake build. Individual files asks for a
+name and the files. From directory asks for a name and
+a directory. Git repo asks for a name and the repository
+directory. CMake build asks for a name and the directory
+of the CMake build. Open lists the known
 projects. Each one is stored at
 `$HOME/.config/smallcpp/projects/<name>.project`, which
 also keeps the active file, the line, and the other

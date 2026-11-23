@@ -64,10 +64,13 @@ one path. It has no folder mode. The first dialog starts in the
 process current directory, and later dialogs start in the
 directory last chosen
 during this session. The left panel cannot ask for a
-folder, because the dialog has no folder mode. A
-project path is typed. For a directory, git, or CMake
-project, a file in that directory selects the
-directory. Files lists the folder the user is browsing.
+folder, because the dialog has no folder mode. Create
+New and the directory, git, and CMake items ask for a
+directory, which is typed. Browse picks a file and uses
+that file's directory. Individual files asks for the
+files themselves. The template archive is
+`$HOME/.config/smallcpp/template.tar.gz`. Files lists
+the folder the user is browsing.
 That folder is not a project. A CMake project collects
 source names from `CMakeLists.txt`. It does not run
 CMake or list targets and commands. Symbols are

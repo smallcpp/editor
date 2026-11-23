@@ -16,6 +16,7 @@ extern void *g_list_model_get_item(
 extern const char *gtk_window_get_title(void *window);
 extern int gtk_widget_get_mapped(void *widget);
 extern void g_object_unref(void *object);
+extern int system(const char *command);
 
 int tab_mark(const char *text) {
     if (text == nullptr)
@@ -636,6 +637,61 @@ void check_select_all(Ui *ui, Editor *editor) {
     buffer->set_cursor_offset(0);
 }
 
+void check_template_open(
+        Ui *ui,
+        const char *dir,
+        const char *io) {
+    char src[EDITOR_PATH];
+    char dest[EDITOR_PATH];
+    char file[EDITOR_PATH];
+    char archive[EDITOR_PATH];
+    char config[EDITOR_PATH];
+    char small[EDITOR_PATH];
+    String *cmd;
+    int i;
+    int saw;
+
+    path_join(src, EDITOR_PATH, dir, "packsrc");
+    expect(mkdir(src, 448) == 0, "template source");
+    path_join(file, EDITOR_PATH, src, "hello.txt");
+    expect(write_file(file, "hello\n", &io) == 1,
+            "template hello");
+    path_join(config, EDITOR_PATH, dir, ".config");
+    if (file_is_dir(config) == 0)
+        expect(mkdir(config, 448) == 0, "config dir");
+    path_join(small, EDITOR_PATH, config, "smallcpp");
+    if (file_is_dir(small) == 0)
+        expect(mkdir(small, 448) == 0, "smallcpp dir");
+    expect(template_archive(archive, EDITOR_PATH) == 1,
+            "template path");
+    cmd = new String();
+    cmd->append("tar -C '");
+    cmd->append(src);
+    cmd->append("' -czf '");
+    cmd->append(archive);
+    cmd->append("' .");
+    expect(system(cmd->c_str()) == 0, "pack template");
+    path_join(dest, EDITOR_PATH, dir, "fresh");
+    expect(ui->create_from_template(dest) == 1,
+            "create new");
+    expect(text_same(ui->project_name(), "fresh") == 1,
+            "named from the directory");
+    saw = 0;
+    i = 0;
+    while (i < ui->panel_project_files()) {
+        if (text_same(
+                    ui->panel_project_file(i),
+                    "hello.txt") == 1)
+            saw = 1;
+        expect(text_has(
+                    ui->shown_project_file(i),
+                    "/") == 0,
+                "template tree name");
+        i = i + 1;
+    }
+    expect(saw == 1, "template lists hello");
+}
+
 void check_projects(
         Ui *ui,
         Editor *editor,
@@ -746,6 +802,7 @@ void check_projects(
     expect(file_exists(store) == 1, "other project remains");
     expect(text_same(ui->project_name(), "") == 1,
             "deleted project closed");
+    check_template_open(ui, dir, io);
     i = 0;
     while (i < editor->count()) {
         Document *doc;

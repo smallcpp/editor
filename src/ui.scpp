@@ -171,6 +171,82 @@ void ui_project_menu(void *data, const char *label) {
     editorUi->on_project_menu(label);
 }
 
+void ui_project_from(void *data, const char *label) {
+    (void)data;
+    if (editorUi == nullptr || label == nullptr)
+        return;
+    if (text_same(label, "Individual files") == 1)
+        editorUi->show_from_project(
+                "files",
+                "Individual files",
+                "File");
+    else if (text_same(label, "From directory") == 1)
+        editorUi->show_from_project(
+                "directory",
+                "From directory",
+                "Directory");
+    else if (text_same(label, "Git repo") == 1)
+        editorUi->show_from_project(
+                "git",
+                "Git repo",
+                "Repository");
+    else if (text_same(label, "CMake build") == 1)
+        editorUi->show_from_project(
+                "cmake",
+                "CMake build",
+                "Directory");
+}
+
+void ui_template_project(void *data, int response) {
+    (void)data;
+    if (editorUi == nullptr)
+        return;
+    if (response == 1)
+        editorUi->accept_template_project();
+    else
+        editorUi->hide_template_project();
+}
+
+void ui_template_browse(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->browse_template_dir();
+}
+
+void ui_template_picked(void *data, const char *path) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->use_template_dir(path);
+}
+
+void ui_from_project(void *data, int response) {
+    (void)data;
+    if (editorUi == nullptr)
+        return;
+    if (response == 1)
+        editorUi->accept_from_project();
+    else
+        editorUi->hide_from_project();
+}
+
+void ui_from_add(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->add_from_project_file();
+}
+
+void ui_from_browse(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->browse_from_path();
+}
+
+void ui_from_picked(void *data, const char *path) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->use_from_path(path);
+}
+
 void ui_new_project(void *data, int response) {
     (void)data;
     if (editorUi == nullptr)
@@ -854,6 +930,14 @@ Ui::Ui(Editor *editor) {
     openProjectList = nullptr;
     saveAsDialog = nullptr;
     saveAsName = nullptr;
+    templateDialog = nullptr;
+    templateDir = nullptr;
+    fromDialog = nullptr;
+    fromName = nullptr;
+    fromPath = nullptr;
+    fromPathLabel = nullptr;
+    fromAdd = nullptr;
+    fromKind[0] = 0;
     knownUsed = 0;
     projectStore[0] = 0;
     langName = nullptr;
@@ -972,7 +1056,8 @@ void Ui::build(void) {
     const char *editLabels[16];
     const char *searchLabels[6];
     const char *viewLabels[6];
-    const char *projectLabels[6];
+    const char *projectLabels[8];
+    const char *fromLabels[4];
     long fileMenu;
     long editMenu;
     Box *outer;
@@ -1011,11 +1096,17 @@ void Ui::build(void) {
     viewLabels[4] = "Left panel";
     viewLabels[5] = "Right panel";
     projectLabels[0] = "New";
-    projectLabels[1] = "Open";
-    projectLabels[2] = "Close";
-    projectLabels[3] = "Save";
-    projectLabels[4] = "Save As";
-    projectLabels[5] = "Delete";
+    projectLabels[1] = "Create New";
+    projectLabels[2] = "Create From";
+    projectLabels[3] = "Open";
+    projectLabels[4] = "Close";
+    projectLabels[5] = "Save";
+    projectLabels[6] = "Save As";
+    projectLabels[7] = "Delete";
+    fromLabels[0] = "Individual files";
+    fromLabels[1] = "From directory";
+    fromLabels[2] = "Git repo";
+    fromLabels[3] = "CMake build";
     editLabels[0] = "Undo";
     editLabels[1] = "Redo";
     editLabels[2] = "Cut";
@@ -1056,11 +1147,18 @@ void Ui::build(void) {
             6,
             ui_menu,
             nullptr);
-    menuBar->add_menu(
+    projectMenu = menuBar->add_menu(
             "Project",
             projectLabels,
-            6,
+            8,
             ui_project_menu,
+            nullptr);
+    menuBar->set_submenu(
+            projectMenu,
+            2,
+            fromLabels,
+            4,
+            ui_project_from,
             nullptr);
     menuBar->set_separator(fileMenu, 3);
     menuBar->set_separator(fileMenu, 6);
@@ -7433,9 +7531,214 @@ void Ui::accept_save_as_project(void) {
         status->set_text("Could not save the project");
 }
 
+static void directory_of(char *dest, long cap, const char *path) {
+    if (dest == nullptr || cap < 2)
+        return;
+    dest[0] = 0;
+    if (path == nullptr || path[0] == 0)
+        return;
+    if (file_is_dir(path) == 1)
+        text_copy(dest, cap, path);
+    else
+        path_dir(dest, cap, path);
+}
+
+int Ui::create_from_template(const char *dir) {
+    char dest[EDITOR_PATH];
+    const char *base;
+
+    if (dir == nullptr || dir[0] == 0)
+        return 0;
+    if (path_normalize(dest, EDITOR_PATH, dir) == 0)
+        return 0;
+    if (file_is_reg(dest) == 1)
+        path_dir(dest, EDITOR_PATH, dest);
+    if (dest[0] == 0)
+        return 0;
+    if (unpack_template(dest) == 0) {
+        if (status != nullptr)
+            status->set_text(
+                    "The project template is not installed");
+        return 0;
+    }
+    base = path_base(dest);
+    if (make_project(base, "directory", dest) == 0) {
+        if (status != nullptr)
+            status->set_text("Could not create the project");
+        return 0;
+    }
+    return 1;
+}
+
+void Ui::show_template_project(void) {
+    Box *box;
+    Button *browse;
+
+    if (templateDialog == nullptr) {
+        box = new Box(GTK_VERTICAL, 8);
+        templateDir = new Entry("");
+        browse = new Button("Browse");
+        browse->on_clicked(ui_template_browse, nullptr);
+        box->append((Widget *)new Label("Directory"));
+        box->append((Widget *)templateDir);
+        box->append((Widget *)browse);
+        templateDialog = new Dialog("Create New");
+        templateDialog->set_content((Widget *)box);
+        templateDialog->add_button("Close", 0);
+        templateDialog->add_button("Create", 1);
+        templateDialog->on_response(ui_template_project, nullptr);
+        templateDialog->set_transient(mainWindow);
+        templateDialog->set_default_size(420, 180);
+    }
+    if (templateDir != nullptr)
+        templateDir->set_text("");
+    templateDialog->present();
+}
+
+void Ui::hide_template_project(void) {
+    if (templateDialog != nullptr)
+        templateDialog->set_visible(false);
+}
+
+void Ui::accept_template_project(void) {
+    if (templateDir == nullptr)
+        return;
+    if (create_from_template(templateDir->text()) == 1)
+        hide_template_project();
+}
+
+void Ui::browse_template_dir(void) {
+    if (files == nullptr || files->pending != 0)
+        return;
+    files->set_title("Directory");
+    files->open(ui_template_picked, nullptr);
+}
+
+void Ui::use_template_dir(const char *path) {
+    char dir[EDITOR_PATH];
+
+    if (templateDir == nullptr)
+        return;
+    directory_of(dir, EDITOR_PATH, path);
+    templateDir->set_text(dir);
+}
+
+void Ui::show_from_project(
+        const char *kind,
+        const char *title,
+        const char *pathLabel) {
+    Box *box;
+    Button *browse;
+
+    if (kind == nullptr || title == nullptr || pathLabel == nullptr)
+        return;
+    text_copy(fromKind, 16, kind);
+    if (fromDialog == nullptr) {
+        box = new Box(GTK_VERTICAL, 8);
+        fromName = new Entry("");
+        fromPathLabel = new Label(pathLabel);
+        fromPath = new Entry("");
+        browse = new Button("Browse");
+        browse->on_clicked(ui_from_browse, nullptr);
+        fromAdd = new Button("Add");
+        fromAdd->on_clicked(ui_from_add, nullptr);
+        box->append((Widget *)new Label("Name"));
+        box->append((Widget *)fromName);
+        box->append((Widget *)fromPathLabel);
+        box->append((Widget *)fromPath);
+        box->append((Widget *)browse);
+        box->append((Widget *)fromAdd);
+        fromDialog = new Dialog(title);
+        fromDialog->set_content((Widget *)box);
+        fromDialog->add_button("Close", 0);
+        fromDialog->add_button("Create", 1);
+        fromDialog->on_response(ui_from_project, nullptr);
+        fromDialog->set_transient(mainWindow);
+        fromDialog->set_default_size(420, 260);
+    }
+    fromDialog->set_title(title);
+    if (fromPathLabel != nullptr)
+        fromPathLabel->set_text(pathLabel);
+    if (fromName != nullptr)
+        fromName->set_text("");
+    if (fromPath != nullptr)
+        fromPath->set_text("");
+    if (fromAdd != nullptr) {
+        if (text_same(fromKind, "files") == 1)
+            fromAdd->set_visible(true);
+        else
+            fromAdd->set_visible(false);
+    }
+    fromDialog->present();
+}
+
+void Ui::hide_from_project(void) {
+    if (fromDialog != nullptr)
+        fromDialog->set_visible(false);
+}
+
+void Ui::accept_from_project(void) {
+    const char *name;
+    const char *path;
+
+    if (fromName == nullptr || fromPath == nullptr)
+        return;
+    name = fromName->text();
+    path = fromPath->text();
+    if (make_project(name, fromKind, path) == 1)
+        hide_from_project();
+}
+
+void Ui::add_from_project_file(void) {
+    const char *name;
+    const char *path;
+
+    if (text_same(fromKind, "files") == 0)
+        return;
+    if (fromName == nullptr || fromPath == nullptr)
+        return;
+    name = fromName->text();
+    path = fromPath->text();
+    if (named == nullptr
+            || named->name()[0] == 0
+            || text_same(named->name(), name) == 0
+            || text_same(named->kind_name(), "files") == 0) {
+        accept_from_project();
+        return;
+    }
+    add_project_file(path);
+}
+
+void Ui::browse_from_path(void) {
+    if (files == nullptr || files->pending != 0)
+        return;
+    if (text_same(fromKind, "files") == 1)
+        files->set_title("File");
+    else
+        files->set_title("Directory");
+    files->open(ui_from_picked, nullptr);
+}
+
+void Ui::use_from_path(const char *path) {
+    char dir[EDITOR_PATH];
+
+    if (fromPath == nullptr || path == nullptr)
+        return;
+    if (text_same(fromKind, "files") == 1) {
+        fromPath->set_text(path);
+        return;
+    }
+    directory_of(dir, EDITOR_PATH, path);
+    fromPath->set_text(dir);
+}
+
 void Ui::on_project_menu(const char *label) {
     if (label == nullptr)
         return;
+    if (text_same(label, "Create New") == 1) {
+        show_template_project();
+        return;
+    }
     if (text_same(label, "New") == 1) {
         show_new_project();
         return;
