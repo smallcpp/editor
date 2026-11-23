@@ -35,6 +35,9 @@ extern void gtk_window_present(void *window);
 extern void gtk_widget_set_visible(void *widget, int visible);
 extern int gtk_widget_get_visible(void *widget);
 extern void gtk_widget_set_halign(void *widget, int align);
+extern void gtk_widget_set_valign(void *widget, int align);
+extern void gtk_widget_set_margin_top(void *widget, int margin);
+extern int gtk_widget_get_margin_top(void *widget);
 extern void gtk_widget_get_allocation(void *widget, int *box);
 extern void *gtk_widget_get_first_child(void *widget);
 extern void *gtk_widget_get_next_sibling(void *widget);
@@ -284,7 +287,31 @@ void ui_session_recent(void *data, const char *label) {
 
 void ui_session_row(void *data, long row) {
     (void)data;
-    editorUi->pick_session((int)row);
+    if (editorUi == nullptr)
+        return;
+    editorUi->activate_session_row(row);
+}
+
+static void session_press(void *data) {
+    const char *label;
+    int code;
+
+    if (editorUi == nullptr || data == nullptr)
+        return;
+    label = (const char *)data;
+    code = 0;
+    if (text_same(label, "New Session") == 1)
+        code = 2;
+    else if (text_same(label, "Delete") == 1)
+        code = 3;
+    else if (text_same(label, "Close") == 1)
+        code = 4;
+    else if (text_same(label, "Rename") == 1)
+        code = 5;
+    else if (text_same(label, "Duplicate") == 1)
+        code = 6;
+    if (code != 0)
+        editorUi->answer_session(code);
 }
 
 static void session_marked(
@@ -301,12 +328,6 @@ static void session_marked(
     if (pos + 1 == 0)
         return;
     editorUi->keep_session_pick((int)pos);
-}
-
-void ui_session_response(void *data, int response) {
-    (void)data;
-    if (editorUi != nullptr)
-        editorUi->answer_session(response);
 }
 
 void ui_session_save(void *data, int response) {
@@ -1094,6 +1115,11 @@ Ui::Ui(Editor *editor) {
     sessionView = nullptr;
     sessionSelect = nullptr;
     sessionEntry = nullptr;
+    sessionButton[0] = nullptr;
+    sessionButton[1] = nullptr;
+    sessionButton[2] = nullptr;
+    sessionButton[3] = nullptr;
+    sessionButton[4] = nullptr;
     sessionSaveDialog = nullptr;
     sessionSaveEntry = nullptr;
     sessionUsed = 0;
@@ -2081,23 +2107,35 @@ const char *Ui::session_name_text(void) {
 }
 
 int Ui::session_button_count(void) {
-    return 6;
+    return 5;
 }
 
 const char *Ui::session_button_label(int index) {
-    if (index == 0)
-        return "Open";
-    if (index == 1)
-        return "New Session";
-    if (index == 2)
-        return "Delete";
-    if (index == 3)
-        return "Close";
-    if (index == 4)
-        return "Rename";
-    if (index == 5)
-        return "Duplicate";
-    return "";
+    if (sessionButton[0] == nullptr)
+        return "";
+    if (index < 0 || index >= 5)
+        return "";
+    if (sessionButton[index] == nullptr)
+        return "";
+    return sessionButton[index]->label();
+}
+
+int Ui::session_button_gap(int index) {
+    if (index < 0 || index >= 5)
+        return 0;
+    if (sessionButton[index] == nullptr)
+        return 0;
+    if (sessionButton[index]->native == nullptr)
+        return 0;
+    if (gtk_widget_get_margin_top(
+                sessionButton[index]->native) >= 12)
+        return 1;
+    return 0;
+}
+
+void Ui::activate_session_row(long row) {
+    pick_session((int)row);
+    answer_session(1);
 }
 
 int Ui::recent_sessions(void) {
@@ -2149,11 +2187,30 @@ void Ui::accept_session_save(void) {
 }
 
 void Ui::show_sessions(void) {
-    Box *box;
+    Box *row;
+    Box *listCol;
+    Box *side;
+    const char *labels[5];
+    int gap[5];
+    int i;
+    void (*press)(void *);
 
     refresh_sessions();
     if (sessionDialog == nullptr) {
-        box = new Box(GTK_VERTICAL, 8);
+        labels[0] = "New Session";
+        labels[1] = "Delete";
+        labels[2] = "Close";
+        labels[3] = "Rename";
+        labels[4] = "Duplicate";
+        gap[0] = 0;
+        gap[1] = 1;
+        gap[2] = 0;
+        gap[3] = 1;
+        gap[4] = 0;
+        row = new Box(GTK_HORIZONTAL, 12);
+        listCol = new Box(GTK_VERTICAL, 8);
+        listCol->set_h_expand(true);
+        listCol->set_v_expand(true);
         sessionView = new ColumnView();
         sessionView->append_column("Name");
         sessionView->append_column("Files");
@@ -2164,23 +2221,34 @@ void Ui::show_sessions(void) {
                 1);
         arm_session_list();
         sessionView->set_v_expand(true);
+        sessionView->set_h_expand(true);
         sessionEntry = new Entry("");
-        box->append((Widget *)sessionView);
-        box->append((Widget *)new Label("Name"));
-        box->append((Widget *)sessionEntry);
+        listCol->append((Widget *)sessionView);
+        listCol->append((Widget *)new Label("Name"));
+        listCol->append((Widget *)sessionEntry);
+        side = new Box(GTK_VERTICAL, 6);
+        gtk_widget_set_valign(side->native, 1);
+        press = session_press;
+        i = 0;
+        while (i < 5) {
+            sessionButton[i] = new Button(labels[i]);
+            sessionButton[i]->set_h_expand(true);
+            if (gap[i] != 0)
+                gtk_widget_set_margin_top(
+                        sessionButton[i]->native,
+                        12);
+            sessionButton[i]->on_clicked(
+                    press,
+                    (void *)labels[i]);
+            side->append((Widget *)sessionButton[i]);
+            i = i + 1;
+        }
+        row->append((Widget *)listCol);
+        row->append((Widget *)side);
         sessionDialog = new Dialog("Sessions");
-        sessionDialog->set_content((Widget *)box);
-        sessionDialog->add_button("Open", 1);
-        sessionDialog->add_button("New Session", 2);
-        sessionDialog->add_button("Delete", 3);
-        sessionDialog->add_button("Close", 4);
-        sessionDialog->add_button("Rename", 5);
-        sessionDialog->add_button("Duplicate", 6);
-        sessionDialog->on_response(
-                ui_session_response,
-                nullptr);
+        sessionDialog->set_content((Widget *)row);
         sessionDialog->set_transient(mainWindow);
-        sessionDialog->set_default_size(520, 360);
+        sessionDialog->set_default_size(640, 380);
         {
             int (*stop)(void *, void *);
 
