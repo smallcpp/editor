@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+The mini-map width can be set from 24 to 500. The
+setup spin, the drag bar, and a saved map-width all
+use that range. A width already saved stays as it is.
+The column does not change width on its own.
+
 The mouse wheel over the mini-map scrolls the buffer.
 Each notch moves the view by one line. The caret stays
 where it was, and the highlight follows the lines now in

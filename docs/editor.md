@@ -53,7 +53,7 @@ The caret stays where it was. The mouse wheel over the
 column scrolls the buffer by one line for each notch and
 leaves the caret where it was. Dragging the bar between the
 editor and the column sets the column width. Map width in
-Settings sets that same width. The column keeps the width
+Settings sets that same width, from 24 to 500. The column keeps the width
 from the last of those and does not change it on its own.
 The column reads the buffer the editor already has.
 A panel on the left lists files, the project, symbols,

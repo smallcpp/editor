@@ -76,6 +76,38 @@ static int row_named(EditProject *project, const char *name) {
     return -1;
 }
 
+void check_map_width(void) {
+    EditorConfig item;
+    EditorConfig back;
+    char path[EDITOR_PATH];
+
+    config_defaults(&item);
+    item.mapWidth = 48;
+    expect(config_path(path, EDITOR_PATH) == 1,
+            "map width path");
+    expect(config_write(path, &item) == 1,
+            "write saved map width");
+    config_defaults(&back);
+    expect(config_read(path, &back) == 1,
+            "read saved map width");
+    expect(back.mapWidth == 48, "saved width stays");
+    item.mapWidth = 500;
+    expect(config_write(path, &item) == 1,
+            "write map width 500");
+    config_defaults(&back);
+    expect(config_read(path, &back) == 1,
+            "read map width 500");
+    expect(back.mapWidth == 500, "map width accepts 500");
+    item.mapWidth = 900;
+    expect(config_write(path, &item) == 1,
+            "write wide map");
+    config_defaults(&back);
+    expect(config_read(path, &back) == 1,
+            "read wide map");
+    expect(back.mapWidth == 500, "map width stops at 500");
+    unlink(path);
+}
+
 void check_project(const char *dir, const char *io) {
     EditProject *project;
     Document *doc;
@@ -1772,6 +1804,7 @@ int main(void) {
                 "cmake name");
     }
     check_project(dir, io);
+    check_map_width();
     check_template(dir, io);
     unlink(pathA);
     unlink(pathB);

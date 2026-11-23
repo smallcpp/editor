@@ -9,6 +9,8 @@
 #include "keys.shpp"
 
 enum {
+    MAP_WIDE_MIN = 24,
+    MAP_WIDE_MAX = 500,
     EDITOR_OPEN_MAX = 32,
     EDITOR_RECENT_MAX = 32,
     THEME_TAGS = 8,
