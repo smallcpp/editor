@@ -186,6 +186,16 @@ extern int gtk_text_view_get_line_at_y(
         int *lineTop);
 extern int gtk_text_iter_get_line(void *iter);
 extern int gtk_widget_get_mapped(void *widget);
+extern void gtk_application_add_window(
+        void *application,
+        void *window);
+extern unsigned long g_signal_connect_data(
+        void *instance,
+        const char *signal,
+        void *handler,
+        void *data,
+        void *destroy,
+        int flags);
 extern void cairo_set_source_rgba(
         void *cr,
         double red,
@@ -272,6 +282,14 @@ void ui_session_save(void *data, int response) {
         editorUi->accept_session_save();
     else
         editorUi->hide_session_save();
+}
+
+static int session_close(void *window, void *data) {
+    (void)window;
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->answer_session(4);
+    return 1;
 }
 
 void ui_opened(void *data, const char *path) {
@@ -1745,10 +1763,10 @@ void Ui::complete_held_session(void) {
         ok = new_session();
     if (ok == 1) {
         sessionShown = 0;
-        if (sessionDialog != nullptr)
-            sessionDialog->set_visible(false);
         sessionAsk = 0;
         present_editor();
+        if (sessionDialog != nullptr)
+            sessionDialog->set_visible(false);
     }
 }
 
@@ -2037,6 +2055,18 @@ void Ui::show_sessions(void) {
                 nullptr);
         sessionDialog->set_transient(mainWindow);
         sessionDialog->set_default_size(520, 360);
+        {
+            int (*stop)(void *, void *);
+
+            stop = session_close;
+            g_signal_connect_data(
+                    sessionDialog->native,
+                    "close-request",
+                    (void *)stop,
+                    nullptr,
+                    nullptr,
+                    0);
+        }
         fill_session_rows();
     }
     sessionShown = 1;
@@ -2091,9 +2121,9 @@ void Ui::answer_session(int response) {
         return;
     sessionShown = 0;
     sessionAsk = 0;
+    present_editor();
     if (sessionDialog != nullptr)
         sessionDialog->set_visible(false);
-    present_editor();
 }
 
 void Ui::on_session_menu(const char *label) {
@@ -2120,9 +2150,9 @@ void Ui::on_session_menu(const char *label) {
         return;
     sessionShown = 0;
     sessionAsk = 0;
+    present_editor();
     if (sessionDialog != nullptr)
         sessionDialog->set_visible(false);
-    present_editor();
 }
 
 void Ui::open_recent_session(const char *name) {
@@ -2130,9 +2160,9 @@ void Ui::open_recent_session(const char *name) {
         return;
     sessionShown = 0;
     sessionAsk = 0;
+    present_editor();
     if (sessionDialog != nullptr)
         sessionDialog->set_visible(false);
-    present_editor();
 }
 
 int Ui::recovery_place(char *dest, long cap) {
@@ -4392,6 +4422,17 @@ void Ui::refresh(void) {
 
 void Ui::show_main(void) {
     if (sessionAsk == 1) {
+        if (app != nullptr
+                && app->native != nullptr
+                && mainWindow != nullptr
+                && mainWindow->native != nullptr) {
+            gtk_application_add_window(
+                    app->native,
+                    mainWindow->native);
+            gtk_widget_set_visible(
+                    mainWindow->native,
+                    0);
+        }
         show_sessions();
         return;
     }
