@@ -9,6 +9,18 @@ not fit still fills the column. The column width, dragging
 the highlight to scroll, and the current-line mark stay
 as they are.
 
+The open files that were on the Documents menu are a
+Documents tab on the left panel. The menu item is gone.
+The tab lists those files by the same names, lined up
+on the left, and one click switches to that file. The
+tab row still scrolls with the same buttons. Files,
+Project, and Symbols stay as they are.
+Project no longer has New. That item created an empty
+project from a name and a source. Create New and Create
+From remain. Create New still asks for a directory,
+including one typed in Browse that does not exist yet,
+and unpacks the template there.
+
 Project, Create New, Browse opens in the directory where
 the editor was started. That directory is kept for the
 whole session. The user types a directory name there,
@@ -46,7 +58,7 @@ that kind.
 
 A project is a named list of files, and using one is
 optional. More than one project can describe the same
-directory. Project has New, Create New, Create From,
+directory. Project has Create New, Create From,
 Open, Close, Save, Save As, and Delete. Open lists the
 projects already saved. A
 project's files come from an explicit list, a directory,
@@ -131,12 +143,12 @@ A narrow column on the right of the current buffer
 shows the shape of the file and a band for the lines
 in view. A click in that column scrolls the buffer.
 The column reads the buffer the editor already has.
-A panel on the left lists files, the project, and
-symbols. The panel does not keep its own buffer. Opening a
-file uses the same path as File, Open. A symbol
-moves the cursor in the current buffer.
+A panel on the left lists files, the project, symbols,
+and the open documents. The panel does not keep its own
+buffer. Opening a file uses the same path as File, Open.
+A symbol moves the cursor in the current buffer.
 The top of the window is a menu bar. File, Edit, Search, View,
-Project, and Documents are submenus. File has New, Open, Save, Save As,
+and Project are submenus. File has New, Open, Save, Save As,
 Save All, Close, and Quit. Edit has Undo, Redo, Cut, Copy,
 Paste, Indent, Unindent, Comment, Add caret, Clear
 carets, Record, Stop, Play, and Settings. Search has
@@ -145,8 +157,8 @@ Reverse, Whole word, Match case, and Wrap. The last four are
 check items. A selection that covers more than one line
 limits the search to those lines. Wrap is on unless it is
 turned off. View has Whitespace, Line ends, and Indent
-stops. Those three draw in the text. Documents
-lists the open files. Menus place a separator between
+stops. Those three draw in the text. The Documents
+tab lists the open files. Menus place a separator between
 groups: File separates new and open, the saves, the closes,
 and Quit. Edit separates undo, the clipboard, and indent.
 Search separates the commands from the options. Edit
@@ -241,8 +253,8 @@ an untitled save asks for a path. Neither step presents a file
 dialog.
 
 Opening a file updates the tab title, including when that open
-replaces the untitled buffer. Documents lists the loaded files
-and switches to the chosen one. Tabs have a border and, by
+replaces the untitled buffer. The Documents tab lists
+the loaded files and switches to the chosen one. Tabs have a border and, by
 default, a close button. Settings can hide that button.
 
 Line numbers sit in the left gutter, one per buffer line, and they

@@ -873,6 +873,11 @@ void check_projects(
     }
     expect(sawStray == 0, "open closes the previous buffer");
     expect(ui->panel_page() == 1, "open shows the project");
+    expect(text_same(ui->project_name(), "job") == 1,
+            "job stays open");
+    ui->on_project_menu("New");
+    expect(text_same(ui->project_name(), "job") == 1,
+            "new does not replace the project");
     expect(text_same(editor->active()->path(), note) == 1,
             "restored file");
     expect(editor->active()->buffer()->cursor_line() == 3,
@@ -987,6 +992,21 @@ int main(void) {
                     ui->tab_text(editor->index()),
                     "how_dy.scpp") == 1,
                 "underscore in the name");
+        {
+            int i;
+            int saw;
+
+            saw = 0;
+            i = 0;
+            while (i < ui->panel_documents()) {
+                if (text_same(
+                            ui->shown_document(i),
+                            "how_dy.scpp") == 1)
+                    saw = 1;
+                i = i + 1;
+            }
+            expect(saw == 1, "documents keeps the underscore");
+        }
         expect(text_same(
                     ui->page_text(editor->index()),
                     "howdy\n") == 1,
@@ -1672,12 +1692,42 @@ int main(void) {
         expect(text_has(ui->tab_text(0), "b.scpp") == 1,
                 "open retitles");
         ui->on_menu("New");
-        ui->select_named("b.scpp");
-        expect(text_same(
-                    ui->page_text(editor->index()),
-                    "two\n") == 1,
-                "documents menu");
-        ui->select_named("untitled.scpp");
+        ui->show_panel_page(3);
+        pump(20);
+        ui->align_file_names();
+        expect(ui->panel_page() == 3, "documents page");
+        expect(ui->document_clicks() == 1,
+                "documents single click");
+        expect(ui->documents_left() == 1,
+                "documents align left");
+        {
+            int i;
+            int sawB;
+            int sawNew;
+
+            sawB = -1;
+            sawNew = -1;
+            i = 0;
+            while (i < ui->panel_documents()) {
+                if (text_same(
+                            ui->shown_document(i),
+                            "b.scpp") == 1)
+                    sawB = i;
+                if (text_has(
+                            ui->shown_document(i),
+                            "untitled") == 1)
+                    sawNew = i;
+                i = i + 1;
+            }
+            expect(sawB >= 0, "documents lists b");
+            expect(sawNew >= 0, "documents lists untitled");
+            ui->open_document(sawB);
+            expect(text_same(
+                        ui->page_text(editor->index()),
+                        "two\n") == 1,
+                    "documents tab");
+            ui->open_document(sawNew);
+        }
         expect(editor->run("save") == EDITOR_NEEDS_PATH,
                 "untitled save");
         expect(mapped_save_dialog() == 0,
