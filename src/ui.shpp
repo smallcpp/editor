@@ -260,8 +260,14 @@ public:
             int direction,
             int unit,
             double down);
+    void scroll_view_held(
+            long index,
+            int direction,
+            int unit,
+            double down);
     void buffer_wheel(long index, void *event);
     void wheel_lines(long index, int steps);
+    void wheel_view(long index, int steps);
     void show_first(long line);
     long shown_first(void);
     long shown_count(void);
@@ -403,6 +409,7 @@ private:
     int marginCols;
     int wheelMargin;
     double wheelRemain;
+    double viewRemain;
     int hasLastDir;
     int leaving;
     char lineColor[32];

@@ -50,8 +50,13 @@ scroll moves the caret by the same number of lines.
 The view stays put while the caret remains at least
 that many lines from both edges. At the start or end
 of the file the view stops, and the caret may sit
-closer than the margin. The mini-map wheel still
-scrolls the view and leaves the caret where it was.
+closer than the margin. Ctrl and the wheel scroll the
+view and leave the caret where it was. That scroll
+stops when the caret would come inside the caret
+margin. A notch still moves one line, and a smooth
+scroll uses the same line accumulation. The mini-map
+wheel still scrolls the view, leaves the caret where
+it was, and ignores Control.
 In that column, each line is drawn in the
 mini-map font, far enough across that the text
 keeps its shape. A file short enough to fit is drawn at
@@ -254,8 +259,9 @@ file name.
 Each field has its label on the same line, and the field
 is 12 characters wide. Caret margin is on General with
 the current-line choices. It starts at 10. The mouse
-wheel uses that saved value, and a change applies
-without restarting. General also holds how many recent
+wheel uses that saved value, including Ctrl and the
+wheel, and a change applies without restarting.
+General also holds how many recent
 files to keep. The count starts at 10. It can save a named
 file when its tab loses focus, and when the window loses
 focus. Both are off until they are turned on. An untitled
