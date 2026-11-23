@@ -2,9 +2,8 @@
 #define EDITOR_UI
 
 /* GTK window for the text editor. Headless tests do
- * not include this file. The menu bar is the first
- * child of the window because the wrapper has no
- * title-bar setter.
+ * not include this file. The window title is the
+ * current session name, or <No Session>.
  */
 #include "editor.shpp"
 #include "minimap.shpp"
@@ -294,6 +293,8 @@ public:
     int session_files_at(int index);
     const char *session_opened_at(int index);
     const char *current_session(void);
+    const char *window_title(void);
+    void show_session_title(void);
     void show_sessions(void);
     int session_dialog_open(void);
     void answer_session(int response);

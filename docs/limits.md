@@ -95,7 +95,8 @@ lists every modified file. The window shows at most
 
 `TextView::set_font` sets the family and the size from the font
 chooser. Wrapping stays off. The menu bar is the first child
-of the window because the wrapper has no title-bar setter.
+of the window. The window title is the session name, or
+`<No Session>` when none is open.
 Settings are stored in `$HOME/.config/smallcpp/editor.ini`,
 beside the compiler's `config.ini`. A control writes that
 file when it changes, including one `key-` accelerator for

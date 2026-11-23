@@ -87,6 +87,10 @@ leaves the file alone. A Files name stays hidden for
 that folder until the editor quits.
 A session is the set of files being edited. It is not
 a project. It has no folder, kind, theme, or tree.
+The window title is the current session name. When no
+session is open, the title is `<No Session>`. Opening,
+creating, renaming, saving, saving as, or closing a
+session updates that title.
 Starting the editor with no files shows a dialog
 before the window. The dialog lists each session by
 name, the number of files, and the date it was last
