@@ -642,6 +642,8 @@ void check_select_all(Ui *ui, Editor *editor) {
     buffer->set_cursor_offset(0);
 }
 
+void check_new_directory(Ui *ui, const char *dir);
+
 void check_template_open(
         Ui *ui,
         const char *dir,
@@ -695,6 +697,45 @@ void check_template_open(
         i = i + 1;
     }
     expect(saw == 1, "template lists hello");
+    check_new_directory(ui, dir);
+}
+
+void check_new_directory(Ui *ui, const char *dir) {
+    char file[EDITOR_PATH];
+    char missing[EDITOR_PATH];
+    char got[EDITOR_PATH];
+    char kept[EDITOR_PATH];
+
+    ui->show_template_project();
+    path_join(file, EDITOR_PATH, dir, "a.scpp");
+    ui->use_template_dir(file);
+    expect(text_same(ui->template_directory(), dir) == 1,
+            "file still names its directory");
+    ui->use_template_dir(dir);
+    expect(text_same(ui->template_directory(), dir) == 1,
+            "existing directory stays");
+    path_join(missing, EDITOR_PATH, dir, "brand-new");
+    expect(file_is_dir(missing) == 0,
+            "name is not a directory");
+    ui->use_template_dir(missing);
+    expect(text_same(
+                ui->template_directory(),
+                missing) == 1,
+            "new name is kept");
+    text_copy(kept, EDITOR_PATH, ui->template_directory());
+    ui->use_template_dir(nullptr);
+    expect(text_same(ui->template_directory(), kept) == 1,
+            "cancel keeps the name");
+    expect(ui->create_from_template(kept) == 1,
+            "create the new directory");
+    expect(file_is_dir(missing) == 1,
+            "directory was created");
+    path_join(got, EDITOR_PATH, missing, "hello.txt");
+    expect(file_exists(got) == 1,
+            "template unpacked into it");
+    expect(text_same(ui->project_name(), "brand-new") == 1,
+            "project uses the new name");
+    ui->hide_template_project();
 }
 
 void check_template_browse(Ui *ui, const char *away) {
@@ -715,6 +756,8 @@ void check_template_browse(Ui *ui, const char *away) {
             "browse stays on the start directory");
     expect(text_same(ui->template_browse_at(), began) == 1,
             "browse directory did not move");
+    expect(ui->template_browse_named() == 1,
+            "browse accepts a typed name");
     expect(chdir(back) == 0, "return to the start directory");
 }
 

@@ -6,6 +6,16 @@ extern void *gtk_file_dialog_get_initial_folder(void *dialog);
 extern void gtk_file_dialog_set_initial_folder(
         void *dialog,
         void *folder);
+extern void gtk_file_dialog_set_initial_name(
+        void *dialog,
+        const char *name);
+extern const char *gtk_file_dialog_get_initial_name(
+        void *dialog);
+extern void gtk_file_dialog_set_accept_label(
+        void *dialog,
+        const char *label);
+extern const char *gtk_file_dialog_get_accept_label(
+        void *dialog);
 extern void g_free(void *memory);
 extern void g_object_unref(void *object);
 extern void *g_object_ref_sink(void *object);
@@ -7641,8 +7651,16 @@ static void directory_of(char *dest, long cap, const char *path) {
         path_dir(dest, cap, path);
 }
 
+static void clear_file_choice(void *dialog) {
+    if (dialog == nullptr)
+        return;
+    gtk_file_dialog_set_accept_label(dialog, nullptr);
+    gtk_file_dialog_set_initial_name(dialog, nullptr);
+}
+
 int Ui::create_from_template(const char *dir) {
     char dest[EDITOR_PATH];
+    char archive[EDITOR_PATH];
     const char *base;
 
     if (dir == nullptr || dir[0] == 0)
@@ -7653,10 +7671,23 @@ int Ui::create_from_template(const char *dir) {
         path_dir(dest, EDITOR_PATH, dest);
     if (dest[0] == 0)
         return 0;
-    if (unpack_template(dest) == 0) {
+    if (template_archive(archive, EDITOR_PATH) == 0
+            || file_exists(archive) == 0) {
         if (status != nullptr)
             status->set_text(
                     "The project template is not installed");
+        return 0;
+    }
+    if (file_is_dir(dest) == 0 && ensure_dir(dest) == 0) {
+        if (status != nullptr)
+            status->set_text(
+                    "Could not create the directory");
+        return 0;
+    }
+    if (unpack_template(dest) == 0) {
+        if (status != nullptr)
+            status->set_text(
+                    "Could not create the project");
         return 0;
     }
     base = path_base(dest);
@@ -7724,6 +7755,8 @@ void Ui::prepare_template_browse(void) {
         return;
     gtk_file_dialog_set_initial_folder(files->native, file);
     g_object_unref(file);
+    gtk_file_dialog_set_initial_name(files->native, nullptr);
+    gtk_file_dialog_set_accept_label(files->native, "Select");
 }
 
 int Ui::template_browse_aimed(void) {
@@ -7750,20 +7783,58 @@ int Ui::template_browse_aimed(void) {
     return same;
 }
 
+int Ui::template_browse_named(void) {
+    const char *label;
+    const char *name;
+
+    prepare_template_browse();
+    if (files == nullptr || files->native == nullptr)
+        return 0;
+    label = gtk_file_dialog_get_accept_label(files->native);
+    if (label == nullptr
+            || text_same(label, "Select") == 0)
+        return 0;
+    name = gtk_file_dialog_get_initial_name(files->native);
+    if (name != nullptr && name[0] != 0)
+        return 0;
+    return 1;
+}
+
+const char *Ui::template_directory(void) {
+    if (templateDir == nullptr)
+        return "";
+    return templateDir->text();
+}
+
 void Ui::browse_template_dir(void) {
     if (files == nullptr || files->pending != 0)
         return;
-    files->set_title("Directory");
+    files->set_title("Directory name");
     prepare_template_browse();
-    files->open(ui_template_picked, nullptr);
+    /* A save dialog accepts a name that is not there yet. */
+    files->save(ui_template_picked, nullptr);
 }
 
 void Ui::use_template_dir(const char *path) {
+    char clean[EDITOR_PATH];
     char dir[EDITOR_PATH];
 
     if (templateDir == nullptr)
         return;
-    directory_of(dir, EDITOR_PATH, path);
+    if (files != nullptr)
+        clear_file_choice(files->native);
+    if (path == nullptr || path[0] == 0)
+        return;
+    if (path_normalize(clean, EDITOR_PATH, path) == 0)
+        return;
+    if (file_is_dir(clean) == 1)
+        text_copy(dir, EDITOR_PATH, clean);
+    else if (file_exists(clean) == 1)
+        path_dir(dir, EDITOR_PATH, clean);
+    else
+        text_copy(dir, EDITOR_PATH, clean);
+    if (dir[0] == 0)
+        return;
     templateDir->set_text(dir);
 }
 
@@ -7856,6 +7927,7 @@ void Ui::add_from_project_file(void) {
 void Ui::browse_from_path(void) {
     if (files == nullptr || files->pending != 0)
         return;
+    clear_file_choice(files->native);
     if (text_same(fromKind, "files") == 1)
         files->set_title("File");
     else
@@ -8354,6 +8426,7 @@ void Ui::arm_dialog(void) {
 
     if (files == nullptr || files->native == nullptr)
         return;
+    clear_file_choice(files->native);
     files->set_parent(mainWindow);
     remembered = nullptr;
     if (hasLastDir == 1)

@@ -279,6 +279,8 @@ public:
     void prepare_template_browse(void);
     const char *template_browse_at(void);
     int template_browse_aimed(void);
+    int template_browse_named(void);
+    const char *template_directory(void);
     void use_template_dir(const char *path);
     void show_from_project(
             const char *kind,

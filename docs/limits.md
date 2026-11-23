@@ -68,8 +68,12 @@ folder, because the dialog has no folder mode. Create
 New and the directory, git, and CMake items ask for a
 directory, which is typed. Create New, Browse opens in
 the directory where the editor was started, not the
-folder last chosen by another dialog. Browse picks a
-file and uses that file's directory. The project stores
+folder last chosen by another dialog. The user types a
+directory name, including one that does not exist yet,
+or chooses an existing directory. A chosen file still
+names that file's directory. Create New creates a
+missing directory and unpacks the template into it. An
+existing directory is used as before. The project stores
 that directory as an absolute path, so a later session
 started somewhere else still uses it. Individual files
 asks for the
