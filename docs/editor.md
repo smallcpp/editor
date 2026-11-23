@@ -41,8 +41,12 @@ A narrow column on the right of the current buffer shows
 the shape of the file, a band for the visible lines, and
 a mark on the current line. A click in the buffer moves
 the caret and that mark together, without waiting for a
-scroll. Each line is drawn in the
-mini-map font, far enough across the column that the text
+scroll. The mouse wheel over the buffer scrolls the
+text and leaves the caret where it was. A notch moves
+one line, down toward later lines and up toward
+earlier lines. A smooth scroll moves by its pixel
+delta. In that column, each line is drawn in the
+mini-map font, far enough across that the text
 keeps its shape. A file short enough to fit is drawn at
 that font's line spacing, packed from the top, so it looks
 like the top of a longer file. A longer file still fills

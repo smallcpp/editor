@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+The mouse wheel over the text buffer scrolls the text.
+A notch moves one line, down toward later lines and up
+toward earlier lines. A smooth scroll moves by its
+pixel delta. The caret stays where it was. The
+mini-map wheel, drag, and current-line mark stay as
+they are.
+
 The Sessions dialog has no name field. Rename and
 Duplicate each ask for the name in a small prompt.
 Open is back at the top of the button column. A click

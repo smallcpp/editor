@@ -255,6 +255,11 @@ public:
     void map_button(long page, long y, int down);
     void map_drag(long page, long y);
     void scroll_map_wheel(long index, int steps);
+    void scroll_view_delta(
+            long index,
+            int direction,
+            int unit,
+            double down);
     void map_wheel(long index, void *event);
     void set_map_font(const char *description);
     const char *map_font(void);
