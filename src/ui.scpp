@@ -411,6 +411,10 @@ static int map_event(
     }
     if (kind == 2) {
         button = gdk_button_event_get_button(event);
+        if (button == 3) {
+            ui->show_map_font_dialog();
+            return 1;
+        }
         if (button != 1)
             return 0;
         ui->map_button(column->page, (long)y, 1);
@@ -833,6 +837,24 @@ void ui_font(void *data, const char *description) {
     editorUi->finish_font(description);
 }
 
+void ui_map_font_dialog(void *data, int response) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->answer_map_font(response);
+}
+
+void ui_map_font_pick(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->edit_map_font();
+}
+
+void ui_map_font_size(void *data) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->note_map_font_size();
+}
+
 void ui_color(void *data, const char *color) {
     (void)data;
     editorUi->take_color(color);
@@ -1067,6 +1089,12 @@ Ui::Ui(Editor *editor) {
         i = i + 1;
     }
     mapFontButton = nullptr;
+    mapFontDialog = nullptr;
+    mapFontChoice = nullptr;
+    mapFontSize = nullptr;
+    mapFontDraft[0] = 0;
+    mapFontHold = 0;
+    mapFontWait = 0;
     mapWidthSpin = nullptr;
     files = nullptr;
     fonts = nullptr;
@@ -9915,6 +9943,8 @@ void Ui::leave(void) {
         gtk_widget_set_visible(restoredNative, 0);
     if (choiceDialog != nullptr)
         choiceDialog->set_visible(false);
+    if (mapFontDialog != nullptr)
+        mapFontDialog->set_visible(false);
     if (removeDialog != nullptr)
         removeDialog->set_visible(false);
     if (dirtyDialog != nullptr) {
@@ -9996,11 +10026,240 @@ void Ui::choose_map_font(const char *description) {
     apply_settings();
 }
 
+static int trailing_size(const char *text, long *cut) {
+    long i;
+    int size;
+    int any;
+
+    if (cut != nullptr)
+        *cut = 0;
+    if (text == nullptr)
+        return 3;
+    i = 0;
+    while (text[i] != 0)
+        i = i + 1;
+    while (i > 0 && text[i - 1] == ' ')
+        i = i - 1;
+    any = 0;
+    while (i > 0
+            && text[i - 1] >= '0'
+            && text[i - 1] <= '9') {
+        any = 1;
+        i = i - 1;
+    }
+    if (any == 0 || i == 0 || text[i - 1] != ' ')
+        return 3;
+    if (cut != nullptr)
+        *cut = i - 1;
+    size = 0;
+    while (text[i] >= '0' && text[i] <= '9') {
+        size = size * 10 + (int)(text[i] - '0');
+        if (size > 72)
+            size = 72;
+        i = i + 1;
+    }
+    if (size < 1)
+        size = 1;
+    return size;
+}
+
+static void put_digits(char *dest, long cap, int value) {
+    char rev[8];
+    int n;
+    int i;
+
+    if (dest == nullptr || cap < 2)
+        return;
+    if (value < 1)
+        value = 1;
+    n = 0;
+    while (value > 0 && n < 7) {
+        rev[n] = (char)('0' + (value % 10));
+        n = n + 1;
+        value = value / 10;
+    }
+    i = 0;
+    while (n > 0 && i + 1 < cap) {
+        n = n - 1;
+        dest[i] = rev[n];
+        i = i + 1;
+    }
+    dest[i] = 0;
+}
+
+static void write_font_size(
+        char *dest,
+        long cap,
+        const char *text,
+        int size) {
+    char body[96];
+    char digits[8];
+    long cut;
+    long i;
+    long k;
+
+    if (dest == nullptr || cap < 2)
+        return;
+    trailing_size(text, &cut);
+    if (size < 1)
+        size = 1;
+    if (size > 72)
+        size = 72;
+    i = 0;
+    if (text != nullptr) {
+        while (i < cut && i + 1 < 96) {
+            body[i] = text[i];
+            i = i + 1;
+        }
+    }
+    if (i == 0) {
+        text_copy(body, 96, "Monospace");
+        i = 9;
+    }
+    body[i] = 0;
+    put_digits(digits, 8, size);
+    k = 0;
+    i = 0;
+    while (body[k] != 0 && i + 1 < cap) {
+        dest[i] = body[k];
+        i = i + 1;
+        k = k + 1;
+    }
+    if (i + 1 < cap) {
+        dest[i] = ' ';
+        i = i + 1;
+    }
+    k = 0;
+    while (digits[k] != 0 && i + 1 < cap) {
+        dest[i] = digits[k];
+        i = i + 1;
+        k = k + 1;
+    }
+    dest[i] = 0;
+}
+
 void Ui::finish_font(const char *description) {
+    if (description == nullptr || description[0] == 0)
+        return;
+    if (fontKind == 2) {
+        stage_map_font(description);
+        return;
+    }
     if (fontKind == 1)
         choose_map_font(description);
     else
         choose_font(description);
+}
+
+void Ui::show_map_font_dialog(void) {
+    Box *box;
+
+    if (leaving == 1)
+        return;
+    if (mapFontDialog == nullptr) {
+        box = new Box(GTK_VERTICAL, 8);
+        mapFontChoice = new Button(mapFont);
+        mapFontChoice->on_clicked(ui_map_font_pick, nullptr);
+        mapFontSize = new SpinButton(1, 72, 3);
+        mapFontSize->set_width_chars(6);
+        mapFontSize->on_changed(ui_map_font_size, nullptr);
+        box->append((Widget *)new Label("Font"));
+        box->append((Widget *)mapFontChoice);
+        box->append((Widget *)new Label("Size"));
+        box->append((Widget *)mapFontSize);
+        mapFontDialog = new Dialog("Mini-map font");
+        mapFontDialog->set_content((Widget *)box);
+        mapFontDialog->add_button("Cancel", 0);
+        mapFontDialog->add_button("Save", 1);
+        mapFontDialog->on_response(
+                ui_map_font_dialog,
+                nullptr);
+        mapFontDialog->set_transient(mainWindow);
+        mapFontDialog->set_default_size(360, 220);
+    }
+    stage_map_font(mapFont);
+    mapFontWait = 1;
+    mapFontDialog->present();
+}
+
+void Ui::answer_map_font(int response) {
+    char next[128];
+    int size;
+
+    if (mapFontWait == 0)
+        return;
+    mapFontWait = 0;
+    if (response != 1) {
+        if (mapFontDialog != nullptr)
+            mapFontDialog->set_visible(false);
+        return;
+    }
+    size = 3;
+    if (mapFontSize != nullptr)
+        size = (int)mapFontSize->value();
+    write_font_size(next, 128, mapFontDraft, size);
+    text_copy(mapFontDraft, 128, next);
+    choose_map_font(mapFontDraft);
+    if (mapFontDialog != nullptr)
+        mapFontDialog->set_visible(false);
+}
+
+void Ui::stage_map_font(const char *description) {
+    char next[128];
+    int size;
+
+    if (description == nullptr || description[0] == 0)
+        return;
+    size = trailing_size(description, nullptr);
+    write_font_size(next, 128, description, size);
+    text_copy(mapFontDraft, 128, next);
+    if (mapFontChoice != nullptr)
+        mapFontChoice->set_label(mapFontDraft);
+    if (mapFontSize != nullptr) {
+        mapFontHold = 1;
+        mapFontSize->set_value((double)size);
+        mapFontHold = 0;
+    }
+}
+
+void Ui::edit_map_font(void) {
+    if (leaving == 1)
+        return;
+    if (fonts == nullptr || mainWindow == nullptr)
+        return;
+    if (fonts->pending != 0)
+        return;
+    fontKind = 2;
+    fonts->choose(mainWindow, ui_font, nullptr);
+}
+
+void Ui::set_map_font_size(int size) {
+    if (mapFontSize == nullptr)
+        return;
+    if (size < 1)
+        size = 1;
+    if (size > 72)
+        size = 72;
+    mapFontSize->set_value((double)size);
+}
+
+void Ui::note_map_font_size(void) {
+    char next[128];
+    int size;
+
+    if (mapFontHold != 0 || mapFontSize == nullptr)
+        return;
+    size = (int)mapFontSize->value();
+    write_font_size(next, 128, mapFontDraft, size);
+    text_copy(mapFontDraft, 128, next);
+    if (mapFontChoice != nullptr)
+        mapFontChoice->set_label(mapFontDraft);
+}
+
+int Ui::map_font_size(void) {
+    if (mapFontSize != nullptr)
+        return (int)mapFontSize->value();
+    return trailing_size(mapFont, nullptr);
 }
 
 void Ui::set_line_shown(int value) {

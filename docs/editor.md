@@ -51,7 +51,11 @@ scrolls the buffer. Pressing the highlighted area and
 moving the mouse scrolls the buffer with the pointer.
 The caret stays where it was. The mouse wheel over the
 column scrolls the buffer by one line for each notch and
-leaves the caret where it was. Dragging the bar between the
+leaves the caret where it was. A right-click on the
+column opens a dialog for the mini-map font and its size.
+Save updates the column immediately and stores that font
+as `map-font`, the same value Settings, Appearance uses.
+Cancel leaves the font as it is. Dragging the bar between the
 editor and the column sets the column width. Map width in
 Settings sets that same width, from 24 to 500. The column keeps the width
 from the last of those and does not change it on its own.

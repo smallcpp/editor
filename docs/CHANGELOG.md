@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+Right-click on the mini-map opens a dialog for its font
+and size. Save updates the column immediately and stores
+the same `map-font` value as Settings, Appearance. Cancel
+leaves the font as it is. The wheel, the drag, the
+current-line mark, and the width stay as they are.
+
 The left panel no longer has a Project tab. Documents
 lists the open files and the project tree. One click
 still opens a project file or switches documents.

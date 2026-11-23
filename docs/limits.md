@@ -29,7 +29,10 @@ the highlight scrolls that part of the file into view.
 Pressing the highlight and moving the mouse scrolls the
 buffer and leaves the caret where it was. The mouse wheel
 over the column scrolls the buffer by one line for each
-notch and leaves the caret where it was. The bar beside
+notch and leaves the caret where it was. A right-click
+opens a dialog for the mini-map font and its size. Save
+stores that choice as `map-font` and redraws the column.
+Cancel does not change the font. The bar beside
 the column and Map width in Settings both set its width,
 from 24 to 500, and that width stays until one of those
 changes it. A saved width in that range is kept.
