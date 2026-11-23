@@ -393,6 +393,7 @@ void config_defaults(EditorConfig *item) {
     item->showMargin = 0;
     item->showClose = 1;
     item->marginCols = 80;
+    item->caretMargin = 10;
     item->searchWrap = 1;
     item->searchBack = 0;
     item->searchWhole = 0;
@@ -1023,6 +1024,10 @@ static void take_line(EditorConfig *item, const char *line) {
         item->showMargin = read_int(value, item->showMargin);
     if (key_is(line, "close-marks") == 1)
         item->showClose = read_int(value, item->showClose);
+    if (key_is(line, "caret-margin") == 1)
+        item->caretMargin = read_int(
+                value,
+                item->caretMargin);
     if (key_is(line, "margin-columns") == 1)
         item->marginCols = read_int(value, item->marginCols);
     if (key_is(line, "line-color") == 1)
@@ -1182,6 +1187,8 @@ int config_read(const char *path, EditorConfig *item) {
     }
     if (item->recentCount < 1 || item->recentCount > 32)
         item->recentCount = 10;
+    if (item->caretMargin < 0 || item->caretMargin > 200)
+        item->caretMargin = 10;
     if (item->recoveryOn != 0)
         item->recoveryOn = 1;
     if (item->ensureNewline != 0)
@@ -1308,6 +1315,7 @@ int config_write(
     text->append("\n");
     add_flag(text, "margin", item->showMargin);
     add_num(text, "margin-columns", item->marginCols);
+    add_num(text, "caret-margin", item->caretMargin);
     text->append("margin-color=");
     text->append(item->marginColor);
     text->append("\n");
