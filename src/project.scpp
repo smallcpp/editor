@@ -805,7 +805,6 @@ void EditProject::collect_cmake(const char *dir, int depth) {
     if (raw == nullptr)
         return;
     scan_cmake(dir, raw, n, depth);
-    free((void *)raw);
 }
 
 int EditProject::collect(void) {
@@ -1143,7 +1142,6 @@ int EditProject::load(const char *wanted) {
         else if (split_key(line, "file", value, EDITOR_PATH) == 1)
             add_abs(value);
     }
-    free((void *)raw);
     if (kind_code(kindText) == 0) {
         clear();
         return 0;
@@ -1181,7 +1179,7 @@ int EditProject::make(
         return 0;
     if (path == nullptr || path[0] == 0)
         return 0;
-    if (path_normalize(used, EDITOR_PATH, path) == 0)
+    if (path_in_start(used, EDITOR_PATH, path) == 0)
         return 0;
     clear();
     text_copy(nameText, PROJECT_NAME, wanted);

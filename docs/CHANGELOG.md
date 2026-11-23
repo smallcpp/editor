@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+Project, Create New, Browse opens in the directory where
+the editor was started. That directory is kept for the
+whole session. A project created there stores absolute
+paths, so opening it later from another directory still
+uses the directory chosen when it was created.
+
 Creating or opening a project closes the file buffers
 that were already open. If a buffer has unsaved changes,
 the editor asks before it closes that buffer and switches.

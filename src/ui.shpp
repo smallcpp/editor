@@ -276,6 +276,9 @@ public:
     void accept_template_project(void);
     void hide_template_project(void);
     void browse_template_dir(void);
+    void prepare_template_browse(void);
+    const char *template_browse_at(void);
+    int template_browse_aimed(void);
     void use_template_dir(const char *path);
     void show_from_project(
             const char *kind,
@@ -368,6 +371,7 @@ private:
     char fontDesc[128];
     char mapFont[128];
     char lastDir[EDITOR_PATH];
+    char startDir[EDITOR_PATH];
     char docName[EDITOR_PAGES][80];
     String *pendingPath;
     Dialog *choiceDialog;

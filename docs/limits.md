@@ -66,8 +66,13 @@ directory last chosen
 during this session. The left panel cannot ask for a
 folder, because the dialog has no folder mode. Create
 New and the directory, git, and CMake items ask for a
-directory, which is typed. Browse picks a file and uses
-that file's directory. Individual files asks for the
+directory, which is typed. Create New, Browse opens in
+the directory where the editor was started, not the
+folder last chosen by another dialog. Browse picks a
+file and uses that file's directory. The project stores
+that directory as an absolute path, so a later session
+started somewhere else still uses it. Individual files
+asks for the
 files themselves. The template archive is
 `$HOME/.config/smallcpp/template.tar.gz`. Files lists
 the folder the user is browsing.

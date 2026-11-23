@@ -17,6 +17,7 @@ extern const char *gtk_window_get_title(void *window);
 extern int gtk_widget_get_mapped(void *widget);
 extern void g_object_unref(void *object);
 extern int system(const char *command);
+extern int chdir(const char *path);
 
 int tab_mark(const char *text) {
     if (text == nullptr)
@@ -694,6 +695,27 @@ void check_template_open(
         i = i + 1;
     }
     expect(saw == 1, "template lists hello");
+}
+
+void check_template_browse(Ui *ui, const char *away) {
+    char began[EDITOR_PATH];
+    char back[EDITOR_PATH];
+    char sample[EDITOR_PATH];
+
+    text_copy(began, EDITOR_PATH, ui->template_browse_at());
+    expect(began[0] == '/', "browse directory is absolute");
+    expect(text_same(began, away) == 0,
+            "start directory is not the later one");
+    path_join(sample, EDITOR_PATH, away, "a.scpp");
+    ui->open_path(sample);
+    expect(current_directory(back, EDITOR_PATH) == 1,
+            "remember directory");
+    expect(chdir(away) == 0, "start in another directory");
+    expect(ui->template_browse_aimed() == 1,
+            "browse stays on the start directory");
+    expect(text_same(ui->template_browse_at(), began) == 1,
+            "browse directory did not move");
+    expect(chdir(back) == 0, "return to the start directory");
 }
 
 void check_projects(
@@ -1775,6 +1797,7 @@ int main(void) {
                     "//") == 1,
                 "reset line comment");
         check_projects(ui, editor, dir, io);
+        check_template_browse(ui, dir);
         ui->on_menu("Quit");
         expect(ui->is_leaving() == 1, "quit left");
         unlink(pathA);

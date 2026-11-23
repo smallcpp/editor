@@ -10,10 +10,12 @@ int main(int argc, char **argv) {
     Positional *file;
     Editor *editor;
     Ui *ui;
+    char started[EDITOR_PATH];
     int i;
     int count;
     int code;
 
+    startup_directory(started, EDITOR_PATH);
     command = new CommandLine(
             "sedit",
             "Opens files. With no path, an untitled buffer is shown.",
