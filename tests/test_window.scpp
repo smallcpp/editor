@@ -1448,6 +1448,8 @@ int main(void) {
                 long band;
                 long height;
                 long y;
+                long caret;
+                long wide;
                 int n;
 
                 view->set_text("one\ntwo\nthree\n");
@@ -1468,6 +1470,23 @@ int main(void) {
                 expect(band > 0, "short map has a band");
                 expect(band < height,
                         "short map stays packed");
+                caret = editor->active()->buffer()
+                        ->cursor_line();
+                wide = ui->map_width();
+                ui->scroll_map_wheel(editor->index(), 3);
+                pump(20);
+                expect(editor->active()->buffer()
+                                ->cursor_line() == caret,
+                        "wheel leaves a short-file caret");
+                expect(ui->map_top() == 0,
+                        "wheel keeps a short map at the top");
+                band = ui->map_band();
+                expect(band > 0 && band < height,
+                        "wheel keeps a short map packed");
+                expect(ui->map_width() > wide - 3,
+                        "wheel keeps a short map width");
+                expect(ui->map_width() < wide + 3,
+                        "short map width stays");
                 shape = new String();
                 shape->append("short\n");
                 shape->append("\n");
@@ -1509,6 +1528,33 @@ int main(void) {
                 expect(band > 0, "viewport band");
                 expect(band < height,
                         "viewport is part of the file");
+                caret = editor->active()->buffer()
+                        ->cursor_line();
+                wide = ui->map_width();
+                top = ui->map_top();
+                ui->scroll_map_wheel(editor->index(), 4);
+                n = 0;
+                y = 0;
+                while (n < 20) {
+                    usleep(50000);
+                    pump(10);
+                    y = ui->gutter_line_y(0);
+                    if (y < 0)
+                        break;
+                    n = n + 1;
+                }
+                expect(y < 0, "wheel scrolls the buffer");
+                expect(editor->active()->buffer()
+                                ->cursor_line() == caret,
+                        "wheel leaves the caret");
+                expect(ui->map_top() > top,
+                        "wheel moves the viewport");
+                expect(ui->map_width() > wide - 3,
+                        "wheel keeps the map width");
+                expect(ui->map_width() < wide + 3,
+                        "map width stays through the wheel");
+                ui->scroll_view(0);
+                pump(20);
                 ui->map_click(height - 1);
                 n = 0;
                 y = 0;

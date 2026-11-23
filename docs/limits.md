@@ -27,7 +27,9 @@ buffer moves that mark with the caret, without scrolling.
 A click outside
 the highlight scrolls that part of the file into view.
 Pressing the highlight and moving the mouse scrolls the
-buffer and leaves the caret where it was. The bar beside
+buffer and leaves the caret where it was. The mouse wheel
+over the column scrolls the buffer by one line for each
+notch and leaves the caret where it was. The bar beside
 the column and Map width in Settings both set its width,
 and that width stays until one of those changes it.
 The column reads the editor buffer and does not keep a

@@ -229,6 +229,8 @@ public:
             long lines);
     int map_pitch(void *widget, long height);
     void scroll_line(long index, long line);
+    int text_line_height(long index);
+    void scroll_map_pixels(long index, double pixels);
     long map_height(void);
     long map_top(void);
     long map_band(void);
@@ -239,6 +241,8 @@ public:
     void drag_map_mark(long y);
     void map_button(long page, long y, int down);
     void map_drag(long page, long y);
+    void scroll_map_wheel(long index, int steps);
+    void map_wheel(long index, void *event);
     void set_map_font(const char *description);
     const char *map_font(void);
     void open_map_font(void);
