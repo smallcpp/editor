@@ -68,9 +68,13 @@ sources named in a CMake build. Project has New,
 Create New, Create From, Open, Close, Save, Save As,
 and Delete. Create New asks for a directory and unpacks
 the installed template there. Browse opens in the
-directory where the editor was started, and the project
-keeps that chosen directory when the editor is started
-somewhere else later. That archive is
+directory where the editor was started. The user types
+a new directory name there, or chooses a directory that
+already exists. Create New creates a missing directory
+and unpacks the template into it. An existing directory
+is used as before. The project keeps that chosen
+directory when the editor is started somewhere else
+later. That archive is
 `$HOME/.config/smallcpp/template.tar.gz`, packed from
 https://github.com/smallcpp/template when the editor is
 built. Create From has Individual files, From directory,
