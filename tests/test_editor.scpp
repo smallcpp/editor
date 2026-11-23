@@ -951,6 +951,27 @@ int main(void) {
             accel_shown(shown, 64, "<Control>n");
             expect(text_same(shown, "<Control>n") == 1,
                     "letter shortcut stays");
+            accel_shown(shown, 64, "<Control>bracketright");
+            expect(text_same(shown, "<Control>]") == 1,
+                    "bracketright shows as ]");
+            accel_shown(shown, 64, "<Control>bracketleft");
+            expect(text_same(shown, "<Control>[") == 1,
+                    "bracketleft shows as [");
+            accel_shown(shown, 64, "<Control>backslash");
+            expect(text_same(shown, "<Control>\\") == 1,
+                    "backslash shows as \\");
+            accel_shown(shown, 64, "<Control>Escape");
+            expect(text_same(shown, "<Control>Escape") == 1,
+                    "Escape stays named");
+            accel_shown(shown, 64, "F1");
+            expect(text_same(shown, "F1") == 1,
+                    "F1 stays named");
+            accel_shown(shown, 64, "<Control>Left");
+            expect(text_same(shown, "<Control>Left") == 1,
+                    "arrow stays named");
+            accel_shown(shown, 64, "<Shift>comma");
+            expect(text_same(shown, "<Shift>,") == 1,
+                    "comma shows as ,");
         }
         which = key_index("key-block-comment=");
         expect(which == 17, "block key");

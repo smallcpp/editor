@@ -258,9 +258,13 @@ file when its tab loses focus, and when the window loses
 focus. Both are off until they are turned on. An untitled
 buffer is left unsaved. Keyboard is a
 grid of the command and its accelerator. Click a shortcut,
-press the new keys, and Escape cancels. A shortcut that
-another command already uses is refused, and the page names
-that command. A duplicate shortcut is not written. The
+press the new keys, and Escape cancels. The button shows
+the character when the key has one, so bracketright is ].
+Escape, F1, and the arrows stay named. Each row has
+Default, which restores that command's built-in shortcut.
+If the new combo is already used, the editor asks. Assign
+moves it and clears the old command. Cancel leaves both.
+The shortcut buttons stay a fixed width. The
 notebook fills the dialog. The left tabs stay put, and
 the page scrolls. A change stores the choices in
 `editor.ini`. The same file

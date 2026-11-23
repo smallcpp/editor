@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+Keyboard shortcuts show the character when the key has
+one, so bracketright is ]. Escape, F1, and the arrows
+stay named. Each shortcut has Default, which restores
+its built-in binding. A combo another command already
+uses asks first. Assign moves it and clears the old
+command. Cancel leaves both. Shortcut buttons keep a
+fixed width. Reading the new-project browse folder
+does not release the dialog's copy of that folder.
+
 Right-click on the mini-map opens a dialog for its font
 and size. Save updates the column immediately and stores
 the same `map-font` value as Settings, Appearance. Cancel
