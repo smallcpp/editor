@@ -141,6 +141,11 @@ extern int XRaiseWindow(
         void *display,
         unsigned long window);
 extern int XFlush(void *display);
+extern int XResizeWindow(
+        void *display,
+        unsigned long window,
+        unsigned int width,
+        unsigned int height);
 extern unsigned int XKeysymToKeycode(
         void *display,
         unsigned long keysym);
@@ -419,6 +424,355 @@ static int send_wheel(unsigned int button, int ctrl) {
     XFlush(display);
     XCloseDisplay(display);
     return 1;
+}
+
+static unsigned long titled_window(
+        void *display,
+        const char *title) {
+    unsigned long root;
+    unsigned long parent;
+    unsigned long *kids;
+    unsigned int count;
+    unsigned long win;
+    unsigned int i;
+
+    root = XDefaultRootWindow(display);
+    kids = nullptr;
+    count = 0;
+    parent = 0;
+    XQueryTree(
+            display,
+            root,
+            &root,
+            &parent,
+            &kids,
+            &count);
+    win = 0;
+    i = 0;
+    while (i < count) {
+        char *name;
+        char attr[160];
+        int *fields;
+
+        name = nullptr;
+        fields = (int *)attr;
+        fields[2] = 0;
+        XGetWindowAttributes(
+                display,
+                kids[i],
+                (void *)attr);
+        if (XFetchName(display, kids[i], &name) != 0
+                && name != nullptr
+                && text_same(name, title) == 1
+                && fields[2] > 100)
+            win = kids[i];
+        if (name != nullptr)
+            XFree((void *)name);
+        i = i + 1;
+    }
+    if (kids != nullptr)
+        XFree((void *)kids);
+    return win;
+}
+
+static int send_named(
+        const char *title,
+        unsigned long keysym,
+        int ctrl) {
+    void *display;
+    unsigned long win;
+    unsigned int key;
+    unsigned int mod;
+
+    display = XOpenDisplay(nullptr);
+    if (display == nullptr)
+        return 0;
+    XSetErrorHandler((void *)x_error);
+    win = titled_window(display, title);
+    if (win == 0) {
+        XCloseDisplay(display);
+        return 0;
+    }
+    XSetInputFocus(display, win, 2, 0);
+    XRaiseWindow(display, win);
+    XFlush(display);
+    usleep(80000);
+    key = XKeysymToKeycode(display, keysym);
+    mod = 0;
+    if (ctrl != 0) {
+        mod = XKeysymToKeycode(display, 0xffe3);
+        XTestFakeKeyEvent(display, mod, 1, 0);
+        XFlush(display);
+        usleep(20000);
+    }
+    XTestFakeKeyEvent(display, key, 1, 0);
+    XFlush(display);
+    usleep(40000);
+    XTestFakeKeyEvent(display, key, 0, 0);
+    if (mod != 0)
+        XTestFakeKeyEvent(display, mod, 0, 0);
+    XFlush(display);
+    XCloseDisplay(display);
+    return 1;
+}
+
+static int resize_named(
+        const char *title,
+        unsigned int width,
+        unsigned int height) {
+    void *display;
+    unsigned long win;
+
+    display = XOpenDisplay(nullptr);
+    if (display == nullptr)
+        return 0;
+    XSetErrorHandler((void *)x_error);
+    win = titled_window(display, title);
+    if (win == 0) {
+        XCloseDisplay(display);
+        return 0;
+    }
+    XResizeWindow(display, win, width, height);
+    XFlush(display);
+    XCloseDisplay(display);
+    return 1;
+}
+
+static long count_newlines(const char *text) {
+    long n;
+    long i;
+
+    n = 0;
+    if (text == nullptr)
+        return (long)0;
+    i = 0;
+    while (text[i] != 0) {
+        if (text[i] == '\n')
+            n = n + 1;
+        i = i + 1;
+    }
+    return n;
+}
+
+void check_keys_gutter_map(Ui *ui, Editor *editor) {
+    TextBuffer *view;
+    String *shape;
+    const char *title;
+    long line;
+    long column;
+    long height;
+    long mark;
+    long n;
+    long index;
+
+    title = "sedit-nav-b510";
+    ui->name_window(title);
+    pump(20);
+    view = ui->view_buffer();
+    shape = new String();
+    n = 0;
+    while (n < 40) {
+        shape->append("abcd efgh\n");
+        n = n + 1;
+    }
+    view->set_text(shape->c_str());
+    ui->scroll_view(0);
+    pump(20);
+    ui->place_at(8, 4);
+    ui->focus_view();
+    pump(20);
+    index = editor->index();
+    line = editor->active()->buffer()->cursor_line();
+    expect(send_named(title, 0xff54, 0) == 1,
+            "down reaches the editor");
+    pump(30);
+    expect(editor->active()->buffer()->cursor_line()
+                    == line + 1,
+            "down moves the caret");
+    line = editor->active()->buffer()->cursor_line();
+    expect(send_named(title, 0xff52, 0) == 1,
+            "up reaches the editor");
+    pump(30);
+    expect(editor->active()->buffer()->cursor_line()
+                    == line - 1,
+            "up moves the caret");
+    column = editor->active()->buffer()->cursor_column();
+    expect(send_named(title, 0xff51, 0) == 1,
+            "left reaches the editor");
+    pump(30);
+    expect(editor->active()->buffer()->cursor_column()
+                    == column - 1,
+            "left moves the caret");
+    column = editor->active()->buffer()->cursor_column();
+    expect(send_named(title, 0xff53, 0) == 1,
+            "right reaches the editor");
+    pump(30);
+    expect(editor->active()->buffer()->cursor_column()
+                    == column + 1,
+            "right moves the caret");
+    expect(send_named(title, 0xff50, 0) == 1,
+            "home reaches the editor");
+    pump(30);
+    expect(editor->active()->buffer()->cursor_column() == 1,
+            "home moves to the line start");
+    expect(send_named(title, 0xff57, 0) == 1,
+            "end reaches the editor");
+    pump(30);
+    expect(editor->active()->buffer()->cursor_column() > 1,
+            "end moves to the line end");
+    line = editor->active()->buffer()->cursor_line();
+    expect(send_named(title, 0xff56, 0) == 1,
+            "page down reaches the editor");
+    pump(30);
+    expect(editor->active()->buffer()->cursor_line()
+                    > line + 1,
+            "page down moves the caret");
+    line = editor->active()->buffer()->cursor_line();
+    expect(send_named(title, 0xff55, 0) == 1,
+            "page up reaches the editor");
+    pump(30);
+    expect(editor->active()->buffer()->cursor_line()
+                    < line,
+            "page up moves the caret");
+    expect(send_named(title, 0xff57, 1) == 1,
+            "ctrl end reaches the editor");
+    pump(30);
+    expect(editor->active()->buffer()->cursor_line() > 30,
+            "ctrl end moves to the buffer end");
+    expect(send_named(title, 0xff50, 1) == 1,
+            "ctrl home reaches the editor");
+    pump(30);
+    expect(editor->active()->buffer()->cursor_line() == 1,
+            "ctrl home moves to the buffer start");
+    line = editor->active()->buffer()->cursor_line();
+    ui->wheel_lines(index, 4);
+    expect(editor->active()->buffer()->cursor_line()
+                    == line + 4,
+            "wheel still moves the caret");
+    line = editor->active()->buffer()->cursor_line();
+    ui->show_first(1);
+    ui->wheel_view(index, 2);
+    expect(editor->active()->buffer()->cursor_line()
+                    == line,
+            "ctrl wheel still leaves the caret");
+    view->set_text("one\ntwo\nthree\nfour\n");
+    ui->place_at(2, 1);
+    ui->scroll_view(0);
+    pump(20);
+    n = 0;
+    height = 0;
+    while (n < 30) {
+        usleep(40000);
+        pump(10);
+        height = ui->map_height();
+        if (height > 40)
+            break;
+        n = n + 1;
+    }
+    expect(ui->map_top() == 0, "short map is packed");
+    mark = ui->map_mark();
+    expect(mark >= 0 && mark < 48,
+            "short mark stays near the top");
+    expect(resize_named(title, 900, 420) == 1,
+            "window can shrink");
+    n = 0;
+    while (n < 40) {
+        usleep(40000);
+        pump(10);
+        if (ui->map_height() > 20
+                && ui->map_height() != height)
+            break;
+        n = n + 1;
+    }
+    expect(ui->map_height() != height,
+            "shrinking changes the map");
+    expect(ui->map_height() > 20, "shrunk map has a height");
+    expect(ui->map_top() == 0,
+            "short map stays packed after resize");
+    mark = ui->map_mark();
+    expect(mark >= 0 && mark < ui->map_height(),
+            "short mark stays inside the map");
+    expect(mark < 48, "short mark stays at the top");
+    ui->set_panel_width(260);
+    usleep(80000);
+    pump(20);
+    expect(ui->map_top() == 0,
+            "panel resize keeps a short map packed");
+    expect(ui->map_mark() >= 0
+                    && ui->map_mark() < 48,
+            "panel resize keeps the short mark");
+    shape = new String();
+    n = 0;
+    while (n < 180) {
+        shape->append("line\n");
+        n = n + 1;
+    }
+    view->set_text(shape->c_str());
+    ui->place_at(180, 1);
+    ui->scroll_view(150);
+    pump(30);
+    height = ui->map_height();
+    mark = ui->map_mark();
+    expect(mark >= 0 && mark < height,
+            "long mark starts inside the map");
+    expect(resize_named(title, 900, 280) == 1,
+            "window can shrink again");
+    n = 0;
+    while (n < 40) {
+        usleep(40000);
+        pump(10);
+        if (ui->map_height() > 20
+                && ui->map_height() != height)
+            break;
+        n = n + 1;
+    }
+    expect(ui->map_height() != height,
+            "second shrink changes the map");
+    expect(ui->map_mark() >= 0
+                    && ui->map_mark() < ui->map_height(),
+            "long mark stays inside after resize");
+    expect(ui->map_mark() > ui->map_height() / 2,
+            "long mark stays near the current line");
+    ui->finish_font("Monospace 2");
+    expect(resize_named(title, 900, 1100) == 1,
+            "window can grow for the gutter");
+    shape = new String();
+    n = 0;
+    while (n < 130) {
+        shape->append("n\n");
+        n = n + 1;
+    }
+    view->set_text(shape->c_str());
+    ui->scroll_view(0);
+    ui->place_at(1, 1);
+    n = 0;
+    while (n < 40) {
+        usleep(50000);
+        pump(10);
+        if (count_newlines(ui->line_number_text()) > 80)
+            break;
+        n = n + 1;
+    }
+    expect(count_newlines(ui->line_number_text()) > 80,
+            "gutter numbers more than 80 lines");
+    expect(text_has(ui->line_number_text(), "\n81\n") == 1,
+            "gutter shows line 81");
+    ui->scroll_view(130);
+    n = 0;
+    while (n < 40) {
+        usleep(50000);
+        pump(10);
+        if (text_has(ui->line_number_text(), "\n131\n")
+                == 1)
+            break;
+        n = n + 1;
+    }
+    expect(text_has(ui->line_number_text(), "\n131\n") == 1,
+            "gutter numbers the empty last line");
+    ui->finish_font("Monospace 10");
+    resize_named(title, 880, 640);
+    pump(20);
+    ui->show_session_title();
 }
 
 void check_panel_layout(Ui *ui) {
@@ -2157,6 +2511,7 @@ int main(void) {
                         "viewport moved down");
                 check_map_mark(ui, editor);
                 check_map_font_dialog(ui);
+                check_keys_gutter_map(ui, editor);
             }
             editor->active()->buffer()->mark_clean();
         }

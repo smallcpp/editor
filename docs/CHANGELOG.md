@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+Arrow keys, Page Up, Page Down, Home, End, Ctrl+Home,
+and Ctrl+End move the caret again. The plain mouse
+wheel still moves the caret and keeps the caret margin.
+Ctrl and the wheel still scroll the view and leave the
+caret where it was.
+
+The line-number gutter numbers every visible line. It
+no longer stops after 80 lines. A file longer than the
+window, and a blank last line, still show a number.
+
+The mini-map is drawn again from the current buffer
+and the current view when the window, the side panel,
+or the text view changes size. A short file stays
+packed from the top. The current-line mark stays on
+the current line.
+
 Ctrl and the mouse wheel over the text buffer scroll
 the view and leave the caret where it was. The view
 stops when the caret would enter the caret margin, so
