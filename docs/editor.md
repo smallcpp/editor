@@ -95,8 +95,10 @@ Starting the editor with no files shows a dialog
 before the window. The dialog lists each session by
 name, the number of files, and the date it was last
 opened. The most recently opened session is first.
-Open opens the highlighted session. New Session opens
-the editor with no files. Delete removes that session
+The list highlights one session. Up and Down move
+that highlight. Open, Delete, Rename, and Duplicate
+use that row. New Session opens the editor with no
+files. Delete removes that session
 from the list and leaves its files on disk. The dialog
 stays open. Close opens the most recent session, or a
 blank editor when the list is empty. Rename changes

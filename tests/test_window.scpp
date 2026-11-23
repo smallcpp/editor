@@ -270,6 +270,67 @@ static int send_chord(unsigned long keysym, int ctrl) {
     return 1;
 }
 
+static int send_key(const char *title, unsigned long keysym) {
+    void *display;
+    unsigned long root;
+    unsigned long parent;
+    unsigned long *kids;
+    unsigned int count;
+    unsigned long win;
+    unsigned int i;
+    unsigned int key;
+
+    if (title == nullptr)
+        return 0;
+    display = XOpenDisplay(nullptr);
+    if (display == nullptr)
+        return 0;
+    XSetErrorHandler((void *)x_error);
+    root = XDefaultRootWindow(display);
+    kids = nullptr;
+    count = 0;
+    parent = 0;
+    XQueryTree(
+            display,
+            root,
+            &root,
+            &parent,
+            &kids,
+            &count);
+    win = 0;
+    i = 0;
+    while (i < count) {
+        char *name;
+
+        name = nullptr;
+        if (XFetchName(display, kids[i], &name) != 0
+                && name != nullptr
+                && text_same(name, title) == 1)
+            win = kids[i];
+        if (name != nullptr)
+            XFree((void *)name);
+        i = i + 1;
+    }
+    if (kids != nullptr)
+        XFree((void *)kids);
+    if (win == 0) {
+        XCloseDisplay(display);
+        return 0;
+    }
+    XSetInputFocus(display, win, 2, 0);
+    XRaiseWindow(display, win);
+    XFlush(display);
+    usleep(80000);
+    key = XKeysymToKeycode(display, keysym);
+    XTestFakeKeyEvent(display, key, 1, 0);
+    XFlush(display);
+    usleep(40000);
+    XTestFakeKeyEvent(display, key, 0, 0);
+    XFlush(display);
+    XCloseDisplay(display);
+    return 1;
+}
+
 static int send_ctrl_s(void) {
     return send_chord(0x73, 1);
 }
@@ -901,6 +962,28 @@ static void check_sessions(
     ui->answer_session(6);
     expect(ui->session_dialog_open() == 1,
             "duplicate leaves the dialog");
+    pump(20);
+    ui->focus_session_list();
+    ui->pick_session(0);
+    pump(10);
+    expect(ui->session_highlight() == 0,
+            "first session highlighted");
+    expect(ui->picked_session() == 0,
+            "highlight is the pick");
+    expect(send_key("Sessions", 0xff54) == 1,
+            "down reaches the list");
+    pump(20);
+    expect(ui->session_highlight() == 1,
+            "down moves the highlight");
+    expect(ui->picked_session() == 1,
+            "down selects that session");
+    expect(send_key("Sessions", 0xff52) == 1,
+            "up reaches the list");
+    pump(20);
+    expect(ui->session_highlight() == 0,
+            "up moves the highlight");
+    expect(ui->picked_session() == 0,
+            "up selects that session");
     saw = -1;
     i = 0;
     while (i < ui->session_count()) {

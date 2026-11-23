@@ -56,6 +56,24 @@ extern void gtk_adjustment_set_value(
         void *adjustment,
         double value);
 extern void *gtk_column_view_get_columns(void *view);
+extern void *gtk_column_view_get_model(void *view);
+extern void gtk_column_view_set_model(
+        void *view,
+        void *model);
+extern void *gtk_single_selection_new(void *model);
+extern void gtk_single_selection_set_autoselect(
+        void *selection,
+        int autoselect);
+extern void gtk_single_selection_set_can_unselect(
+        void *selection,
+        int can_unselect);
+extern unsigned gtk_single_selection_get_selected(
+        void *selection);
+extern void gtk_single_selection_set_selected(
+        void *selection,
+        unsigned position);
+extern int gtk_widget_grab_focus(void *widget);
+extern void *g_object_ref(void *object);
 extern void *g_list_model_get_item(void *model, unsigned position);
 extern void gtk_column_view_column_set_expand(
         void *column,
@@ -266,6 +284,22 @@ void ui_session_recent(void *data, const char *label) {
 void ui_session_row(void *data, long row) {
     (void)data;
     editorUi->pick_session((int)row);
+}
+
+static void session_marked(
+        void *selection,
+        void *pspec,
+        void *data) {
+    unsigned pos;
+
+    (void)pspec;
+    (void)data;
+    if (editorUi == nullptr || selection == nullptr)
+        return;
+    pos = gtk_single_selection_get_selected(selection);
+    if (pos + 1 == 0)
+        return;
+    editorUi->keep_session_pick((int)pos);
 }
 
 void ui_session_response(void *data, int response) {
@@ -1057,6 +1091,7 @@ Ui::Ui(Editor *editor) {
     session = new EditSession();
     sessionDialog = nullptr;
     sessionView = nullptr;
+    sessionSelect = nullptr;
     sessionEntry = nullptr;
     sessionSaveDialog = nullptr;
     sessionSaveEntry = nullptr;
@@ -1697,9 +1732,11 @@ void Ui::present_editor(void) {
 
 void Ui::fill_session_rows(void) {
     int i;
+    int pick;
 
     if (sessionView == nullptr)
         return;
+    pick = sessionPick;
     sessionView->clear_rows();
     i = 0;
     while (i < sessionUsed) {
@@ -1715,12 +1752,53 @@ void Ui::fill_session_rows(void) {
         sessionView->append_row(cells, 3);
         i = i + 1;
     }
-    if (sessionPick < 0)
-        sessionPick = 0;
+    if (pick < 0)
+        pick = 0;
     if (sessionUsed == 0)
-        sessionPick = 0;
-    else if (sessionPick >= sessionUsed)
-        sessionPick = 0;
+        pick = 0;
+    else if (pick >= sessionUsed)
+        pick = 0;
+    sessionPick = pick;
+    if (sessionSelect != nullptr && sessionUsed > 0)
+        gtk_single_selection_set_selected(
+                sessionSelect,
+                (unsigned)pick);
+}
+
+void Ui::arm_session_list(void) {
+    void *single;
+    void (*marked)(void *, void *, void *);
+
+    if (sessionView == nullptr
+            || sessionView->native == nullptr
+            || sessionView->rows == nullptr)
+        return;
+    if (sessionSelect != nullptr)
+        return;
+    g_object_ref(sessionView->rows);
+    single = gtk_single_selection_new(sessionView->rows);
+    if (single == nullptr)
+        return;
+    gtk_single_selection_set_autoselect(single, 1);
+    gtk_single_selection_set_can_unselect(single, 0);
+    gtk_column_view_set_model(sessionView->native, single);
+    sessionSelect = single;
+    marked = session_marked;
+    g_signal_connect_data(
+            single,
+            "notify::selected",
+            (void *)marked,
+            nullptr,
+            nullptr,
+            0);
+    g_object_unref(single);
+}
+
+void Ui::focus_session_list(void) {
+    if (sessionView == nullptr
+            || sessionView->native == nullptr)
+        return;
+    gtk_widget_grab_focus(sessionView->native);
 }
 
 void Ui::refresh_recent_menu(void) {
@@ -1957,14 +2035,35 @@ const char *Ui::window_title(void) {
     return mainWindow->title();
 }
 
-void Ui::pick_session(int index) {
+void Ui::keep_session_pick(int index) {
     if (index < 0 || index >= sessionUsed)
         return;
     sessionPick = index;
 }
 
+void Ui::pick_session(int index) {
+    if (index < 0 || index >= sessionUsed)
+        return;
+    sessionPick = index;
+    if (sessionSelect != nullptr)
+        gtk_single_selection_set_selected(
+                sessionSelect,
+                (unsigned)index);
+}
+
 int Ui::picked_session(void) {
     return sessionPick;
+}
+
+int Ui::session_highlight(void) {
+    unsigned pos;
+
+    if (sessionSelect == nullptr)
+        return -1;
+    pos = gtk_single_selection_get_selected(sessionSelect);
+    if (pos + 1 == 0)
+        return -1;
+    return (int)pos;
 }
 
 void Ui::set_session_name_text(const char *text) {
@@ -2062,6 +2161,8 @@ void Ui::show_sessions(void) {
         gtk_column_view_set_single_click_activate(
                 sessionView->native,
                 1);
+        arm_session_list();
+        sessionView->set_v_expand(true);
         sessionEntry = new Entry("");
         box->append((Widget *)sessionView);
         box->append((Widget *)new Label("Name"));
@@ -2095,6 +2196,7 @@ void Ui::show_sessions(void) {
     }
     sessionShown = 1;
     sessionDialog->present();
+    focus_session_list();
 }
 
 int Ui::session_dialog_open(void) {
