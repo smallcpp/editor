@@ -335,6 +335,82 @@ static int send_ctrl_s(void) {
     return send_chord(0x73, 1);
 }
 
+static int send_wheel(unsigned int button) {
+    void *display;
+    unsigned long root;
+    unsigned long parent;
+    unsigned long *kids;
+    unsigned int count;
+    unsigned long win;
+    unsigned int i;
+    int clickX;
+    int clickY;
+
+    display = XOpenDisplay(nullptr);
+    if (display == nullptr)
+        return 0;
+    XSetErrorHandler((void *)x_error);
+    root = XDefaultRootWindow(display);
+    kids = nullptr;
+    count = 0;
+    parent = 0;
+    XQueryTree(
+            display,
+            root,
+            &root,
+            &parent,
+            &kids,
+            &count);
+    win = 0;
+    clickX = 200;
+    clickY = 200;
+    i = 0;
+    while (i < count) {
+        char *name;
+        char attr[160];
+        int *fields;
+
+        name = nullptr;
+        fields = (int *)attr;
+        fields[2] = 0;
+        XGetWindowAttributes(
+                display,
+                kids[i],
+                (void *)attr);
+        if (XFetchName(display, kids[i], &name) != 0
+                && name != nullptr
+                && text_same(name, "<No Session>") == 1
+                && fields[2] > 100) {
+            win = kids[i];
+            clickX = fields[0] + fields[2] / 2;
+            clickY = fields[1] + fields[3] / 2;
+        }
+        if (name != nullptr)
+            XFree((void *)name);
+        i = i + 1;
+    }
+    if (kids != nullptr)
+        XFree((void *)kids);
+    if (win == 0) {
+        XCloseDisplay(display);
+        return 0;
+    }
+    XSetInputFocus(display, win, 2, 0);
+    XRaiseWindow(display, win);
+    XFlush(display);
+    usleep(80000);
+    XTestFakeMotionEvent(display, -1, clickX, clickY, 0);
+    XFlush(display);
+    usleep(20000);
+    XTestFakeButtonEvent(display, button, 1, 0);
+    XFlush(display);
+    usleep(20000);
+    XTestFakeButtonEvent(display, button, 0, 0);
+    XFlush(display);
+    XCloseDisplay(display);
+    return 1;
+}
+
 void check_panel_layout(Ui *ui) {
     expect(ui->panel_scrolls() == 1, "panel scroll buttons");
     expect(text_same(ui->panel_scroll_mark(0), "<") == 1,
@@ -1759,6 +1835,112 @@ int main(void) {
                 }
                 expect(y >= 0 && y < 40,
                         "map test starts at the top");
+                {
+                    long y0;
+                    long y1;
+                    int tall;
+                    long index;
+                    long held;
+
+                    index = editor->index();
+                    held = editor->active()
+                            ->buffer()
+                            ->cursor_line();
+                    tall = ui->text_line_height(index);
+                    y0 = ui->gutter_line_y(0);
+                    ui->scroll_view_delta(index, 1, 0, 0);
+                    pump(20);
+                    y1 = ui->gutter_line_y(0);
+                    expect(y1 < y0,
+                            "a notch shows later lines");
+                    expect(y0 - y1 > tall - 4,
+                            "a notch moves one line");
+                    expect(y0 - y1 < tall + 8,
+                            "a notch is only one line");
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == held,
+                            "a notch leaves the caret");
+                    y0 = y1;
+                    ui->scroll_view_delta(
+                            index,
+                            4,
+                            1,
+                            24);
+                    pump(20);
+                    y1 = ui->gutter_line_y(0);
+                    expect(y0 - y1 > 16,
+                            "smooth scroll uses the pixels");
+                    expect(y0 - y1 < 36,
+                            "smooth scroll stays on the delta");
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == held,
+                            "smooth scroll leaves the caret");
+                    ui->scroll_view(0);
+                    n = 0;
+                    y = -1;
+                    while (n < 40) {
+                        usleep(50000);
+                        pump(10);
+                        y = ui->gutter_line_y(0);
+                        if (y >= 0 && y < 40)
+                            break;
+                        n = n + 1;
+                    }
+                    y0 = ui->gutter_line_y(0);
+                    expect(send_wheel(5) == 1,
+                            "wheel reaches the buffer");
+                    n = 0;
+                    y1 = y0;
+                    while (n < 20) {
+                        usleep(50000);
+                        pump(10);
+                        y1 = ui->gutter_line_y(0);
+                        if (y1 < y0)
+                            break;
+                        n = n + 1;
+                    }
+                    expect(y1 < y0,
+                            "buffer wheel shows later lines");
+                    expect(y0 - y1 > tall - 4,
+                            "buffer wheel moves one line");
+                    expect(y0 - y1 < tall + 12,
+                            "buffer wheel is one notch");
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == held,
+                            "buffer wheel leaves the caret");
+                    y0 = y1;
+                    expect(send_wheel(4) == 1,
+                            "wheel up reaches the buffer");
+                    n = 0;
+                    while (n < 20) {
+                        usleep(50000);
+                        pump(10);
+                        y1 = ui->gutter_line_y(0);
+                        if (y1 > y0)
+                            break;
+                        n = n + 1;
+                    }
+                    expect(y1 > y0,
+                            "buffer wheel shows earlier lines");
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == held,
+                            "wheel up leaves the caret");
+                    ui->scroll_view(0);
+                    n = 0;
+                    y = -1;
+                    while (n < 40) {
+                        usleep(50000);
+                        pump(10);
+                        y = ui->gutter_line_y(0);
+                        if (y >= 0 && y < 40)
+                            break;
+                        n = n + 1;
+                    }
+                }
                 expect(ui->map_ink(0) == 5,
                         "map short line");
                 expect(ui->map_ink(1) == 0,
