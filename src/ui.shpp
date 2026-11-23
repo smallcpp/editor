@@ -260,6 +260,14 @@ public:
             int direction,
             int unit,
             double down);
+    void buffer_wheel(long index, void *event);
+    void wheel_lines(long index, int steps);
+    void show_first(long line);
+    long shown_first(void);
+    long shown_count(void);
+    void place_at(long line, long column);
+    int caret_margin(void);
+    void set_caret_margin(int value);
     void map_wheel(long index, void *event);
     void set_map_font(const char *description);
     const char *map_font(void);
@@ -393,6 +401,8 @@ private:
     int colorKind;
     int fontKind;
     int marginCols;
+    int wheelMargin;
+    double wheelRemain;
     int hasLastDir;
     int leaving;
     char lineColor[32];
@@ -436,6 +446,7 @@ private:
     CheckButton *closeCheck;
     SpinButton *tabSpin;
     SpinButton *marginSpin;
+    SpinButton *caretSpin;
     Entry *lineEntry;
     Entry *marginEntry;
     Entry *bracketEntry;

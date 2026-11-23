@@ -41,11 +41,18 @@ A narrow column on the right of the current buffer shows
 the shape of the file, a band for the visible lines, and
 a mark on the current line. A click in the buffer moves
 the caret and that mark together, without waiting for a
-scroll. The mouse wheel over the buffer scrolls the
-text and leaves the caret where it was. A notch moves
-one line, down toward later lines and up toward
-earlier lines. A smooth scroll moves by its pixel
-delta. In that column, each line is drawn in the
+scroll. The mouse wheel over the buffer moves the
+caret. The view scrolls only when the caret would
+come inside the caret margin of the top or bottom,
+and after that scroll the caret sits that many lines
+from the edge. A notch moves one line. A smooth
+scroll moves the caret by the same number of lines.
+The view stays put while the caret remains at least
+that many lines from both edges. At the start or end
+of the file the view stops, and the caret may sit
+closer than the margin. The mini-map wheel still
+scrolls the view and leaves the caret where it was.
+In that column, each line is drawn in the
 mini-map font, far enough across that the text
 keeps its shape. A file short enough to fit is drawn at
 that font's line spacing, packed from the top, so it looks
@@ -245,7 +252,10 @@ it is turned on. Depth is how many parent directories the
 tab keeps. Depth 0, or the switch off, shows only the
 file name.
 Each field has its label on the same line, and the field
-is 12 characters wide. General also holds how many recent
+is 12 characters wide. Caret margin is on General with
+the current-line choices. It starts at 10. The mouse
+wheel uses that saved value, and a change applies
+without restarting. General also holds how many recent
 files to keep. The count starts at 10. It can save a named
 file when its tab loses focus, and when the window loses
 focus. Both are off until they are turned on. An untitled

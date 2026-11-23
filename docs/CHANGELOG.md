@@ -2,12 +2,16 @@
 
 ## Unreleased
 
-The mouse wheel over the text buffer scrolls the text.
-A notch moves one line, down toward later lines and up
-toward earlier lines. A smooth scroll moves by its
-pixel delta. The caret stays where it was. The
-mini-map wheel, drag, and current-line mark stay as
-they are.
+The mouse wheel over the text buffer moves the caret.
+The view scrolls only when that caret would sit inside
+the caret margin, and then the caret is left that many
+lines from the edge. The margin starts at 10 and is
+set on General. A change is saved and used at once.
+A notch moves one line. A smooth scroll moves the
+matching number of lines. Near either end of the file
+the view stops and the caret may sit closer than the
+margin. The mini-map wheel still scrolls the view and
+does not move the caret.
 
 The Sessions dialog has no name field. Rename and
 Duplicate each ask for the name in a small prompt.

@@ -1836,99 +1836,153 @@ int main(void) {
                 expect(y >= 0 && y < 40,
                         "map test starts at the top");
                 {
-                    long y0;
-                    long y1;
-                    int tall;
                     long index;
-                    long held;
+                    long tall;
+                    long half;
+                    long last;
+                    long spot;
 
                     index = editor->index();
-                    held = editor->active()
-                            ->buffer()
-                            ->cursor_line();
-                    tall = ui->text_line_height(index);
-                    y0 = ui->gutter_line_y(0);
-                    ui->scroll_view_delta(index, 1, 0, 0);
-                    pump(20);
-                    y1 = ui->gutter_line_y(0);
-                    expect(y1 < y0,
-                            "a notch shows later lines");
-                    expect(y0 - y1 > tall - 4,
-                            "a notch moves one line");
-                    expect(y0 - y1 < tall + 8,
-                            "a notch is only one line");
+                    expect(ui->caret_margin() == 10,
+                            "caret margin starts at 10");
+                    ui->show_first(10);
+                    ui->place_at(25, 1);
+                    pump(10);
+                    expect(ui->shown_first() == 10,
+                            "example starts on line 10");
                     expect(editor->active()
                                     ->buffer()
-                                    ->cursor_line() == held,
-                            "a notch leaves the caret");
-                    y0 = y1;
+                                    ->cursor_line() == 25,
+                            "example caret starts on 25");
+                    expect(25 - ui->shown_first() == 15,
+                            "caret starts 15 lines down");
+                    ui->wheel_lines(index, -1);
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == 24,
+                            "one notch moves the caret");
+                    expect(ui->shown_first() == 10,
+                            "a notch inside the margin stays");
+                    ui->place_at(25, 1);
+                    ui->wheel_lines(index, -6);
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == 19,
+                            "six lines up lands on 19");
+                    expect(ui->shown_first() == 9,
+                            "the view scrolls up one line");
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line()
+                            - ui->shown_first() == 10,
+                            "the caret sits 10 lines down");
+                    ui->show_first(10);
+                    ui->place_at(25, 1);
+                    last = ui->shown_first()
+                            + ui->shown_count() - 1;
+                    spot = last - 15;
+                    if (spot > ui->shown_first() + 10) {
+                        ui->place_at(spot, 1);
+                        ui->wheel_lines(index, 6);
+                        expect(editor->active()
+                                        ->buffer()
+                                        ->cursor_line()
+                                == spot + 6,
+                                "six lines down moves the caret");
+                        expect(ui->shown_first() == 11,
+                                "the view scrolls down one line");
+                        last = ui->shown_first()
+                                + ui->shown_count() - 1;
+                        expect(last
+                                - editor->active()
+                                        ->buffer()
+                                        ->cursor_line()
+                                == 10,
+                                "the caret sits 10 lines up");
+                    }
+                    ui->show_first(1);
+                    ui->place_at(5, 1);
+                    ui->wheel_lines(index, -1);
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == 4,
+                            "the caret can pass the margin");
+                    expect(ui->shown_first() == 1,
+                            "the view stops at the file");
+                    ui->show_first(10);
+                    ui->place_at(25, 1);
+                    tall = ui->text_line_height(index);
+                    half = tall / 2;
                     ui->scroll_view_delta(
                             index,
                             4,
                             1,
-                            24);
-                    pump(20);
-                    y1 = ui->gutter_line_y(0);
-                    expect(y0 - y1 > 16,
-                            "smooth scroll uses the pixels");
-                    expect(y0 - y1 < 36,
-                            "smooth scroll stays on the delta");
+                            -(double)half);
                     expect(editor->active()
                                     ->buffer()
-                                    ->cursor_line() == held,
-                            "smooth scroll leaves the caret");
-                    ui->scroll_view(0);
-                    n = 0;
-                    y = -1;
-                    while (n < 40) {
-                        usleep(50000);
-                        pump(10);
-                        y = ui->gutter_line_y(0);
-                        if (y >= 0 && y < 40)
-                            break;
-                        n = n + 1;
-                    }
-                    y0 = ui->gutter_line_y(0);
-                    expect(send_wheel(5) == 1,
-                            "wheel reaches the buffer");
-                    n = 0;
-                    y1 = y0;
-                    while (n < 20) {
-                        usleep(50000);
-                        pump(10);
-                        y1 = ui->gutter_line_y(0);
-                        if (y1 < y0)
-                            break;
-                        n = n + 1;
-                    }
-                    expect(y1 < y0,
-                            "buffer wheel shows later lines");
-                    expect(y0 - y1 > tall - 4,
-                            "buffer wheel moves one line");
-                    expect(y0 - y1 < tall + 12,
-                            "buffer wheel is one notch");
+                                    ->cursor_line() == 25,
+                            "half a line waits");
+                    ui->scroll_view_delta(
+                            index,
+                            4,
+                            1,
+                            -(double)(tall - half));
                     expect(editor->active()
                                     ->buffer()
-                                    ->cursor_line() == held,
-                            "buffer wheel leaves the caret");
-                    y0 = y1;
+                                    ->cursor_line() == 24,
+                            "smooth scroll moves one line");
+                    expect(ui->shown_first() == 10,
+                            "smooth scroll inside the margin stays");
+                    ui->set_caret_margin(15);
+                    ui->apply_settings();
+                    expect(ui->caret_margin() == 15,
+                            "setup changes the margin");
+                    ui->show_first(10);
+                    ui->place_at(25, 1);
+                    ui->wheel_lines(index, -6);
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line() == 19,
+                            "the new margin keeps the caret");
+                    expect(ui->shown_first() == 4,
+                            "the new margin scrolls the view");
+                    expect(editor->active()
+                                    ->buffer()
+                                    ->cursor_line()
+                            - ui->shown_first() == 15,
+                            "the caret sits on the new margin");
+                    {
+                        char path[EDITOR_PATH];
+                        char *raw;
+                        long nread;
+                        const char *err;
+
+                        err = "";
+                        nread = 0;
+                        expect(config_path(
+                                    path,
+                                    EDITOR_PATH) == 1,
+                                "margin settings path");
+                        raw = read_file(path, &nread, &err);
+                        expect(raw != nullptr
+                                && text_has(
+                                        raw,
+                                        "caret-margin=15") == 1,
+                                "caret margin is saved");
+                    }
+                    ui->set_caret_margin(10);
+                    ui->apply_settings();
+                    ui->show_first(10);
+                    ui->place_at(25, 1);
                     expect(send_wheel(4) == 1,
-                            "wheel up reaches the buffer");
-                    n = 0;
-                    while (n < 20) {
-                        usleep(50000);
-                        pump(10);
-                        y1 = ui->gutter_line_y(0);
-                        if (y1 > y0)
-                            break;
-                        n = n + 1;
-                    }
-                    expect(y1 > y0,
-                            "buffer wheel shows earlier lines");
+                            "wheel reaches the buffer");
+                    pump(20);
                     expect(editor->active()
                                     ->buffer()
-                                    ->cursor_line() == held,
-                            "wheel up leaves the caret");
+                                    ->cursor_line() == 24,
+                            "the wheel moves the caret");
+                    expect(ui->shown_first() == 10,
+                            "the wheel leaves a wide margin");
                     ui->scroll_view(0);
                     n = 0;
                     y = -1;
@@ -2107,6 +2161,10 @@ int main(void) {
                             raw,
                             "recent-count=10") == 1,
                         "saved recent count");
+                expect(text_has(
+                            raw,
+                            "caret-margin=10") == 1,
+                        "saved caret margin");
                 expect(text_has(
                             raw,
                             "remember-files=1") == 1,

@@ -474,7 +474,7 @@ static int view_scroll_event(
     if (kind != 15)
         return 0;
     ref = (PageRef *)data;
-    editorUi->map_wheel(ref->index, event);
+    editorUi->buffer_wheel(ref->index, event);
     return 1;
 }
 
@@ -1042,6 +1042,7 @@ Ui::Ui(Editor *editor) {
     closeCheck = nullptr;
     tabSpin = nullptr;
     marginSpin = nullptr;
+    caretSpin = nullptr;
     lineEntry = nullptr;
     marginEntry = nullptr;
     bracketEntry = nullptr;
@@ -1217,6 +1218,8 @@ Ui::Ui(Editor *editor) {
     showMargin = 0;
     showClose = 1;
     marginCols = 80;
+    wheelMargin = 10;
+    wheelRemain = 0;
     hasLastDir = 0;
     leaving = 0;
     building = 0;
@@ -3181,14 +3184,24 @@ void Ui::scroll_map_wheel(long index, int steps) {
     scroll_map_pixels(index, (double)steps * (double)tall);
 }
 
-void Ui::scroll_view_delta(
-        long index,
-        int direction,
-        int unit,
-        double down) {
+void Ui::map_wheel(long index, void *event) {
+    int direction;
+    int unit;
+    double across;
+    double down;
     int tall;
 
+    if (event == nullptr)
+        return;
+    if (gdk_scroll_event_is_stop(event) != 0)
+        return;
+    direction = gdk_scroll_event_get_direction(event);
+    across = 0;
+    down = 0;
+    gdk_scroll_event_get_deltas(event, &across, &down);
+    (void)across;
     if (direction == 4) {
+        unit = gdk_scroll_event_get_unit(event);
         if (unit == 1) {
             scroll_map_pixels(index, down);
             return;
@@ -3205,7 +3218,52 @@ void Ui::scroll_view_delta(
         scroll_map_wheel(index, 1);
 }
 
-void Ui::map_wheel(long index, void *event) {
+static int wheel_steps(
+        double *remain,
+        int direction,
+        int unit,
+        double down,
+        int tall) {
+    double lines;
+    int steps;
+
+    if (direction == 0)
+        return -1;
+    if (direction == 1)
+        return 1;
+    if (direction != 4 || remain == nullptr)
+        return 0;
+    lines = down;
+    if (unit == 1) {
+        if (tall < 1)
+            tall = 16;
+        lines = down / (double)tall;
+    }
+    *remain = *remain + lines;
+    steps = (int)*remain;
+    *remain = *remain - (double)steps;
+    return steps;
+}
+
+void Ui::scroll_view_delta(
+        long index,
+        int direction,
+        int unit,
+        double down) {
+    int steps;
+
+    steps = wheel_steps(
+            &wheelRemain,
+            direction,
+            unit,
+            down,
+            text_line_height(index));
+    if (steps == 0)
+        return;
+    wheel_lines(index, steps);
+}
+
+void Ui::buffer_wheel(long index, void *event) {
     int direction;
     int unit;
     double across;
@@ -3224,6 +3282,154 @@ void Ui::map_wheel(long index, void *event) {
     if (direction == 4)
         unit = gdk_scroll_event_get_unit(event);
     scroll_view_delta(index, direction, unit, down);
+}
+
+void Ui::wheel_lines(long index, int steps) {
+    Document *doc;
+    long line;
+    long column;
+    long first;
+    long shown;
+    long last;
+    long fromTop;
+    long fromBottom;
+    long want;
+    int margin;
+    TextIter *at;
+
+    if (steps == 0)
+        return;
+    if (index < 0 || index >= pageCount)
+        return;
+    if (state == nullptr)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr || doc->buffer() == nullptr)
+        return;
+    if (pages[index].buffer == nullptr)
+        return;
+    if (pages[index].view != nullptr
+            && pages[index].view->caret_count() > 1) {
+        pages[index].view->clear_carets();
+        doc->buffer()->clear_carets();
+    }
+    line = doc->buffer()->cursor_line() + (long)steps;
+    column = doc->buffer()->cursor_column();
+    if (line < 1)
+        line = 1;
+    if (line > doc->buffer()->line_count())
+        line = doc->buffer()->line_count();
+    doc->buffer()->move_to(line, column);
+    applying = 1;
+    {
+        long zeroLine;
+        long zeroCol;
+
+        doc->buffer()->line_column_at(
+                doc->buffer()->cursor_offset(),
+                &zeroLine,
+                &zeroCol);
+        at = new TextIter(zeroLine, zeroCol);
+        pages[index].buffer->place_cursor(at);
+    }
+    applying = 0;
+    paint_brackets(index);
+    paint_line(index);
+    paint_status();
+    margin = wheelMargin;
+    if (margin < 0)
+        margin = 0;
+    view_span(index, &first, &shown);
+    if (shown < 1)
+        shown = 1;
+    first = first + 1;
+    last = first + shown - 1;
+    fromTop = line - first;
+    fromBottom = last - line;
+    want = first;
+    if (fromTop < (long)margin
+            && (fromBottom >= (long)margin
+                    || steps < 0)) {
+        want = line - (long)margin;
+        if (want < 1)
+            want = 1;
+    } else if (fromBottom < (long)margin) {
+        want = line + (long)margin - shown + 1;
+        if (want < 1)
+            want = 1;
+    }
+    if (want != first)
+        scroll_line(index, want - 1);
+    redraw_map(index);
+}
+
+void Ui::show_first(long line) {
+    long index;
+
+    if (state == nullptr)
+        return;
+    index = state->index();
+    if (line < 1)
+        line = 1;
+    scroll_line(index, line - 1);
+    redraw_map(index);
+}
+
+long Ui::shown_first(void) {
+    long index;
+    long first;
+    long count;
+
+    if (state == nullptr)
+        return (long)1;
+    index = state->index();
+    view_span(index, &first, &count);
+    return first + 1;
+}
+
+long Ui::shown_count(void) {
+    long index;
+    long first;
+    long count;
+
+    if (state == nullptr)
+        return (long)1;
+    index = state->index();
+    view_span(index, &first, &count);
+    if (count < 1)
+        return (long)1;
+    return count;
+}
+
+void Ui::place_at(long line, long column) {
+    long index;
+    Document *doc;
+    long zeroLine;
+    long zeroCol;
+    TextIter *at;
+
+    if (state == nullptr)
+        return;
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr || doc->buffer() == nullptr)
+        return;
+    if (pages[index].buffer == nullptr)
+        return;
+    doc->buffer()->move_to(line, column);
+    applying = 1;
+    doc->buffer()->line_column_at(
+            doc->buffer()->cursor_offset(),
+            &zeroLine,
+            &zeroCol);
+    at = new TextIter(zeroLine, zeroCol);
+    pages[index].buffer->place_cursor(at);
+    applying = 0;
+    paint_line(index);
+    paint_status();
+    redraw_map(index);
 }
 
 void Ui::paint_map(
@@ -5534,6 +5740,8 @@ void Ui::sync_boxes(void) {
         recentSpin->set_value((double)recentCount);
     if (pathSpin != nullptr)
         pathSpin->set_value((double)pathDepth);
+    if (caretSpin != nullptr)
+        caretSpin->set_value((double)wheelMargin);
     applying = 0;
     i = 0;
     while (i < pageCount) {
@@ -6549,6 +6757,16 @@ void ui_margin_spin(void *data) {
     editorUi->apply_settings();
 }
 
+void ui_caret_spin(void *data) {
+    SpinButton *spin;
+
+    spin = (SpinButton *)data;
+    if (editorUi == nullptr || spin == nullptr)
+        return;
+    editorUi->set_caret_margin((int)spin->value());
+    editorUi->apply_settings();
+}
+
 void ui_line_entry(void *data) {
     Entry *entry;
 
@@ -6622,6 +6840,7 @@ void Ui::use_config(EditorConfig *item) {
     set_margin_shown(item->showMargin);
     set_close_shown(item->showClose);
     set_margin_count(item->marginCols);
+    set_caret_margin(item->caretMargin);
     set_line_color(item->lineColor);
     set_margin_color(item->marginColor);
     if (item->mapFont[0] != 0)
@@ -6760,6 +6979,7 @@ void Ui::apply_settings(void) {
     item.showMargin = showMargin;
     item.showClose = showClose;
     item.marginCols = marginCols;
+    item.caretMargin = wheelMargin;
     item.searchWrap = searchWrap;
     item.searchBack = searchBack;
     item.searchWhole = searchWhole;
@@ -6856,6 +7076,7 @@ void Ui::apply_settings(void) {
     if (theme_is_default(themeName) == 0)
         give_theme_base(&item);
     text_copy(item.themeName, THEME_NAME, editorTheme);
+    item.caretMargin = wheelMargin;
     if (config_path(path, EDITOR_PATH) == 1)
         write_config(path, &item);
     settingsHold = 0;
@@ -8228,6 +8449,14 @@ void Ui::show_settings(void) {
                 (Widget *)color_field(
                         lineEntry,
                         lineColorButton)));
+        caretSpin = new SpinButton(0, 200, 10);
+        caretSpin->set_width_chars(12);
+        caretSpin->on_changed(
+                ui_caret_spin,
+                (void *)caretSpin);
+        lineGroup->append((Widget *)labeled_field(
+                "Caret margin",
+                (Widget *)caretSpin));
         box->append((Widget *)lineGroup);
         marginGroup = group_box("Column marker");
         marginGroup->append((Widget *)marginCheck);
@@ -8634,6 +8863,8 @@ void Ui::show_settings(void) {
     if (pathSpin != nullptr)
         pathSpin->set_value((double)pathDepth);
     marginSpin->set_value((double)marginCols);
+    if (caretSpin != nullptr)
+        caretSpin->set_value((double)wheelMargin);
     n = 0;
     while (n < EDITOR_KEY_COUNT) {
         char shown[64];
@@ -10335,6 +10566,18 @@ void Ui::set_margin_count(int value) {
         apply_view(i);
         i = i + 1;
     }
+}
+
+int Ui::caret_margin(void) {
+    return wheelMargin;
+}
+
+void Ui::set_caret_margin(int value) {
+    if (value < 0)
+        value = 0;
+    if (value > 200)
+        value = 200;
+    wheelMargin = value;
 }
 
 void Ui::set_width(int value) {
