@@ -19,6 +19,8 @@ files use the `.scpp` suffix. Do not invent an `sc_` prefix for a name.
 - Files should have a single well-defined purpose. Ideally, files should 
   be limited to less than 500 lines and should never be more than 1500 
   lines.   
+- Function definitions should never be included unless absolutely required, 
+  such as for unit testing.
 - Files should have a block comment at the start   
     - names the author and the date.
     - that names related files such as headers or implementations. 
