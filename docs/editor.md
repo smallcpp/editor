@@ -66,6 +66,22 @@ lists the current folder with each name starting at the
 left. Documents lists the open files the same way, and
 one click switches to that file. A name is shown as
 written, including an underscore.
+Right-click on Files, Project, or Documents shows New,
+Open, Close, Save, and Remove. Open, Close, Save, and
+Remove are gray unless the click landed on a file, and
+then they use that file. New stays available when a
+file can be created: the Files tab has a folder, a
+project is open, or Documents can open a buffer. New
+is the same as File, New. Open opens that file. Close
+closes it when it is open, and still asks when it is
+dirty. Save writes it, opening it first when it is not
+already open. Remove asks before it changes anything.
+Remove from the project drops a project file, closes a
+document, or hides a name in the Files list, and the
+file stays on disk. Remove from the project and the
+disk does that and then deletes the file. Cancel
+leaves the file alone. A Files name stays hidden for
+that folder until the editor quits.
 Project lists the files in the open project as a
 collapsible tree. Each row is a directory name or a
 file name, and one click opens a file or folds a
@@ -107,6 +123,11 @@ global choice. The editor does not build, run, or
 debug. The panel does not own the buffer. Opening a
 file uses the same path as File, Open. A symbol moves
 the cursor in the current buffer.
+Right-click in the text keeps the usual edit menu and
+hides Insert Emoji. Insert date writes today's local
+date at the caret as `YYYY-MM-DD`. Insert color opens
+the same color chooser as the theme colors and writes
+the chosen color as `#rrggbb`.
 The menus are File, Edit, Search, View, and Project. The
 status line shows the title, a dirty star, the line, the
 column, and the language. Each tab has a dark border.

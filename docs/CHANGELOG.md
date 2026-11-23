@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+Right-click in the text hides Insert Emoji and adds
+Insert date and Insert color. Insert date writes the
+local date at the caret as `YYYY-MM-DD`. Insert color
+opens the color chooser and writes the same `#rrggbb`
+text a theme color is stored as.
+
+Right-click on Files, Project, or Documents shows New,
+Open, Close, Save, and Remove. Open, Close, Save, and
+Remove stay gray until the click is on a file, and
+then they apply to that file. New stays available when
+a file can be created. Remove asks first. One choice
+drops the file from that list and leaves it on disk.
+The other also deletes it. Cancel leaves it alone.
+
 The mini-map width can be set from 24 to 500. The
 setup spin, the drag bar, and a saved map-width all
 use that range. A width already saved stays as it is.

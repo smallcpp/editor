@@ -120,6 +120,57 @@ extern void gtk_drawing_area_set_draw_func(
         void *destroy);
 extern void gtk_widget_queue_draw(void *widget);
 extern void *gtk_gesture_click_new(void);
+extern void gtk_gesture_single_set_button(
+        void *gesture,
+        unsigned button);
+extern void *gtk_widget_get_parent(void *widget);
+extern void *gtk_widget_pick(
+        void *widget,
+        double x,
+        double y,
+        int flags);
+extern const char *gtk_label_get_text(void *label);
+extern void *g_menu_new(void);
+extern void g_menu_append(
+        void *menu,
+        const char *label,
+        const char *action);
+extern int g_menu_model_get_n_items(void *model);
+extern void *g_menu_model_get_item_attribute_value(
+        void *model,
+        int index,
+        const char *attribute,
+        void *type);
+extern const char *g_variant_get_string(
+        void *value,
+        long *length);
+extern void g_variant_unref(void *value);
+extern void *g_simple_action_group_new(void);
+extern void *g_simple_action_new(
+        const char *name,
+        void *parameter);
+extern void g_action_map_add_action(void *group, void *action);
+extern void g_simple_action_set_enabled(void *action, int enabled);
+extern int g_action_get_enabled(void *action);
+extern void gtk_widget_insert_action_group(
+        void *widget,
+        const char *name,
+        void *group);
+extern void gtk_widget_set_parent(void *widget, void *parent);
+extern void *gtk_popover_menu_new_from_model(void *model);
+extern void gtk_popover_set_has_arrow(void *popover, int arrow);
+extern void gtk_popover_set_pointing_to(
+        void *popover,
+        void *rect);
+extern void gtk_popover_popup(void *popover);
+extern void gtk_text_view_set_extra_menu(
+        void *view,
+        void *model);
+extern void *gtk_text_view_get_extra_menu(void *view);
+extern void gtk_text_view_set_input_hints(void *view, int hints);
+extern int gtk_text_view_get_input_hints(void *view);
+extern File *popen(const char *command, const char *mode);
+extern int pclose(File *stream);
 extern void gtk_widget_add_controller(
         void *widget,
         void *controller);
@@ -650,6 +701,66 @@ void ui_panel_doc(void *data, long row) {
     editorUi->open_document((int)row);
 }
 
+static int menuFilesPage = 0;
+static int menuProjectPage = 1;
+static int menuDocsPage = 3;
+static char menuShown[64];
+
+static void panel_pressed(
+        void *gesture,
+        int npress,
+        double x,
+        double y,
+        void *data) {
+    int *page;
+
+    (void)gesture;
+    (void)npress;
+    page = (int *)data;
+    if (page == nullptr || editorUi == nullptr)
+        return;
+    editorUi->show_row_menu(*page, x, y);
+}
+
+static void panel_activated(
+        void *action,
+        void *param,
+        void *data) {
+    (void)action;
+    (void)param;
+    if (editorUi == nullptr || data == nullptr)
+        return;
+    editorUi->run_panel_item((const char *)data);
+}
+
+static void text_insert_date(
+        void *action,
+        void *param,
+        void *data) {
+    (void)action;
+    (void)param;
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->insert_date();
+}
+
+static void text_insert_color(
+        void *action,
+        void *param,
+        void *data) {
+    (void)action;
+    (void)param;
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->open_insert_color();
+}
+
+void ui_remove_response(void *data, int response) {
+    (void)data;
+    if (editorUi != nullptr)
+        editorUi->answer_remove(response);
+}
+
 void ui_panel_tab_documents(void *data) {
     (void)data;
     editorUi->show_panel_page(3);
@@ -846,6 +957,22 @@ Ui::Ui(Editor *editor) {
     book = nullptr;
     status = nullptr;
     choiceDialog = nullptr;
+    removeDialog = nullptr;
+    removeLabel = nullptr;
+    textMenu = nullptr;
+    panelMenu = nullptr;
+    panelGroup = nullptr;
+    actNew = nullptr;
+    actOpen = nullptr;
+    actClose = nullptr;
+    actSave = nullptr;
+    actRemove = nullptr;
+    filePop = nullptr;
+    projectPop = nullptr;
+    docPop = nullptr;
+    menuPage = 0;
+    menuRow = -1;
+    removeWait = 0;
     dirtyDialog = nullptr;
     settingsDialog = nullptr;
     themeDialog = nullptr;
@@ -1235,6 +1362,18 @@ void Ui::build(void) {
     choiceDialog->add_button("Discard", EDITOR_DISCARD);
     choiceDialog->add_button("Cancel", EDITOR_CANCEL);
     choiceDialog->on_response(ui_choice_response, nullptr);
+    removeDialog = new Dialog("Remove");
+    removeDialog->set_transient(mainWindow);
+    removeLabel = new Label("Remove this file?");
+    removeDialog->set_content((Widget *)removeLabel);
+    removeDialog->add_button(
+            "Remove from the project",
+            1);
+    removeDialog->add_button(
+            "Remove from the project and the disk",
+            2);
+    removeDialog->add_button("Cancel", 0);
+    removeDialog->on_response(ui_remove_response, nullptr);
     dirtyDialog = new Dialog("Save changes?");
     dirtyDialog->set_transient(mainWindow);
     dirtyDialog->add_button("Save all", EDITOR_SAVE);
@@ -1421,6 +1560,7 @@ Widget *Ui::mount_panel(void) {
     split->set_position(200);
     editorSplit = split;
     split->set_v_expand(true);
+    mount_row_menus();
     return (Widget *)split;
 }
 
@@ -3278,6 +3418,7 @@ void Ui::add_page(long index) {
     pages[index].view->set_monospace(true);
     pages[index].view->set_editable(true);
     pages[index].view->set_line_numbers(true);
+    arm_buffer_menu(pages[index].view->native);
     pages[index].userDepth = 0;
     pages[index].pendingSync = 0;
     pages[index].pendingIdle = 0;
@@ -9506,6 +9647,8 @@ void Ui::leave(void) {
         gtk_widget_set_visible(restoredNative, 0);
     if (choiceDialog != nullptr)
         choiceDialog->set_visible(false);
+    if (removeDialog != nullptr)
+        removeDialog->set_visible(false);
     if (dirtyDialog != nullptr) {
         dirtyOpen = 0;
         dirtyDialog->set_visible(false);
@@ -9730,6 +9873,10 @@ void Ui::open_margin_color(void) {
 void Ui::take_color(const char *color) {
     if (safe_color(color) == 0)
         return;
+    if (colorKind == 3) {
+        insert_color_text(color);
+        return;
+    }
     if (colorKind == 2) {
         if (themeTag >= 0
                 && themeTag < THEME_ALL
@@ -9768,6 +9915,667 @@ void Ui::open_map_font(void) {
         return;
     fontKind = 1;
     fonts->choose(mainWindow, ui_font, nullptr);
+}
+
+static void leaf_of(
+        char *dest,
+        long cap,
+        const char *path) {
+    long i;
+    long slash;
+    long n;
+
+    if (dest == nullptr || cap < 2)
+        return;
+    dest[0] = 0;
+    if (path == nullptr)
+        return;
+    slash = -1;
+    i = 0;
+    while (path[i] != 0) {
+        if (path[i] == '/')
+            slash = i;
+        i = i + 1;
+    }
+    i = 0;
+    if (slash >= 0)
+        i = slash + 1;
+    n = 0;
+    while (path[i] != 0 && n + 1 < cap) {
+        dest[n] = path[i];
+        n = n + 1;
+        i = i + 1;
+    }
+    dest[n] = 0;
+}
+
+static const char *label_on(void *widget) {
+    void *at;
+
+    at = widget;
+    while (at != nullptr) {
+        const char *name;
+
+        name = gtk_widget_get_css_name(at);
+        if (name != nullptr
+                && text_same(name, "label") == 1)
+            return gtk_label_get_text(at);
+        at = gtk_widget_get_parent(at);
+    }
+    return nullptr;
+}
+
+static const char *model_label(void *model, int index) {
+    void *value;
+    const char *text;
+
+    menuShown[0] = 0;
+    if (model == nullptr || index < 0)
+        return "";
+    if (index >= g_menu_model_get_n_items(model))
+        return "";
+    value = g_menu_model_get_item_attribute_value(
+            model,
+            index,
+            "label",
+            nullptr);
+    if (value == nullptr)
+        return "";
+    text = g_variant_get_string(value, nullptr);
+    text_copy(menuShown, 64, text);
+    g_variant_unref(value);
+    return menuShown;
+}
+
+static void *menu_action(
+        void *group,
+        const char *name,
+        const char *label) {
+    void *action;
+
+    action = g_simple_action_new(name, nullptr);
+    if (action == nullptr)
+        return nullptr;
+    g_signal_connect_data(
+            action,
+            "activate",
+            (void *)panel_activated,
+            (void *)label,
+            nullptr,
+            0);
+    g_action_map_add_action(group, action);
+    return action;
+}
+
+void Ui::insert_at_caret(const char *text) {
+    long index;
+    Document *doc;
+
+    if (leaving == 1 || state == nullptr)
+        return;
+    if (text == nullptr || text[0] == 0)
+        return;
+    index = state->index();
+    if (index < 0)
+        return;
+    doc = state->at(index);
+    if (doc == nullptr || doc->buffer() == nullptr)
+        return;
+    doc->buffer()->insert_text(text);
+    sync_view(index);
+    paint_status();
+}
+
+void Ui::insert_date(void) {
+    char when[16];
+    File *pipe;
+    char *got;
+    int i;
+
+    pipe = popen("date +%Y-%m-%d", "r");
+    if (pipe == nullptr)
+        return;
+    got = fgets(when, 16, pipe);
+    pclose(pipe);
+    if (got == nullptr)
+        return;
+    i = 0;
+    while (when[i] != 0
+            && when[i] != '\n'
+            && when[i] != '\r')
+        i = i + 1;
+    when[i] = 0;
+    if (i != 10)
+        return;
+    insert_at_caret(when);
+}
+
+void Ui::insert_color_text(const char *color) {
+    if (safe_color(color) == 0)
+        return;
+    insert_at_caret(color);
+}
+
+void Ui::open_insert_color(void) {
+    if (leaving == 1)
+        return;
+    if (colors == nullptr || mainWindow == nullptr)
+        return;
+    if (colors->pending != 0)
+        return;
+    colorKind = 3;
+    colors->choose(
+            mainWindow,
+            "#808080",
+            ui_color,
+            nullptr);
+}
+
+void Ui::arm_buffer_menu(void *view) {
+    void *group;
+    void *dateAct;
+    void *colorAct;
+    int hints;
+
+    if (view == nullptr)
+        return;
+    hints = gtk_text_view_get_input_hints(view);
+    hints = hints | 1024;
+    gtk_text_view_set_input_hints(view, hints);
+    group = g_simple_action_group_new();
+    if (group == nullptr)
+        return;
+    dateAct = g_simple_action_new("date", nullptr);
+    if (dateAct != nullptr) {
+        g_signal_connect_data(
+                dateAct,
+                "activate",
+                (void *)text_insert_date,
+                nullptr,
+                nullptr,
+                0);
+        g_action_map_add_action(group, dateAct);
+    }
+    colorAct = g_simple_action_new("color", nullptr);
+    if (colorAct != nullptr) {
+        g_signal_connect_data(
+                colorAct,
+                "activate",
+                (void *)text_insert_color,
+                nullptr,
+                nullptr,
+                0);
+        g_action_map_add_action(group, colorAct);
+    }
+    gtk_widget_insert_action_group(view, "insert", group);
+    if (textMenu == nullptr) {
+        textMenu = g_menu_new();
+        g_menu_append(
+                textMenu,
+                "Insert date",
+                "insert.date");
+        g_menu_append(
+                textMenu,
+                "Insert color",
+                "insert.color");
+    }
+    gtk_text_view_set_extra_menu(view, textMenu);
+}
+
+int Ui::text_hides_emoji(void) {
+    long index;
+    int hints;
+
+    if (state == nullptr)
+        return 0;
+    index = state->index();
+    if (index < 0 || index >= pageCount)
+        return 0;
+    if (pages[index].view == nullptr)
+        return 0;
+    if (pages[index].view->native == nullptr)
+        return 0;
+    hints = gtk_text_view_get_input_hints(
+            pages[index].view->native);
+    if ((hints & 1024) == 0)
+        return 0;
+    return 1;
+}
+
+const char *Ui::text_extra_label(int index) {
+    return model_label(textMenu, index);
+}
+
+int Ui::row_path(
+        int page,
+        int row,
+        char *dest,
+        long cap) {
+    Document *doc;
+
+    if (dest == nullptr || cap < 2)
+        return 0;
+    dest[0] = 0;
+    if (row < 0)
+        return 0;
+    if (page == 0) {
+        if (panel == nullptr)
+            return 0;
+        if (panel->row_dir(row) == 1)
+            return 0;
+        return panel->file_path(row, dest, cap);
+    }
+    if (page == 1) {
+        if (named == nullptr)
+            return 0;
+        if (named->row_is_dir(row) == 1)
+            return 0;
+        if (named->row_path(row)[0] == 0)
+            return 0;
+        text_copy(dest, cap, named->row_path(row));
+        return 1;
+    }
+    if (page == 3) {
+        if (state == nullptr || row >= state->count())
+            return 0;
+        doc = state->at(row);
+        if (doc == nullptr || doc->untitled() == 1)
+            return 0;
+        if (doc->path()[0] == 0)
+            return 0;
+        text_copy(dest, cap, doc->path());
+        return 1;
+    }
+    return 0;
+}
+
+int Ui::row_is_file(int page, int row) {
+    char path[EDITOR_PATH];
+
+    if (row_path(page, row, path, EDITOR_PATH) == 0)
+        return 0;
+    if (file_is_reg(path) == 0)
+        return 0;
+    return 1;
+}
+
+int Ui::can_make_file(void) {
+    if (leaving == 1 || state == nullptr)
+        return 0;
+    if (menuPage == 0) {
+        if (panel == nullptr)
+            return 0;
+        if (panel->listed()[0] == 0)
+            return 0;
+        if (file_is_dir(panel->listed()) == 0)
+            return 0;
+        return 1;
+    }
+    if (menuPage == 1) {
+        if (named == nullptr || named->name()[0] == 0)
+            return 0;
+        return 1;
+    }
+    return 1;
+}
+
+void Ui::tune_panel_actions(void) {
+    int file;
+
+    file = row_is_file(menuPage, menuRow);
+    if (actOpen != nullptr)
+        g_simple_action_set_enabled(actOpen, file);
+    if (actClose != nullptr)
+        g_simple_action_set_enabled(actClose, file);
+    if (actSave != nullptr)
+        g_simple_action_set_enabled(actSave, file);
+    if (actRemove != nullptr)
+        g_simple_action_set_enabled(actRemove, file);
+    if (actNew != nullptr)
+        g_simple_action_set_enabled(
+                actNew,
+                can_make_file());
+}
+
+void Ui::arm_panel(int page, int row) {
+    menuPage = page;
+    menuRow = row;
+    tune_panel_actions();
+}
+
+int Ui::row_at(int page, double x, double y) {
+    ColumnView *view;
+    void *picked;
+    const char *text;
+    long i;
+
+    view = nullptr;
+    if (page == 0)
+        view = fileView;
+    if (page == 1)
+        view = projectFiles;
+    if (page == 3)
+        view = docView;
+    if (view == nullptr || view->native == nullptr)
+        return -1;
+    picked = gtk_widget_pick(view->native, x, y, 0);
+    text = label_on(picked);
+    if (text == nullptr || text[0] == 0)
+        return -1;
+    i = 0;
+    while (i < view->row_count()) {
+        if (text_same(view->cell(i, 0), text) == 1)
+            return (int)i;
+        i = i + 1;
+    }
+    return -1;
+}
+
+void *Ui::hook_row_menu(ColumnView *view, void *page) {
+    void *click;
+    void *pop;
+
+    if (view == nullptr || view->native == nullptr)
+        return nullptr;
+    gtk_widget_insert_action_group(
+            view->native,
+            "panel",
+            panelGroup);
+    pop = gtk_popover_menu_new_from_model(panelMenu);
+    if (pop == nullptr)
+        return nullptr;
+    gtk_widget_set_parent(pop, view->native);
+    gtk_popover_set_has_arrow(pop, 0);
+    click = gtk_gesture_click_new();
+    gtk_gesture_single_set_button(click, 3);
+    gtk_event_controller_set_propagation_phase(click, 1);
+    g_signal_connect_data(
+            click,
+            "pressed",
+            (void *)panel_pressed,
+            page,
+            nullptr,
+            0);
+    gtk_widget_add_controller(view->native, click);
+    return pop;
+}
+
+void Ui::mount_row_menus(void) {
+    if (panelGroup != nullptr)
+        return;
+    panelGroup = g_simple_action_group_new();
+    if (panelGroup == nullptr)
+        return;
+    actNew = menu_action(panelGroup, "new", "New");
+    actOpen = menu_action(panelGroup, "open", "Open");
+    actClose = menu_action(panelGroup, "close", "Close");
+    actSave = menu_action(panelGroup, "save", "Save");
+    actRemove = menu_action(
+            panelGroup,
+            "remove",
+            "Remove");
+    panelMenu = g_menu_new();
+    g_menu_append(panelMenu, "New", "panel.new");
+    g_menu_append(panelMenu, "Open", "panel.open");
+    g_menu_append(panelMenu, "Close", "panel.close");
+    g_menu_append(panelMenu, "Save", "panel.save");
+    g_menu_append(panelMenu, "Remove", "panel.remove");
+    filePop = hook_row_menu(
+            fileView,
+            (void *)&menuFilesPage);
+    projectPop = hook_row_menu(
+            projectFiles,
+            (void *)&menuProjectPage);
+    docPop = hook_row_menu(
+            docView,
+            (void *)&menuDocsPage);
+    menuPage = 0;
+    menuRow = -1;
+    tune_panel_actions();
+}
+
+void Ui::show_row_menu(int page, double x, double y) {
+    void *pop;
+    int rect[4];
+
+    arm_panel(page, row_at(page, x, y));
+    pop = nullptr;
+    if (page == 0)
+        pop = filePop;
+    if (page == 1)
+        pop = projectPop;
+    if (page == 3)
+        pop = docPop;
+    if (pop == nullptr)
+        return;
+    rect[0] = (int)x;
+    rect[1] = (int)y;
+    rect[2] = 1;
+    rect[3] = 1;
+    gtk_popover_set_pointing_to(pop, (void *)rect);
+    gtk_popover_popup(pop);
+}
+
+int Ui::panel_item_count(void) {
+    if (panelMenu == nullptr)
+        return 0;
+    return g_menu_model_get_n_items(panelMenu);
+}
+
+const char *Ui::panel_item_label(int index) {
+    return model_label(panelMenu, index);
+}
+
+int Ui::panel_item_on(const char *label) {
+    void *act;
+
+    act = nullptr;
+    if (label == nullptr)
+        return 0;
+    if (text_same(label, "New") == 1)
+        act = actNew;
+    if (text_same(label, "Open") == 1)
+        act = actOpen;
+    if (text_same(label, "Close") == 1)
+        act = actClose;
+    if (text_same(label, "Save") == 1)
+        act = actSave;
+    if (text_same(label, "Remove") == 1)
+        act = actRemove;
+    if (act == nullptr)
+        return 0;
+    if (g_action_get_enabled(act) == 0)
+        return 0;
+    return 1;
+}
+
+int Ui::close_named_path(const char *path, int force) {
+    long i;
+
+    if (state == nullptr || path == nullptr)
+        return 0;
+    if (path[0] == 0)
+        return 0;
+    i = 0;
+    while (i < state->count()) {
+        Document *doc;
+
+        doc = state->at(i);
+        if (doc != nullptr
+                && text_same(doc->path(), path) == 1) {
+            if (force == 1 && doc->buffer() != nullptr)
+                doc->buffer()->mark_clean();
+            close_at(i);
+            return 1;
+        }
+        i = i + 1;
+    }
+    return 0;
+}
+
+void Ui::save_row_path(const char *path) {
+    long i;
+
+    if (state == nullptr || path == nullptr)
+        return;
+    if (path[0] == 0)
+        return;
+    i = 0;
+    while (i < state->count()) {
+        Document *doc;
+
+        doc = state->at(i);
+        if (doc != nullptr
+                && text_same(doc->path(), path) == 1) {
+            state->set_index(i);
+            if (book != nullptr && i < pageCount)
+                book->set_current_page(i);
+            handle(state->run("save"));
+            return;
+        }
+        i = i + 1;
+    }
+    open_path(path);
+    if (state->active() == nullptr)
+        return;
+    if (text_same(state->active()->path(), path) == 0)
+        return;
+    handle(state->run("save"));
+}
+
+void Ui::ask_remove(const char *path) {
+    char leaf[96];
+    char note[160];
+    const char *prefix;
+    long n;
+    long i;
+
+    leaf_of(leaf, 96, path);
+    prefix = "Remove ";
+    n = 0;
+    i = 0;
+    while (prefix[i] != 0 && n + 1 < 160) {
+        note[n] = prefix[i];
+        n = n + 1;
+        i = i + 1;
+    }
+    i = 0;
+    while (leaf[i] != 0 && n + 1 < 160) {
+        note[n] = leaf[i];
+        n = n + 1;
+        i = i + 1;
+    }
+    if (n + 1 < 160) {
+        note[n] = '?';
+        n = n + 1;
+    }
+    note[n] = 0;
+    removeWait = 1;
+    if (removeLabel != nullptr)
+        removeLabel->set_text(note);
+    if (removeDialog != nullptr)
+        removeDialog->present();
+}
+
+void Ui::apply_remove(int mode) {
+    char path[EDITOR_PATH];
+    char name[PANEL_NAME];
+    int page;
+    int row;
+    int disk;
+
+    page = menuPage;
+    row = menuRow;
+    disk = 0;
+    if (mode == 2)
+        disk = 1;
+    path[0] = 0;
+    name[0] = 0;
+    if (row_path(page, row, path, EDITOR_PATH) == 0)
+        return;
+    if (page == 0 && panel != nullptr)
+        text_copy(name, PANEL_NAME, panel->file_name(row));
+    if (page == 0) {
+        if (panel == nullptr || name[0] == 0)
+            return;
+        if (panel->hide_file(name) == 0)
+            return;
+        fill_files();
+    } else if (page == 1) {
+        if (named == nullptr)
+            return;
+        if (named->drop_path(path) == 0)
+            return;
+        fill_project_files();
+    } else if (page == 3)
+        close_named_path(path, 1);
+    else
+        return;
+    if (disk == 0)
+        return;
+    if (page != 3)
+        close_named_path(path, 1);
+    if (file_is_reg(path) == 1)
+        unlink(path);
+}
+
+void Ui::run_panel_item(const char *label) {
+    char path[EDITOR_PATH];
+
+    if (label == nullptr)
+        return;
+    if (text_same(label, "New") == 1) {
+        if (can_make_file() == 0)
+            return;
+        on_menu("New");
+        return;
+    }
+    if (panel_item_on(label) == 0)
+        return;
+    if (row_path(menuPage, menuRow, path, EDITOR_PATH) == 0)
+        return;
+    if (text_same(label, "Open") == 1) {
+        open_path(path);
+        return;
+    }
+    if (text_same(label, "Close") == 1) {
+        close_named_path(path, 0);
+        return;
+    }
+    if (text_same(label, "Save") == 1) {
+        save_row_path(path);
+        return;
+    }
+    if (text_same(label, "Remove") == 1)
+        ask_remove(path);
+}
+
+void Ui::answer_remove(int response) {
+    int waiting;
+    int mode;
+
+    waiting = removeWait;
+    removeWait = 0;
+    if (removeDialog != nullptr)
+        removeDialog->set_visible(false);
+    if (waiting == 0)
+        return;
+    mode = 0;
+    if (response == 1)
+        mode = 1;
+    if (response == 2)
+        mode = 2;
+    if (mode == 0)
+        return;
+    if (row_is_file(menuPage, menuRow) == 0)
+        return;
+    apply_remove(mode);
+    menuRow = -1;
+    tune_panel_actions();
+}
+
+int Ui::remove_waiting(void) {
+    return removeWait;
 }
 
 int Ui::start(void) {

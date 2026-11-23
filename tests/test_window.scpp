@@ -958,6 +958,286 @@ void check_projects(
     }
 }
 
+static int date_text(const char *text) {
+    int i;
+
+    if (text == nullptr)
+        return 0;
+    i = 0;
+    while (i < 10) {
+        if (text[i] == 0)
+            return 0;
+        if (i == 4 || i == 7) {
+            if (text[i] != '-')
+                return 0;
+        } else if (text[i] < '0' || text[i] > '9')
+            return 0;
+        i = i + 1;
+    }
+    return 1;
+}
+
+static int named_file(Ui *ui, const char *name) {
+    int i;
+
+    i = 0;
+    while (i < ui->panel_files()) {
+        if (text_same(ui->panel_file(i), name) == 1)
+            return i;
+        i = i + 1;
+    }
+    return -1;
+}
+
+static int named_doc(Ui *ui, const char *name) {
+    int i;
+
+    i = 0;
+    while (i < ui->panel_documents()) {
+        if (text_same(ui->shown_document(i), name) == 1)
+            return i;
+        i = i + 1;
+    }
+    return -1;
+}
+
+static int named_proj(Ui *ui, const char *name) {
+    int i;
+
+    i = 0;
+    while (i < ui->panel_project_files()) {
+        if (ui->project_row_dir(i) == 0
+                && text_has(
+                        ui->shown_project_file(i),
+                        name) == 1)
+            return i;
+        i = i + 1;
+    }
+    return -1;
+}
+
+static void mark_clean_all(Editor *editor) {
+    int i;
+
+    i = 0;
+    while (i < editor->count()) {
+        Document *doc;
+
+        doc = editor->at(i);
+        if (doc != nullptr && doc->buffer() != nullptr)
+            doc->buffer()->mark_clean();
+        i = i + 1;
+    }
+}
+
+static void check_gray(Ui *ui, int page, int row) {
+    ui->arm_panel(page, row);
+    expect(ui->panel_item_on("New") == 1, "new stays on");
+    expect(ui->panel_item_on("Open") == 0, "open gray");
+    expect(ui->panel_item_on("Close") == 0, "close gray");
+    expect(ui->panel_item_on("Save") == 0, "save gray");
+    expect(ui->panel_item_on("Remove") == 0, "remove gray");
+}
+
+static void check_context_menus(
+        Ui *ui,
+        Editor *editor,
+        const char *dir,
+        const char *io) {
+    char folder[EDITOR_PATH];
+    char keep[EDITOR_PATH];
+    char drop[EDITOR_PATH];
+    char hide[EDITOR_PATH];
+    char disk[EDITOR_PATH];
+    char nest[EDITOR_PATH];
+    char *raw;
+    long n;
+    int row;
+    int sub;
+    long before;
+
+    ui->on_menu("New");
+    expect(ui->text_hides_emoji() == 1, "emoji item hidden");
+    expect(text_same(
+                ui->text_extra_label(0),
+                "Insert date") == 1,
+            "insert date item");
+    expect(text_same(
+                ui->text_extra_label(1),
+                "Insert color") == 1,
+            "insert color item");
+    expect(text_same(ui->text_extra_label(2), "") == 1,
+            "no extra emoji item");
+    ui->insert_date();
+    expect(date_text(ui->page_text(editor->index())) == 1,
+            "date at the caret");
+    ui->insert_color_text("#2040c0");
+    expect(text_has(
+                ui->page_text(editor->index()),
+                "#2040c0") == 1,
+            "color text");
+    editor->active()->buffer()->mark_clean();
+    ui->on_menu("Close");
+    path_join(folder, EDITOR_PATH, dir, "pdir");
+    path_join(keep, EDITOR_PATH, folder, "stay.scpp");
+    path_join(drop, EDITOR_PATH, folder, "gone.scpp");
+    path_join(hide, EDITOR_PATH, folder, "hide.scpp");
+    path_join(disk, EDITOR_PATH, folder, "disk.scpp");
+    path_join(nest, EDITOR_PATH, folder, "sub");
+    expect(mkdir(folder, 448) == 0, "menu folder");
+    expect(mkdir(nest, 448) == 0, "menu sub");
+    expect(write_file(keep, "stay\n", &io) == 1, "stay file");
+    expect(write_file(drop, "gone\n", &io) == 1, "gone file");
+    expect(write_file(hide, "hide\n", &io) == 1, "hide file");
+    expect(write_file(disk, "disk\n", &io) == 1, "disk file");
+    expect(ui->show_folder(folder) == 1, "menu files");
+    ui->show_panel_page(0);
+    expect(ui->panel_item_count() == 5, "panel menu count");
+    expect(text_same(ui->panel_item_label(0), "New") == 1,
+            "panel new");
+    expect(text_same(ui->panel_item_label(1), "Open") == 1,
+            "panel open");
+    expect(text_same(ui->panel_item_label(2), "Close") == 1,
+            "panel close");
+    expect(text_same(ui->panel_item_label(3), "Save") == 1,
+            "panel save");
+    expect(text_same(ui->panel_item_label(4), "Remove") == 1,
+            "panel remove");
+    check_gray(ui, 0, -1);
+    ui->run_panel_item("Remove");
+    expect(ui->remove_waiting() == 0, "gray remove waits");
+    sub = -1;
+    row = 0;
+    while (row < ui->panel_files()) {
+        if (ui->panel_file_dir(row) == 1
+                && text_same(ui->panel_file(row), "sub") == 1)
+            sub = row;
+        row = row + 1;
+    }
+    expect(sub >= 0, "folder row");
+    check_gray(ui, 0, sub);
+    row = named_file(ui, "stay.scpp");
+    expect(row >= 0, "stay row");
+    ui->arm_panel(0, row);
+    expect(ui->panel_item_on("Open") == 1, "file open on");
+    expect(ui->panel_item_on("Close") == 1, "file close on");
+    expect(ui->panel_item_on("Save") == 1, "file save on");
+    expect(ui->panel_item_on("Remove") == 1,
+            "file remove on");
+    before = editor->count();
+    ui->arm_panel(0, -1);
+    ui->run_panel_item("New");
+    expect(editor->count() == before + 1, "panel new file");
+    editor->active()->buffer()->mark_clean();
+    ui->on_menu("Close");
+    ui->arm_panel(0, named_file(ui, "stay.scpp"));
+    ui->run_panel_item("Open");
+    expect(text_same(editor->active()->path(), keep) == 1,
+            "panel opened the file");
+    editor->active()->buffer()->set_text("saved\n");
+    editor->active()->buffer()->mark_dirty();
+    ui->arm_panel(0, named_file(ui, "stay.scpp"));
+    ui->run_panel_item("Save");
+    n = 0;
+    raw = read_file(keep, &n, &io);
+    expect(raw != nullptr
+            && text_same(raw, "saved\n") == 1,
+            "panel saved the file");
+    ui->arm_panel(0, named_file(ui, "stay.scpp"));
+    ui->run_panel_item("Close");
+    expect(text_same(editor->active()->path(), keep) == 0,
+            "panel closed the file");
+    expect(file_exists(keep) == 1, "close keeps the file");
+    ui->show_panel_page(3);
+    ui->open_path(keep);
+    row = named_doc(ui, "stay.scpp");
+    expect(row >= 0, "document row");
+    ui->arm_panel(3, row);
+    expect(ui->panel_item_on("Remove") == 1,
+            "document remove on");
+    ui->run_panel_item("Remove");
+    expect(ui->remove_waiting() == 1, "remove asks");
+    expect(file_exists(keep) == 1, "ask leaves the file");
+    expect(named_doc(ui, "stay.scpp") >= 0,
+            "ask leaves the document");
+    ui->answer_remove(0);
+    expect(ui->remove_waiting() == 0, "cancel done");
+    expect(file_exists(keep) == 1, "cancel keeps the file");
+    expect(named_doc(ui, "stay.scpp") >= 0,
+            "cancel keeps the document");
+    ui->arm_panel(3, named_doc(ui, "stay.scpp"));
+    ui->run_panel_item("Remove");
+    ui->answer_remove(1);
+    expect(named_doc(ui, "stay.scpp") < 0,
+            "document dropped");
+    expect(file_exists(keep) == 1,
+            "document drop keeps the file");
+    ui->show_panel_page(0);
+    ui->arm_panel(0, named_file(ui, "hide.scpp"));
+    ui->run_panel_item("Remove");
+    ui->answer_remove(1);
+    expect(named_file(ui, "hide.scpp") < 0, "files list drop");
+    expect(file_exists(hide) == 1, "files drop keeps disk");
+    expect(ui->show_folder(folder) == 1, "list the folder");
+    expect(named_file(ui, "hide.scpp") < 0,
+            "hidden after refresh");
+    ui->arm_panel(0, named_file(ui, "disk.scpp"));
+    ui->run_panel_item("Remove");
+    expect(file_exists(disk) == 1, "disk ask waits");
+    ui->answer_remove(2);
+    expect(file_exists(disk) == 0, "disk file deleted");
+    expect(named_file(ui, "disk.scpp") < 0,
+            "deleted file leaves the list");
+    mark_clean_all(editor);
+    if (text_same(ui->project_name(), "") == 0)
+        ui->on_project_menu("Close");
+    ui->show_panel_page(1);
+    ui->arm_panel(1, -1);
+    expect(text_same(ui->project_name(), "") == 1,
+            "no project open");
+    expect(ui->panel_item_on("New") == 0,
+            "new needs a project");
+    expect(ui->panel_item_on("Open") == 0,
+            "project miss is gray");
+    mark_clean_all(editor);
+    expect(ui->make_project(
+                "menudir",
+                "directory",
+                folder) == 1,
+            "menu project");
+    ui->show_panel_page(1);
+    check_gray(ui, 1, -1);
+    row = named_proj(ui, "stay.scpp");
+    expect(row >= 0, "project lists stay");
+    ui->arm_panel(1, row);
+    expect(ui->panel_item_on("Open") == 1,
+            "project file enabled");
+    ui->run_panel_item("Remove");
+    ui->answer_remove(1);
+    expect(file_exists(keep) == 1,
+            "project drop keeps disk");
+    expect(named_proj(ui, "stay.scpp") < 0,
+            "project drop leaves the tree");
+    mark_clean_all(editor);
+    ui->on_project_menu("Close");
+    expect(ui->open_named_project("menudir") == 1,
+            "reopen menu project");
+    expect(named_proj(ui, "stay.scpp") < 0,
+            "project drop is saved");
+    expect(file_exists(keep) == 1, "saved drop still on disk");
+    row = named_proj(ui, "gone.scpp");
+    expect(row >= 0, "project lists gone");
+    ui->arm_panel(1, row);
+    ui->run_panel_item("Remove");
+    ui->answer_remove(2);
+    expect(file_exists(drop) == 0, "project deleted the file");
+    expect(named_proj(ui, "gone.scpp") < 0,
+            "deleted file leaves the project");
+    mark_clean_all(editor);
+    ui->on_project_menu("Delete");
+    expect(ui->show_folder(dir) == 1, "files restored");
+}
+
 int main(void) {
     char pattern[64];
     char pathA[EDITOR_PATH];
@@ -2041,6 +2321,7 @@ int main(void) {
                     comment_leader("scpp"),
                     "//") == 1,
                 "reset line comment");
+        check_context_menus(ui, editor, dir, io);
         check_projects(ui, editor, dir, io);
         check_template_browse(ui, dir);
         ui->on_menu("Quit");
